@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadCatalog } from "@/lib/catalog/loadCatalog";
+import { loadDraftSkus } from "@/lib/admin/flatDraft";
 import { useProjectStore } from "@/lib/state/projectStore";
 
 export function SkuPicker() {
@@ -15,7 +16,12 @@ export function SkuPicker() {
   useEffect(() => {
     if (catalog) return;
     loadCatalog()
-      .then(setCatalog)
+      .then((cat) => {
+        // Подмешиваем черновики из «Редактора лекал» (localStorage).
+        const drafts = loadDraftSkus();
+        const ids = new Set(cat.skus.map((s) => s.id));
+        setCatalog({ skus: [...cat.skus, ...drafts.filter((d) => !ids.has(d.id))] });
+      })
       .catch((e) => setError(String(e)));
   }, [catalog, setCatalog]);
 
