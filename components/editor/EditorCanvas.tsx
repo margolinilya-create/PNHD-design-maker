@@ -49,6 +49,8 @@ export function EditorCanvas() {
   const [mode, setMode] = useState<"select" | "measure">("select");
   const [measurePts, setMeasurePts] = useState<{ x: number; y: number }[]>([]);
   const [showCheck, setShowCheck] = useState(false);
+  // Калибровка: реальная длина измеренного отрезка (мм).
+  const [realLen, setRealLen] = useState("");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -220,6 +222,7 @@ export function EditorCanvas() {
     if (e.key === "Escape") {
       selectPlacement(null);
       setMeasurePts([]);
+      setRealLen("");
       if (mode === "measure") setMode("select");
       return;
     }
@@ -386,6 +389,7 @@ export function EditorCanvas() {
           onClick={() => {
             setMode((m) => (m === "measure" ? "select" : "measure"));
             setMeasurePts([]);
+            setRealLen("");
           }}
           className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
             mode === "measure"
@@ -397,6 +401,57 @@ export function EditorCanvas() {
           Линейка{measureDistMm != null ? ` · ${measureDistMm.toFixed(1)} мм` : ""}
         </button>
       </div>
+
+      {/* Калибровка масштаба: измеренный отрезок → реальная длина → scale_mm_per_unit */}
+      {mode === "measure" && measureDistMm != null && (
+        <div className="absolute left-3 top-12 w-56 rounded-md border border-neutral-700 bg-neutral-900/95 p-2.5 text-xs shadow-lg">
+          <div className="mb-1 text-neutral-400">
+            Измерено:{" "}
+            <span className="font-medium text-neutral-200">
+              {measureDistMm.toFixed(1)} мм
+            </span>{" "}
+            (при текущем масштабе)
+          </div>
+          <label className="mb-1 block text-neutral-400">
+            Реальная длина, мм
+          </label>
+          <input
+            type="number"
+            value={realLen}
+            onChange={(e) => setRealLen(e.target.value)}
+            placeholder="напр. 100"
+            className="mb-2 w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1 tabular-nums"
+          />
+          {(() => {
+            const real = parseFloat(realLen.replace(",", "."));
+            if (!Number.isFinite(real) || real <= 0 || measureDistMm <= 0) {
+              return (
+                <p className="text-neutral-500">
+                  Введите реальный размер этого отрезка по лекалу.
+                </p>
+              );
+            }
+            const cur = view.scale_mm_per_unit ?? 1;
+            const suggested = cur * (real / measureDistMm);
+            const off = Math.abs(real - measureDistMm);
+            return (
+              <div>
+                <div className="text-neutral-300">
+                  scale_mm_per_unit ≈{" "}
+                  <span className="font-semibold text-emerald-400 tabular-nums">
+                    {suggested.toFixed(4)}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-neutral-500">
+                  {off < 0.5
+                    ? "масштаб совпадает (1:1)"
+                    : `расхождение ${off.toFixed(1)} мм — впишите значение в skus.json для этого вида`}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
 
       {/* Пустое состояние — мягкая подсказка поверх холста */}
       {isEmpty && (

@@ -7,7 +7,9 @@ export interface SceneInput {
   sku: SKU;
   view: View;
   flatSvgMarkup: string; // исходный <svg>…</svg> флэта
-  flatMm: { w: number; h: number };
+  flatMm: { w: number; h: number }; // габариты флэта В МИЛЛИМЕТРАХ
+  /** Коэффициент единицы SVG флэта → мм (1 = 1 ед = 1 мм). */
+  scaleMmPerUnit?: number;
   placements: Placement[];
   assets: Record<string, Asset>;
   meta: { client: string; orderRef: string; size: string; date: string };
@@ -146,7 +148,7 @@ export function buildSceneSvg(input: SceneInput): string {
     </marker>
   </defs>
   <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
-  <g>${innerSvg(input.flatSvgMarkup)}</g>
+  <g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(input.flatSvgMarkup)}</g>
   ${placementSvg}
   ${dimsSvg}
   ${frame}

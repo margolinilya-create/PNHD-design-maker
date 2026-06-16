@@ -52,6 +52,26 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
     expect(svg).toMatch(/viewBox="0 0 600 820"/);
   });
 
+  it("scale_mm_per_unit масштабирует флэт и страницу остаётся в мм", () => {
+    // Лекало из DXF/AI: 1000×1200 ед при 0.5 мм/ед → 500×600 мм.
+    const svg = buildSceneSvg({
+      sku,
+      view,
+      flatSvgMarkup:
+        '<svg viewBox="0 0 1000 1200" width="1000" height="1200"><path id="garment" d="M0 0"/></svg>',
+      flatMm: { w: 500, h: 600 },
+      scaleMmPerUnit: 0.5,
+      placements: [],
+      assets: {},
+      meta: { client: "", orderRef: "", size: "L", date: "16.06.2026" },
+    });
+    // Флэт обёрнут в scale(0.5), чтобы единицы легли в мм.
+    expect(svg).toContain('transform="scale(0.5)"');
+    // Страница в мм: 500 шир., 600 флэт + 60 рамка = 660.
+    expect(svg).toMatch(/width="500mm"/);
+    expect(svg).toMatch(/height="660mm"/);
+  });
+
   it("содержит калибровочную шкалу ровно 100 мм", () => {
     const svg = scene();
     expect(svg).toContain('data-calibration-mm="100"');
