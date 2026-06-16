@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/state/projectStore";
 import { loadAsset } from "@/lib/catalog/loadAsset";
 import { viewZone, placementInfo } from "@/lib/geometry/view";
+import { printQuality } from "@/lib/catalog/dpi";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
 import type { Asset, Placement, View } from "@/types";
@@ -46,6 +47,10 @@ export function SidePanel() {
       source_file: loaded.source_file,
       data_url: loaded.dataUrl,
       intrinsic_size_mm: loaded.intrinsic_size_mm,
+      // Пиксельные размеры — для расчёта DPI печати.
+      px_width: loaded.naturalWidth,
+      px_height: loaded.naturalHeight,
+      dpi: loaded.dpi,
       // Признак «размер оценочно» (для подсказки уточнить Ш×В).
       size_estimated: loaded.size_estimated,
     });
@@ -378,8 +383,41 @@ function PlacementInspector({
           размер оценочно — уточните Ш×В
         </p>
       )}
+      <DpiBadge asset={asset} printWidthMm={p.width_mm} />
     </section>
   );
+}
+
+/** Индикатор качества печати (DPI) на текущем размере макета. */
+function DpiBadge({
+  asset,
+  printWidthMm,
+}: {
+  asset: Asset | undefined;
+  printWidthMm: number;
+}) {
+  const { quality, dpi } = printQuality(asset, printWidthMm);
+  if (quality === "unknown") return null;
+  const map: Record<string, { cls: string; text: string }> = {
+    vector: {
+      cls: "bg-emerald-950/60 text-emerald-300",
+      text: "вектор — без потери качества",
+    },
+    good: {
+      cls: "bg-emerald-950/60 text-emerald-300",
+      text: `${Math.round(dpi ?? 0)} DPI — отличное качество`,
+    },
+    mid: {
+      cls: "bg-amber-950/60 text-amber-300",
+      text: `${Math.round(dpi ?? 0)} DPI — приемлемо (уменьшите макет для 300+)`,
+    },
+    low: {
+      cls: "bg-red-950/70 text-red-300",
+      text: `${Math.round(dpi ?? 0)} DPI — низкое качество, печать размыта`,
+    },
+  };
+  const m = map[quality];
+  return <p className={`mt-2 rounded px-2 py-1 text-xs ${m.cls}`}>{m.text}</p>;
 }
 
 /**
