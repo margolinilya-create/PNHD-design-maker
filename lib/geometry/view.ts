@@ -51,29 +51,46 @@ export function regradePosition(
   const from = anchorsForSize(view, fromSize);
   const to = anchorsForSize(view, toSize);
 
+  // No-op фоллбэк: без обоих якорей регрейдинг невозможен — НЕ снапим к 0,
+  // а возвращаем исходную позицию (иначе ?? 0 молча уводит макет к нулю).
+  const noop = { x_mm: bbox.x, y_mm: bbox.y };
+
   if (isSleeve(view)) {
+    if (
+      from.sleeve_bottom_y == null ||
+      to.sleeve_bottom_y == null ||
+      from.sleeve_center_x == null ||
+      to.sleeve_center_x == null
+    ) {
+      return noop;
+    }
     const inv = captureSleeveInvariant(
       bbox,
-      from.sleeve_bottom_y ?? 0,
-      from.sleeve_center_x ?? bbox.x + bbox.w / 2,
+      from.sleeve_bottom_y,
+      from.sleeve_center_x,
     );
-    const nb = applyInvariantSleeve(
-      inv,
-      to.sleeve_bottom_y ?? 0,
-      to.sleeve_center_x ?? bbox.x + bbox.w / 2,
-    );
+    const nb = applyInvariantSleeve(inv, to.sleeve_bottom_y, to.sleeve_center_x);
     return { x_mm: nb.x, y_mm: nb.y };
+  }
+
+  if (
+    from.neckline_point?.y == null ||
+    to.neckline_point?.y == null ||
+    from.center_axis_x == null ||
+    to.center_axis_x == null
+  ) {
+    return noop;
   }
 
   const inv = captureInvariant(
     bbox,
-    from.neckline_point?.y ?? 0,
-    from.center_axis_x ?? bbox.x + bbox.w / 2,
+    from.neckline_point.y,
+    from.center_axis_x,
   );
   const nb = applyInvariantFrontBack(
     inv,
-    to.neckline_point?.y ?? 0,
-    to.center_axis_x ?? bbox.x + bbox.w / 2,
+    to.neckline_point.y,
+    to.center_axis_x,
   );
   return { x_mm: nb.x, y_mm: nb.y };
 }

@@ -1,7 +1,7 @@
 // Композиция итоговой сцены в ЕДИНЫЙ SVG (скил vector-pdf-export).
 // Флэт + макеты + размерная обвязка + подписи + рамка проекта. Масштаб 1:1 в мм.
 import type { Asset, Placement, SKU, View } from "@/types";
-import { placementInfo } from "@/lib/geometry/view";
+import { placementInfo, anchorsForSize } from "@/lib/geometry/view";
 
 export interface SceneInput {
   sku: SKU;
@@ -15,6 +15,16 @@ export interface SceneInput {
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Экранирование значений, попадающих в атрибуты (href/xlink:href и т.п.):
+// дополнительно к & < > экранируем кавычки.
+const escAttr = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 /** Вынуть внутренности <svg> флэта, чтобы вложить как <g>. */
 function innerSvg(markup: string): string {
@@ -33,8 +43,11 @@ function dimArrow(
   const c = danger ? "#d12f33" : "#444";
   const mx = (x1 + x2) / 2;
   const my = (y1 + y2) / 2;
+  // Белая полупрозрачная подложка (halo) под числом, чтобы не терялось на флэте/макете.
+  const halfW = text.length * 3.5 + 2;
   return `
     <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <rect x="${mx - halfW}" y="${my - 13}" width="${halfW * 2}" height="13" fill="#ffffff" fill-opacity="0.75"/>
     <text x="${mx}" y="${my - 3}" font-size="11" fill="${c}" text-anchor="middle">${esc(text)}</text>`;
 }
 
@@ -51,8 +64,10 @@ export function buildSceneSvg(input: SceneInput): string {
       if (!asset?.data_url) return "";
       const cx = p.x_mm + p.width_mm / 2;
       const cy = p.y_mm + p.height_mm / 2;
+      // href + xlink:href (то же значение) для надёжной вставки в разных рендерах; значение экранируем.
+      const hrefVal = escAttr(asset.data_url);
       return `<g transform="rotate(${p.rotation_deg} ${cx} ${cy})">
-        <image href="${asset.data_url}" x="${p.x_mm}" y="${p.y_mm}" width="${p.width_mm}" height="${p.height_mm}" preserveAspectRatio="none"/>
+        <image href="${hrefVal}" xlink:href="${hrefVal}" x="${p.x_mm}" y="${p.y_mm}" width="${p.width_mm}" height="${p.height_mm}" preserveAspectRatio="none"/>
       </g>`;
     })
     .join("\n");
@@ -68,14 +83,19 @@ export function buildSceneSvg(input: SceneInput): string {
       const { aabb, zone, dimensions: d, anchor } = info;
       const midX = aabb.x + aabb.w / 2;
       const midY = aabb.y + aabb.h / 2;
+      // Per-size якоря: линия и число должны браться по тому же размеру (а не по базовым).
+      const anchors = anchorsForSize(view, input.meta.size);
       const centerX =
         anchor.kind === "neckline"
-          ? (view.anchors.center_axis_x ?? midX)
-          : (view.anchors.sleeve_center_x ?? midX);
+          ? (anchors.center_axis_x ?? midX)
+          : (anchors.sleeve_center_x ?? midX);
       const anchorY =
         anchor.kind === "neckline"
-          ? (view.anchors.neckline_point?.y ?? zone.zy)
-          : (view.anchors.sleeve_bottom_y ?? zone.zy + zone.zh);
+          ? (anchors.neckline_point?.y ?? zone.zy)
+          : (anchors.sleeve_bottom_y ?? zone.zy + zone.zh);
+      // Метка Ш×В с halo-подложкой для читаемости.
+      const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} мм`;
+      const whHalfW = wh.length * 3.5 + 2;
       return `
         ${dimArrow(zone.zx, midY, aabb.x, midY, `${Math.round(d.left)}`, d.left < 0)}
         ${dimArrow(aabb.x + aabb.w, midY, zone.zx + zone.zw, midY, `${Math.round(d.right)}`, d.right < 0)}
@@ -83,7 +103,10 @@ export function buildSceneSvg(input: SceneInput): string {
         ${dimArrow(midX, aabb.y + aabb.h, midX, zone.zy + zone.zh, `${Math.round(d.bottom)}`, d.bottom < 0)}
         <line x1="${centerX}" y1="${anchorY}" x2="${centerX}" y2="${midY}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
         <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(Math.abs(anchor.vertical))}</text>
-        <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${Math.round(aabb.w)}×${Math.round(aabb.h)} мм</text>`;
+        <line x1="${centerX}" y1="${zone.zy}" x2="${centerX}" y2="${zone.zy + zone.zh}" stroke="#d12f33" stroke-width="0.75" stroke-dasharray="3 3"/>
+        ${dimArrow(centerX, midY, midX, midY, `${Math.round(anchor.horizontal)}`, false)}
+        <rect x="${midX - whHalfW}" y="${midY - 11}" width="${whHalfW * 2}" height="14" fill="#ffffff" fill-opacity="0.75"/>
+        <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${esc(wh)}</text>`;
     })
     .join("\n");
 

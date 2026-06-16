@@ -73,6 +73,8 @@ export interface Asset {
   /** Физический размер ассета в мм. */
   intrinsic_size_mm: { width: number; height: number };
   dpi?: number;
+  /** true — физический размер не выведен из файла, взят дефолт (оценка). */
+  size_estimated?: boolean;
 }
 
 /** Размещение макета в печатной зоне (всё в мм / градусах). */

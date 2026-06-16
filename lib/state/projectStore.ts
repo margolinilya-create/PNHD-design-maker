@@ -8,7 +8,13 @@ import type { Asset, Placement, ProjectStatus, SKU, View } from "@/types";
 import { regradePosition } from "@/lib/geometry/view";
 
 let idCounter = 0;
-const nextId = (prefix: string) => `${prefix}-${Date.now()}-${idCounter++}`;
+// crypto.randomUUID() для будущей персистентности; иначе — счётчик.
+const nextId = (prefix: string) => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${idCounter++}`;
+};
 
 interface ProjectState {
   catalog: Catalog | null;
@@ -54,6 +60,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setCatalog: (catalog) => set({ catalog }),
 
   selectSku: (skuId) => {
+    // Повторный выбор того же SKU не сбрасывает нанесения.
+    if (skuId === get().skuId) return;
     const sku = get().catalog?.skus.find((s) => s.id === skuId);
     set({
       skuId,
@@ -96,7 +104,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   addAsset: (asset) => {
     const id = nextId("asset");
-    set((s) => ({ assets: { ...s.assets, [id]: { ...asset, id } } }));
+    // Явно прокидываем size_estimated (оценка размера) в стор.
+    set((s) => ({
+      assets: {
+        ...s.assets,
+        [id]: { ...asset, id, size_estimated: asset.size_estimated },
+      },
+    }));
     return id;
   },
 
