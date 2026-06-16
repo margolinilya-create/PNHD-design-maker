@@ -8,6 +8,21 @@ import type { Asset, Placement, ProjectStatus, SKU, View } from "@/types";
 import { regradePosition } from "@/lib/geometry/view";
 import type { ProjectSnapshot } from "@/lib/persistence/projects";
 
+const HISTORY_LIMIT = 50;
+
+interface EditableSnapshot {
+  placements: Placement[];
+  assets: Record<string, Asset>;
+  size: string | null;
+}
+function editable(s: {
+  placements: Placement[];
+  assets: Record<string, Asset>;
+  size: string | null;
+}): EditableSnapshot {
+  return { placements: s.placements, assets: s.assets, size: s.size };
+}
+
 let idCounter = 0;
 // crypto.randomUUID() для будущей персистентности; иначе — счётчик.
 const nextId = (prefix: string) => {
@@ -28,6 +43,13 @@ interface ProjectState {
   client: string;
   orderRef: string;
   status: ProjectStatus;
+
+  // история (undo/redo) — снимки редактируемого состояния
+  past: EditableSnapshot[];
+  future: EditableSnapshot[];
+  pushHistory: () => void;
+  undo: () => void;
+  redo: () => void;
 
   setCatalog: (c: Catalog) => void;
   selectSku: (skuId: string) => void;
@@ -61,6 +83,36 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   client: "",
   orderRef: "",
   status: "draft",
+  past: [],
+  future: [],
+
+  pushHistory: () =>
+    set((s) => ({
+      past: [...s.past, editable(s)].slice(-HISTORY_LIMIT),
+      future: [],
+    })),
+  undo: () =>
+    set((s) => {
+      if (!s.past.length) return s;
+      const prev = s.past[s.past.length - 1];
+      return {
+        ...prev,
+        past: s.past.slice(0, -1),
+        future: [editable(s), ...s.future].slice(0, HISTORY_LIMIT),
+        selectedPlacementId: null,
+      };
+    }),
+  redo: () =>
+    set((s) => {
+      if (!s.future.length) return s;
+      const next = s.future[0];
+      return {
+        ...next,
+        future: s.future.slice(1),
+        past: [...s.past, editable(s)].slice(-HISTORY_LIMIT),
+        selectedPlacementId: null,
+      };
+    }),
 
   setCatalog: (catalog) => set({ catalog }),
 
@@ -74,6 +126,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       size: sku?.base_size ?? null,
       placements: [],
       selectedPlacementId: null,
+      past: [],
+      future: [],
     });
   },
 
@@ -90,6 +144,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       set({ size });
       return;
     }
+    get().pushHistory();
     // Регрейдинг: сохраняем отступ от горловины как константу (BUILD.md §4).
     const regraded = placements.map((p) => {
       const view = sku.views.find((v) =>
@@ -120,6 +175,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   addPlacement: (p) => {
+    get().pushHistory();
     const id = nextId("placement");
     set((s) => ({
       placements: [...s.placements, { ...p, id }],
@@ -128,19 +184,23 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     return id;
   },
 
-  updatePlacement: (id, patch) =>
+  updatePlacement: (id, patch) => {
+    get().pushHistory();
     set((s) => ({
       placements: s.placements.map((p) =>
         p.id === id ? { ...p, ...patch } : p,
       ),
-    })),
+    }));
+  },
 
-  removePlacement: (id) =>
+  removePlacement: (id) => {
+    get().pushHistory();
     set((s) => ({
       placements: s.placements.filter((p) => p.id !== id),
       selectedPlacementId:
         s.selectedPlacementId === id ? null : s.selectedPlacementId,
-    })),
+    }));
+  },
 
   selectPlacement: (selectedPlacementId) => set({ selectedPlacementId }),
   setMeta: ({ client, orderRef }) =>
@@ -171,6 +231,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: s.orderRef,
       status: s.status,
       selectedPlacementId: null,
+      past: [],
+      future: [],
     });
   },
 

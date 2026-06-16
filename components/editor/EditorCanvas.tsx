@@ -42,6 +42,8 @@ export function EditorCanvas() {
   const updatePlacement = useProjectStore((s) => s.updatePlacement);
 
   const removePlacement = useProjectStore((s) => s.removePlacement);
+  const undo = useProjectStore((s) => s.undo);
+  const redo = useProjectStore((s) => s.redo);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -142,10 +144,24 @@ export function EditorCanvas() {
   const { zone, safeInsetMm } = viewZone(view, garmentSize ?? undefined);
 
   const onDragEnd = (p: Placement, node: Konva.Image) => {
-    updatePlacement(p.id, {
-      x_mm: (node.x() - t.px(0)) / t.pxPerMM,
-      y_mm: (node.y() - t.py(0)) / t.pxPerMM,
-    });
+    let x_mm = (node.x() - t.px(0)) / t.pxPerMM;
+    let y_mm = (node.y() - t.py(0)) / t.pxPerMM;
+    // Привязка: магнит к оси изделия и центру зоны (порог 5 мм).
+    const { zone } = viewZone(view, garmentSize ?? undefined, p.print_area_id);
+    const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
+    const axis =
+      view.kind === "sleeve_left" || view.kind === "sleeve_right"
+        ? (a.sleeve_center_x ?? zone.zx + zone.zw / 2)
+        : (a.center_axis_x ?? zone.zx + zone.zw / 2);
+    const SNAP = 5;
+    const cx = x_mm + p.width_mm / 2;
+    const zoneCx = zone.zx + zone.zw / 2;
+    const zoneCy = zone.zy + zone.zh / 2;
+    if (Math.abs(cx - axis) < SNAP) x_mm = axis - p.width_mm / 2;
+    else if (Math.abs(cx - zoneCx) < SNAP) x_mm = zoneCx - p.width_mm / 2;
+    if (Math.abs(y_mm + p.height_mm / 2 - zoneCy) < SNAP)
+      y_mm = zoneCy - p.height_mm / 2;
+    updatePlacement(p.id, { x_mm, y_mm });
   };
 
   const onTransformEnd = (p: Placement, node: Konva.Image) => {
@@ -224,6 +240,18 @@ export function EditorCanvas() {
   // Клавиатура: Delete/Backspace — удалить, Esc — снять выбор,
   // стрелки — сдвиг выбранного на 1 мм (Shift — 10 мм).
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Undo / redo (Ctrl/Cmd+Z, Shift для redo; Ctrl/Cmd+Y).
+    if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
+      e.preventDefault();
+      redo();
+      return;
+    }
     if (e.key === "Escape") {
       selectPlacement(null);
       setMeasurePts([]);
