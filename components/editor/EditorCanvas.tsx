@@ -21,6 +21,7 @@ import {
   viewZone,
   anchorsForSize,
   printAreasForSize,
+  flatForSize,
 } from "@/lib/geometry/view";
 import type { Zone } from "@/lib/geometry/coords";
 import type { Placement, View } from "@/types";
@@ -76,7 +77,7 @@ export function EditorCanvas() {
     return () => ro.disconnect();
   }, []);
 
-  const flat = useImage(view?.flat_svg ?? null);
+  const flat = useImage(view ? flatForSize(view, garmentSize ?? undefined) : null);
 
   const flatMm = useMemo(() => {
     const scale = view?.scale_mm_per_unit ?? 1;

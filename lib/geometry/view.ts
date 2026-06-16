@@ -127,6 +127,11 @@ export function presetPosition(
   }
 }
 
+/** Флэт вида для размера (фоллбэк на базовый `flat_svg`). */
+export function flatForSize(view: View, size?: string): string {
+  return (size && view.size_flats?.[size]) || view.flat_svg;
+}
+
 /** Печатные зоны вида для размера (фоллбэк на базовые `print_areas`). */
 export function printAreasForSize(view: View, size?: string) {
   return (size && view.size_print_areas?.[size]) || view.print_areas;

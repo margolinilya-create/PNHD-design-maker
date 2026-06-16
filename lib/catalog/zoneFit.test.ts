@@ -35,10 +35,13 @@ describe("выверка зон: внутри силуэта флэта", () => 
         }
       });
       if (view.size_print_areas) {
-        it(`${sku.id}/${view.kind}: per-size зоны внутри силуэта`, () => {
+        it(`${sku.id}/${view.kind}: per-size зоны внутри силуэта своего размера`, () => {
           for (const [size, areas] of Object.entries(view.size_print_areas!)) {
+            // Зона размера проверяется против ФЛЭТА этого размера (per-size силуэт).
+            const flat = view.size_flats?.[size] ?? view.flat_svg;
+            const box = flat.startsWith("/") ? flatBox(flat) : { w, h };
             for (const a of areas) {
-              expect(inside(a.polygon_mm, w, h), `${size}/${a.name} вне силуэта`).toBe(true);
+              expect(inside(a.polygon_mm, box.w, box.h), `${size}/${a.name} вне силуэта`).toBe(true);
             }
           }
         });
