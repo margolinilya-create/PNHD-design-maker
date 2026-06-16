@@ -28,6 +28,18 @@ function rect(x: number, y: number, w: number, h: number): [number, number][] {
 }
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
+/** Клампим зону внутрь силуэта детали (поля по краям). */
+function clampZone(
+  x: number, y: number, w: number, h: number,
+  pieceW: number, pieceH: number, margin = 10,
+) {
+  const cw = Math.min(w, Math.max(10, pieceW - 2 * margin));
+  const ch = Math.min(h, Math.max(10, pieceH - 2 * margin));
+  const cx = Math.max(margin, Math.min(x, pieceW - cw - margin));
+  const cy = Math.max(margin, Math.min(y, pieceH - ch - margin));
+  return { x: cx, y: cy, w: cw, h: ch };
+}
+
 export interface DxfSkuOptions {
   skuId: string;
   skuName: string;
@@ -75,16 +87,18 @@ function buildView(
     if (!ref) continue;
     const r: ProcessedPiece = processPiece(parsed.blocks, ref);
     sizeAnchors[tok] = forceCenter(r.anchors, cx);
-    // Зона масштабируется по габаритам детали размера.
+    // Зона масштабируется по габаритам детали размера и клампится в силуэт.
     const sw = zone.w * (r.wMm / base.wMm);
     const sh = zone.h * (r.hMm / base.hMm);
     const top = isSleeve ? r.hMm * 0.22 : (r.necklineY ?? 0) + zone.topOff;
+    const cz = clampZone(cx - sw / 2, top, sw, sh, r.wMm, r.hMm);
     sizePrintAreas[tok] = [
-      { id: zone.id, name: zone.name, polygon_mm: rect(cx - sw / 2, top, sw, sh), safe_inset_mm: zone.safe },
+      { id: zone.id, name: zone.name, polygon_mm: rect(cz.x, cz.y, cz.w, cz.h), safe_inset_mm: zone.safe },
     ];
   }
 
   const baseTop = isSleeve ? base.hMm * 0.22 : (base.necklineY ?? 0) + zone.topOff;
+  const bz = clampZone(cx - zone.w / 2, baseTop, zone.w, zone.h, base.wMm, base.hMm);
   return {
     id: viewId,
     kind: viewKind,
@@ -93,7 +107,7 @@ function buildView(
     anchors: forceCenter(base.anchors, cx),
     size_anchors: sizeAnchors,
     print_areas: [
-      { id: zone.id, name: zone.name, polygon_mm: rect(cx - zone.w / 2, baseTop, zone.w, zone.h), safe_inset_mm: zone.safe },
+      { id: zone.id, name: zone.name, polygon_mm: rect(bz.x, bz.y, bz.w, bz.h), safe_inset_mm: zone.safe },
     ],
     size_print_areas: sizePrintAreas,
   };
