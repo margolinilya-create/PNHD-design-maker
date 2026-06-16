@@ -85,7 +85,10 @@ export function SidePanel() {
       const scenes: string[] = [];
       for (const v of target) {
         const markup = await fetch(v.flat_svg).then((r) => r.text());
-        const flatMm = svgSizeMm(markup);
+        // Габариты viewBox — в единицах SVG; переводим в мм через scale_mm_per_unit.
+        const raw = svgSizeMm(markup);
+        const s = v.scale_mm_per_unit ?? 1;
+        const flatMm = { w: raw.w * s, h: raw.h * s };
         const vp = placements.filter((p) =>
           v.print_areas.some((a) => a.id === p.print_area_id),
         );
@@ -95,6 +98,7 @@ export function SidePanel() {
             view: v,
             flatSvgMarkup: markup,
             flatMm,
+            scaleMmPerUnit: s,
             placements: vp,
             assets,
             meta: {
