@@ -100,6 +100,14 @@ export interface Placement {
   width_mm: number;
   height_mm: number;
   rotation_deg: number;
+  /** Зеркалирование по горизонтали/вертикали. */
+  flip_h?: boolean;
+  flip_v?: boolean;
+  /** Скрыть из рендера / заблокировать для редактирования. */
+  hidden?: boolean;
+  locked?: boolean;
+  /** Пользовательское имя слоя. */
+  name?: string;
 }
 
 export interface Project {

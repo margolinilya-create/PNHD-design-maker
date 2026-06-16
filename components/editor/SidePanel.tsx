@@ -46,6 +46,10 @@ export function SidePanel() {
   const setStatus = useProjectStore((s) => s.setStatus);
   const snapshot = useProjectStore((s) => s.snapshot);
   const restore = useProjectStore((s) => s.restore);
+  const duplicatePlacement = useProjectStore((s) => s.duplicatePlacement);
+  const reorderPlacement = useProjectStore((s) => s.reorderPlacement);
+  const copyPlacementToView = useProjectStore((s) => s.copyPlacementToView);
+  const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
 
   // Сохранение проектов (Supabase или localStorage).
   const [projName, setProjName] = useState("");
@@ -202,6 +206,11 @@ export function SidePanel() {
 
   if (!sku || !view) return null;
 
+  // Нанесения текущего вида (порядок массива = z-order).
+  const viewLayers = placements.filter((p) =>
+    view.print_areas.some((a) => a.id === p.print_area_id),
+  );
+
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 text-sm">
       <section>
@@ -275,22 +284,28 @@ export function SidePanel() {
       </section>
 
       <section>
-        <h3 className="mb-2 font-semibold text-neutral-200">
-          Нанесения ({placements.length})
-        </h3>
-        <div className="flex flex-col gap-2">
-          {placements.length === 0 && (
+        <h3 className="mb-2 font-semibold text-neutral-200">Слои (этот вид)</h3>
+        <div className="flex flex-col gap-1.5">
+          {viewLayers.length === 0 && (
             <p className="text-xs text-neutral-500">Пока пусто.</p>
           )}
-          {placements.map((p) => (
-            <PlacementRow
+          {/* Сверху — верхний слой (конец массива = выше по z-order). */}
+          {[...viewLayers].reverse().map((p) => (
+            <LayerRow
               key={p.id}
               placement={p}
-              view={findViewForPlacement(sku.views, p)}
+              view={view}
+              asset={assets[p.asset_id]}
               garmentSize={size}
               selected={p.id === selectedId}
               onSelect={() => selectPlacement(p.id)}
               onRemove={() => removePlacement(p.id)}
+              onDup={() => duplicatePlacement(p.id)}
+              onUp={() => reorderPlacement(p.id, 1)}
+              onDown={() => reorderPlacement(p.id, -1)}
+              onToggleHidden={() => updatePlacement(p.id, { hidden: !p.hidden })}
+              onToggleLocked={() => updatePlacement(p.id, { locked: !p.locked })}
+              onRename={(name) => updatePlacement(p.id, { name })}
             />
           ))}
         </div>
@@ -300,9 +315,13 @@ export function SidePanel() {
         <PlacementInspector
           placement={selectedPlacement}
           view={findViewForPlacement(sku.views, selectedPlacement)}
+          views={sku.views}
           garmentSize={size}
           asset={assets[selectedPlacement.asset_id]}
           onChange={(patch) => updatePlacement(selectedPlacement.id, patch)}
+          onDuplicate={() => duplicatePlacement(selectedPlacement.id)}
+          onCopyToView={(vid) => copyPlacementToView(selectedPlacement.id, vid)}
+          onMirror={() => mirrorPlacement(selectedPlacement.id)}
         />
       )}
 
@@ -406,22 +425,45 @@ function findViewForPlacement(views: View[], p: Placement): View | undefined {
   return views.find((v) => v.print_areas.some((a) => a.id === p.print_area_id));
 }
 
-function PlacementRow({
+function findViewForPlacementName(view: View | undefined, p: Placement): string {
+  return (
+    p.name ||
+    view?.print_areas.find((a) => a.id === p.print_area_id)?.name ||
+    "Слой"
+  );
+}
+
+/** Строка слоя: превью, имя, DPI, порядок/скрыть/блок/дубль/удалить. */
+function LayerRow({
   placement: p,
   view,
+  asset,
   garmentSize,
   selected,
   onSelect,
   onRemove,
+  onDup,
+  onUp,
+  onDown,
+  onToggleHidden,
+  onToggleLocked,
+  onRename,
 }: {
   placement: Placement;
   view: View | undefined;
+  asset: Asset | undefined;
   garmentSize: string | null;
   selected: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  onDup: () => void;
+  onUp: () => void;
+  onDown: () => void;
+  onToggleHidden: () => void;
+  onToggleLocked: () => void;
+  onRename: (name: string) => void;
 }) {
-  const info = useMemo(
+  const out = useMemo(
     () =>
       view
         ? placementInfo(
@@ -430,64 +472,48 @@ function PlacementRow({
             p.rotation_deg,
             garmentSize ?? undefined,
             p.print_area_id,
-          )
-        : null,
+          ).check.out_of_zone
+        : false,
     [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, p.print_area_id, garmentSize],
   );
-  const out = info?.check.out_of_zone;
-  const d = info?.dimensions;
-  const areaName =
-    view?.print_areas.find((a) => a.id === p.print_area_id)?.name ??
-    view?.print_areas[0]?.name ??
-    "—";
+  const { quality, dpi } = printQuality(asset, p.width_mm);
+  const dpiColor =
+    quality === "low" ? "text-red-400" : quality === "mid" ? "text-amber-400" : "text-neutral-500";
 
+  const icon = "rounded px-1.5 py-0.5 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200";
   return (
     <div
       onClick={onSelect}
-      className={`cursor-pointer rounded-lg border p-2.5 transition ${
-        selected
-          ? "border-blue-500 bg-neutral-800"
-          : "border-neutral-700 bg-neutral-900 hover:border-neutral-600"
-      }`}
+      className={`cursor-pointer rounded-lg border p-2 transition ${
+        selected ? "border-blue-500 bg-neutral-800" : "border-neutral-700 bg-neutral-900 hover:border-neutral-600"
+      } ${p.hidden ? "opacity-50" : ""}`}
     >
-      <div className="flex items-center justify-between">
-        <span className="font-medium">{areaName}</span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="text-xs text-neutral-500 hover:text-red-400"
-        >
-          удалить
-        </button>
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={asset?.data_url}
+          alt=""
+          className="h-8 w-8 shrink-0 rounded bg-neutral-950 object-contain"
+        />
+        <input
+          value={findViewForPlacementName(view, p)}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onRename(e.target.value)}
+          className="min-w-0 flex-1 bg-transparent text-sm text-neutral-200 outline-none focus:rounded focus:bg-neutral-950 focus:px-1"
+        />
+        <span className={`shrink-0 text-[10px] tabular-nums ${dpiColor}`}>
+          {quality === "vector" ? "вектор" : dpi ? `${Math.round(dpi)}dpi` : ""}
+        </span>
       </div>
-      <div className="mt-1 text-xs text-neutral-400">
-        {Math.round(info?.aabb.w ?? p.width_mm)}×
-        {Math.round(info?.aabb.h ?? p.height_mm)} мм
-        {d && (
-          <>
-            {" · "}отступы {Math.round(d.left)}/{Math.round(d.right)}/
-            {Math.round(d.top)}/{Math.round(d.bottom)}
-          </>
-        )}
+      <div className="mt-1.5 flex items-center gap-0.5 text-xs">
+        <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}>▲</button>
+        <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}>▼</button>
+        <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? "🙈" : "👁"}</button>
+        <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? "🔒" : "🔓"}</button>
+        <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}>⎘</button>
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-400`}>✕</button>
+        {out && <span className="ml-auto rounded bg-red-950 px-1 text-[10px] text-red-300">за зоной</span>}
       </div>
-      {info && (
-        <div className="mt-0.5 text-xs text-neutral-500">
-          {info.anchor.kind === "neckline"
-            ? "от горловины"
-            : info.anchor.kind === "sleeve"
-              ? "от низа рукава"
-              : "от верха зоны"}
-          : {Math.round(Math.abs(info.anchor.vertical))} мм{" "}
-          {info.anchor.kind !== "panel" && "(константа на ростовках)"}
-        </div>
-      )}
-      {out && (
-        <div className="mt-1 rounded bg-red-950 px-1.5 py-0.5 text-xs text-red-300">
-          ⚠ выход за печатную зону
-        </div>
-      )}
     </div>
   );
 }
@@ -499,16 +525,26 @@ function PlacementRow({
 function PlacementInspector({
   placement: p,
   view,
+  views,
   garmentSize,
   asset,
   onChange,
+  onDuplicate,
+  onCopyToView,
+  onMirror,
 }: {
   placement: Placement;
   view: View | undefined;
+  views: View[];
   garmentSize: string | null;
   asset: Asset | undefined;
   onChange: (patch: Partial<Placement>) => void;
+  onDuplicate: () => void;
+  onCopyToView: (viewId: string) => void;
+  onMirror: () => void;
 }) {
+  const isSleeve = view?.kind === "sleeve_left" || view?.kind === "sleeve_right";
+  const otherViews = views.filter((v) => v.id !== view?.id);
   const applyPreset = (preset: PositionPreset) => {
     if (!view) return;
     const pos = presetPosition(
@@ -569,6 +605,35 @@ function PlacementInspector({
           onCommit={(v) => onChange({ rotation_deg: v })}
         />
       </div>
+      {/* Трансформ: флип / поворот на 90° */}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button onClick={() => onChange({ flip_h: !p.flip_h })} className={tbtn(p.flip_h)}>Флип ↔</button>
+        <button onClick={() => onChange({ flip_v: !p.flip_v })} className={tbtn(p.flip_v)}>Флип ↕</button>
+        <button onClick={() => onChange({ rotation_deg: (p.rotation_deg - 90 + 360) % 360 })} className={tbtn(false)}>⟲ 90°</button>
+        <button onClick={() => onChange({ rotation_deg: (p.rotation_deg + 90) % 360 })} className={tbtn(false)}>⟳ 90°</button>
+      </div>
+
+      {/* Действия: дубль / копия на вид / зеркало рукава */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <button onClick={onDuplicate} className={tbtn(false)}>Дублировать</button>
+        {isSleeve && <button onClick={onMirror} className={tbtn(false)}>Зеркало рукава</button>}
+        {otherViews.length > 0 && (
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              if (e.target.value) onCopyToView(e.target.value);
+              e.target.value = "";
+            }}
+            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-200"
+          >
+            <option value="">Копировать на вид…</option>
+            {otherViews.map((v) => (
+              <option key={v.id} value={v.id}>{v.kind}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
       {asset?.size_estimated && (
         <p className="mt-2 rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
           размер оценочно — уточните Ш×В
@@ -578,6 +643,9 @@ function PlacementInspector({
     </section>
   );
 }
+
+const tbtn = (active?: boolean) =>
+  `rounded px-2 py-1 text-xs ${active ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-200 hover:bg-neutral-700"}`;
 
 /** Индикатор качества печати (DPI) на текущем размере макета. */
 function DpiBadge({

@@ -96,9 +96,11 @@ export function buildSceneSvg(input: SceneInput): string {
       if (!asset?.data_url) return "";
       const cx = p.x_mm + p.width_mm / 2;
       const cy = p.y_mm + p.height_mm / 2;
+      const sx = p.flip_h ? -1 : 1;
+      const sy = p.flip_v ? -1 : 1;
       // href + xlink:href (то же значение) для надёжной вставки в разных рендерах; значение экранируем.
       const hrefVal = escAttr(asset.data_url);
-      return `<g clip-path="url(#clip-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy})">
+      return `<g clip-path="url(#clip-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})">
         <image href="${hrefVal}" xlink:href="${hrefVal}" x="${p.x_mm}" y="${p.y_mm}" width="${p.width_mm}" height="${p.height_mm}" preserveAspectRatio="none"/>
       </g></g>`;
     })

@@ -13,6 +13,7 @@ export interface ProjectSnapshot {
   status: ProjectStatus;
   placements: Placement[];
   assets: Record<string, Asset>;
+  garmentColor: string;
   savedAt: number;
 }
 
@@ -95,7 +96,11 @@ interface Row {
   client: string;
   order_ref: string;
   status: ProjectStatus;
-  data: { placements: Placement[]; assets: Record<string, Asset> };
+  data: {
+    placements: Placement[];
+    assets: Record<string, Asset>;
+    garmentColor?: string;
+  };
   saved_at: string;
 }
 
@@ -108,7 +113,7 @@ function snapshotToRow(s: ProjectSnapshot): Row {
     client: s.client,
     order_ref: s.orderRef,
     status: s.status,
-    data: { placements: s.placements, assets: s.assets },
+    data: { placements: s.placements, assets: s.assets, garmentColor: s.garmentColor },
     saved_at: new Date(s.savedAt).toISOString(),
   };
 }
@@ -124,6 +129,7 @@ function rowToSnapshot(r: Row): ProjectSnapshot {
     status: r.status,
     placements: r.data?.placements ?? [],
     assets: r.data?.assets ?? {},
+    garmentColor: r.data?.garmentColor ?? "",
     savedAt: new Date(r.saved_at).getTime(),
   };
 }

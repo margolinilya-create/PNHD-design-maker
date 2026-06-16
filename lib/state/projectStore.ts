@@ -14,13 +14,15 @@ interface EditableSnapshot {
   placements: Placement[];
   assets: Record<string, Asset>;
   size: string | null;
+  garmentColor: string;
 }
-function editable(s: {
-  placements: Placement[];
-  assets: Record<string, Asset>;
-  size: string | null;
-}): EditableSnapshot {
-  return { placements: s.placements, assets: s.assets, size: s.size };
+function editable(s: EditableSnapshot): EditableSnapshot {
+  return {
+    placements: s.placements,
+    assets: s.assets,
+    size: s.size,
+    garmentColor: s.garmentColor,
+  };
 }
 
 let idCounter = 0;
@@ -62,6 +64,14 @@ interface ProjectState {
   selectPlacement: (id: string | null) => void;
   setMeta: (meta: { client?: string; orderRef?: string }) => void;
   setStatus: (status: ProjectStatus) => void;
+  garmentColor: string;
+  setGarmentColor: (c: string) => void;
+
+  // операции со слоями
+  duplicatePlacement: (id: string) => void;
+  reorderPlacement: (id: string, dir: -1 | 1) => void;
+  copyPlacementToView: (id: string, viewId: string) => void;
+  mirrorPlacement: (id: string) => void;
 
   // сохранение/восстановление проекта
   snapshot: (id: string, name: string) => ProjectSnapshot;
@@ -83,6 +93,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   client: "",
   orderRef: "",
   status: "draft",
+  garmentColor: "",
   past: [],
   future: [],
 
@@ -126,6 +137,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       size: sku?.base_size ?? null,
       placements: [],
       selectedPlacementId: null,
+      garmentColor: "",
       past: [],
       future: [],
     });
@@ -209,6 +221,83 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: orderRef ?? s.orderRef,
     })),
   setStatus: (status) => set({ status }),
+  setGarmentColor: (garmentColor) => {
+    get().pushHistory();
+    set({ garmentColor });
+  },
+
+  duplicatePlacement: (id) => {
+    const st = get();
+    const src = st.placements.find((p) => p.id === id);
+    if (!src) return;
+    get().pushHistory();
+    const nid = nextId("placement");
+    const copy = { ...src, id: nid, x_mm: src.x_mm + 10, y_mm: src.y_mm + 10 };
+    const idx = st.placements.findIndex((p) => p.id === id);
+    const arr = [...st.placements];
+    arr.splice(idx + 1, 0, copy);
+    set({ placements: arr, selectedPlacementId: nid });
+  },
+
+  reorderPlacement: (id, dir) => {
+    const st = get();
+    const view = st.currentView();
+    if (!view) return;
+    const areaIds = new Set(view.print_areas.map((a) => a.id));
+    const idxs = st.placements
+      .map((p, i) => ({ p, i }))
+      .filter((x) => areaIds.has(x.p.print_area_id))
+      .map((x) => x.i);
+    const pos = idxs.findIndex((i) => st.placements[i].id === id);
+    const swapPos = pos + dir;
+    if (pos < 0 || swapPos < 0 || swapPos >= idxs.length) return;
+    get().pushHistory();
+    const arr = [...st.placements];
+    const a = idxs[pos];
+    const b = idxs[swapPos];
+    [arr[a], arr[b]] = [arr[b], arr[a]];
+    set({ placements: arr });
+  },
+
+  copyPlacementToView: (id, viewId) => {
+    const st = get();
+    const src = st.placements.find((p) => p.id === id);
+    const target = st.currentSku()?.views.find((v) => v.id === viewId);
+    if (!src || !target) return;
+    get().pushHistory();
+    const nid = nextId("placement");
+    const copy = { ...src, id: nid, print_area_id: target.print_areas[0].id };
+    set({ placements: [...st.placements, copy], selectedPlacementId: nid });
+  },
+
+  mirrorPlacement: (id) => {
+    const st = get();
+    const src = st.placements.find((p) => p.id === id);
+    const sku = st.currentSku();
+    const srcView = sku?.views.find((v) =>
+      v.print_areas.some((a) => a.id === src?.print_area_id),
+    );
+    if (!src || !srcView) return;
+    const otherKind =
+      srcView.kind === "sleeve_left"
+        ? "sleeve_right"
+        : srcView.kind === "sleeve_right"
+          ? "sleeve_left"
+          : null;
+    const target = otherKind
+      ? sku!.views.find((v) => v.kind === otherKind)
+      : undefined;
+    if (!target) return;
+    get().pushHistory();
+    const nid = nextId("placement");
+    const copy = {
+      ...src,
+      id: nid,
+      print_area_id: target.print_areas[0].id,
+      flip_h: !src.flip_h,
+    };
+    set({ placements: [...st.placements, copy], selectedPlacementId: nid });
+  },
 
   snapshot: (id, name) => {
     const st = get();
@@ -216,7 +305,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       id, name,
       skuId: st.skuId, size: st.size,
       client: st.client, orderRef: st.orderRef, status: st.status,
-      placements: st.placements, assets: st.assets, savedAt: Date.now(),
+      placements: st.placements, assets: st.assets,
+      garmentColor: st.garmentColor, savedAt: Date.now(),
     };
   },
   restore: (s) => {
@@ -230,6 +320,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       client: s.client,
       orderRef: s.orderRef,
       status: s.status,
+      garmentColor: s.garmentColor ?? "",
       selectedPlacementId: null,
       past: [],
       future: [],
