@@ -1,0 +1,108 @@
+// Композиция итоговой сцены в ЕДИНЫЙ SVG (скил vector-pdf-export).
+// Флэт + макеты + размерная обвязка + подписи + рамка проекта. Масштаб 1:1 в мм.
+import type { Asset, Placement, SKU, View } from "@/types";
+import { placementInfo } from "@/lib/geometry/view";
+
+export interface SceneInput {
+  sku: SKU;
+  view: View;
+  flatSvgMarkup: string; // исходный <svg>…</svg> флэта
+  flatMm: { w: number; h: number };
+  placements: Placement[];
+  assets: Record<string, Asset>;
+  meta: { client: string; orderRef: string; size: string; date: string };
+}
+
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Вынуть внутренности <svg> флэта, чтобы вложить как <g>. */
+function innerSvg(markup: string): string {
+  const m = markup.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
+  return m ? m[1] : "";
+}
+
+function dimArrow(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  text: string,
+  danger = false,
+): string {
+  const c = danger ? "#d12f33" : "#444";
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  return `
+    <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <text x="${mx}" y="${my - 3}" font-size="11" fill="${c}" text-anchor="middle">${esc(text)}</text>`;
+}
+
+/** Собрать SVG сцены. Размеры страницы — в мм (1 unit = 1 мм). */
+export function buildSceneSvg(input: SceneInput): string {
+  const { view, flatMm, placements, assets, sku, meta } = input;
+  const FRAME_H = 60; // рамка проекта снизу, мм
+  const W = Math.max(flatMm.w, 240);
+  const H = flatMm.h + FRAME_H;
+
+  const placementSvg = placements
+    .map((p) => {
+      const asset = assets[p.asset_id];
+      if (!asset?.data_url) return "";
+      const cx = p.x_mm + p.width_mm / 2;
+      const cy = p.y_mm + p.height_mm / 2;
+      return `<g transform="rotate(${p.rotation_deg} ${cx} ${cy})">
+        <image href="${asset.data_url}" x="${p.x_mm}" y="${p.y_mm}" width="${p.width_mm}" height="${p.height_mm}" preserveAspectRatio="none"/>
+      </g>`;
+    })
+    .join("\n");
+
+  const dimsSvg = placements
+    .map((p) => {
+      const info = placementInfo(
+        view,
+        { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+        p.rotation_deg,
+      );
+      const { aabb, zone, dimensions: d, anchor } = info;
+      const midX = aabb.x + aabb.w / 2;
+      const midY = aabb.y + aabb.h / 2;
+      const centerX =
+        anchor.kind === "neckline"
+          ? (view.anchors.center_axis_x ?? midX)
+          : (view.anchors.sleeve_center_x ?? midX);
+      const anchorY =
+        anchor.kind === "neckline"
+          ? (view.anchors.neckline_point?.y ?? zone.zy)
+          : (view.anchors.sleeve_bottom_y ?? zone.zy + zone.zh);
+      return `
+        ${dimArrow(zone.zx, midY, aabb.x, midY, `${Math.round(d.left)}`, d.left < 0)}
+        ${dimArrow(aabb.x + aabb.w, midY, zone.zx + zone.zw, midY, `${Math.round(d.right)}`, d.right < 0)}
+        ${dimArrow(midX, zone.zy, midX, aabb.y, `${Math.round(d.top)}`, d.top < 0)}
+        ${dimArrow(midX, aabb.y + aabb.h, midX, zone.zy + zone.zh, `${Math.round(d.bottom)}`, d.bottom < 0)}
+        <line x1="${centerX}" y1="${anchorY}" x2="${centerX}" y2="${midY}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(Math.abs(anchor.vertical))}</text>
+        <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${Math.round(aabb.w)}×${Math.round(aabb.h)} мм</text>`;
+    })
+    .join("\n");
+
+  const frameY = flatMm.h + 8;
+  const frame = `
+    <line x1="0" y1="${flatMm.h}" x2="${W}" y2="${flatMm.h}" stroke="#ccc" stroke-width="0.5"/>
+    <text x="4" y="${frameY + 10}" font-size="12" font-weight="bold" fill="#111">${esc(sku.name)} · размер ${esc(meta.size)}</text>
+    <text x="4" y="${frameY + 26}" font-size="11" fill="#333">Клиент: ${esc(meta.client || "—")}   Заказ: ${esc(meta.orderRef || "—")}</text>
+    <text x="4" y="${frameY + 42}" font-size="11" fill="#333">Вид: ${esc(view.kind)}   Дата: ${esc(meta.date)}   Масштаб 1:1 (мм)</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,4 L8,1 L8,7 Z" fill="#444"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
+  <g>${innerSvg(input.flatSvgMarkup)}</g>
+  ${placementSvg}
+  ${dimsSvg}
+  ${frame}
+</svg>`;
+}

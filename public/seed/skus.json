@@ -1,0 +1,82 @@
+{
+  "skus": [
+    {
+      "id": "tshirt-classic",
+      "name": "Футболка классическая",
+      "type": "tshirt",
+      "base_size": "L",
+      "sizes": ["S", "M", "L", "XL", "XXL"],
+      "views": [
+        {
+          "id": "tshirt-classic-front",
+          "kind": "front",
+          "flat_svg": "/seed/flats/tshirt-L-front.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {
+            "neckline_point": { "x": 300, "y": 92 },
+            "center_axis_x": 300
+          },
+          "print_areas": [
+            {
+              "id": "chest",
+              "name": "Грудь",
+              "polygon_mm": [
+                [150, 140],
+                [450, 140],
+                [450, 540],
+                [150, 540]
+              ],
+              "safe_inset_mm": 15
+            }
+          ]
+        },
+        {
+          "id": "tshirt-classic-back",
+          "kind": "back",
+          "flat_svg": "/seed/flats/tshirt-L-back.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {
+            "neckline_point": { "x": 300, "y": 58 },
+            "center_axis_x": 300
+          },
+          "print_areas": [
+            {
+              "id": "back",
+              "name": "Спина",
+              "polygon_mm": [
+                [140, 110],
+                [460, 110],
+                [460, 530],
+                [140, 530]
+              ],
+              "safe_inset_mm": 15
+            }
+          ]
+        },
+        {
+          "id": "tshirt-classic-sleeve-left",
+          "kind": "sleeve_left",
+          "flat_svg": "/seed/flats/tshirt-L-sleeve.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {
+            "sleeve_bottom_y": 180,
+            "sleeve_center_x": 120
+          },
+          "print_areas": [
+            {
+              "id": "sleeve",
+              "name": "Рукав",
+              "polygon_mm": [
+                [60, 70],
+                [180, 70],
+                [180, 160],
+                [60, 160]
+              ],
+              "safe_inset_mm": 10
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

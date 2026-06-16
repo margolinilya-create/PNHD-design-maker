@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 220" width="240" height="220">
+  <!-- Флэт рукава в масштабе: 1 unit = 1 мм (BUILD.md §5). Метрика — в skus.json. -->
+  <path id="garment"
+    d="M 40,30 L 200,30 L 190,180 L 50,180 Z"
+    fill="#1b1f24" stroke="#5b6470" stroke-width="3" stroke-linejoin="round" />
+  <line id="center-axis" x1="120" y1="30" x2="120" y2="180"
+    stroke="#3b4350" stroke-width="1.5" stroke-dasharray="6 8" />
+  <rect id="print-area-sleeve" x="60" y="70" width="120" height="90"
+    fill="#4f8cff" fill-opacity="0.10" stroke="#4f8cff" stroke-width="2" stroke-dasharray="10 8" />
+  <line id="sleeve-bottom" x1="50" y1="180" x2="190" y2="180"
+    stroke="#ff5a5f" stroke-width="3" />
+</svg>
