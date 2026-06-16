@@ -1728,6 +1728,38 @@
               }
             ]
           }
+        },
+        {
+          "id": "freefit-label-neck",
+          "kind": "label_neck_inner",
+          "flat_svg": "/seed/flats/freefit-label.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {},
+          "print_areas": [
+            {
+              "id": "label",
+              "name": "Этикетка",
+              "polygon_mm": [
+                [
+                  15,
+                  10
+                ],
+                [
+                  85,
+                  10
+                ],
+                [
+                  85,
+                  50
+                ],
+                [
+                  15,
+                  50
+                ]
+              ],
+              "safe_inset_mm": 5
+            }
+          ]
         }
       ]
     }

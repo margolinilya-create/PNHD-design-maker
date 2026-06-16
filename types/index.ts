@@ -3,7 +3,13 @@
 
 export type GarmentType = "tshirt" | "sweatshirt" | "hoodie" | "shopper";
 export type BaseSize = "M" | "L";
-export type ViewKind = "front" | "back" | "sleeve_left" | "sleeve_right";
+export type ViewKind =
+  | "front"
+  | "back"
+  | "sleeve_left"
+  | "sleeve_right"
+  | "label_neck_inner"
+  | "label_neck_outer";
 export type AssetType = "svg" | "png";
 export type ProjectStatus = "draft" | "approved";
 

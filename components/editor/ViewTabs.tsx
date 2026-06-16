@@ -7,6 +7,8 @@ const KIND_LABEL: Record<string, string> = {
   back: "Спина",
   sleeve_left: "Рукав (л)",
   sleeve_right: "Рукав (п)",
+  label_neck_inner: "Этикетка (внутр.)",
+  label_neck_outer: "Этикетка (внеш.)",
 };
 
 export function ViewTabs() {

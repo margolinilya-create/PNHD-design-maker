@@ -26,11 +26,13 @@ export interface PlacementInfo {
   /** Привязка к якорю изделия. */
   anchor:
     | { kind: "neckline"; vertical: number; horizontal: number }
-    | { kind: "sleeve"; vertical: number; horizontal: number };
+    | { kind: "sleeve"; vertical: number; horizontal: number }
+    | { kind: "panel"; vertical: number; horizontal: number };
 }
 
 const isSleeve = (view: View) =>
   view.kind === "sleeve_left" || view.kind === "sleeve_right";
+const isLabel = (view: View) => view.kind.startsWith("label");
 
 /** Якоря вида для конкретного размера (фоллбэк на базовые). */
 export function anchorsForSize(view: View, size: string): ViewAnchors {
@@ -162,6 +164,22 @@ export function placementInfo(
   const dimensions = fullDimensions(aabb, zone);
   const check = checkZone(aabb, zone, safeInsetMm);
   const anchors = size ? anchorsForSize(view, size) : view.anchors;
+
+  if (isLabel(view)) {
+    // Этикетка — панельный вид: отсчёт от верха и центра зоны.
+    return {
+      aabb,
+      zone,
+      safeInsetMm,
+      dimensions,
+      check,
+      anchor: {
+        kind: "panel",
+        vertical: aabb.y - zone.zy,
+        horizontal: aabb.x + aabb.w / 2 - (zone.zx + zone.zw / 2),
+      },
+    };
+  }
 
   if (isSleeve(view)) {
     const sb = anchors.sleeve_bottom_y ?? zone.zy + zone.zh;

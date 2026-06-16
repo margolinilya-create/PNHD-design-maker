@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60" width="100" height="60">
+  <!-- Внутренняя этикетка горловины (панельный вид), 1 ед = 1 мм. -->
+  <rect id="garment" x="2" y="2" width="96" height="56" rx="6" fill="#1b1f24" stroke="#5b6470" stroke-width="2"/>
+  <rect id="print-area-label" x="15" y="10" width="70" height="40" fill="#4f8cff" fill-opacity="0.10" stroke="#4f8cff" stroke-width="1.5" stroke-dasharray="6 5"/>
+</svg>

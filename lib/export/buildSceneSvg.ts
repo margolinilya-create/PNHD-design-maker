@@ -119,13 +119,17 @@ export function buildSceneSvg(input: SceneInput): string {
       // Per-size якоря: линия и число должны браться по тому же размеру (а не по базовым).
       const anchors = anchorsForSize(view, input.meta.size);
       const centerX =
-        anchor.kind === "neckline"
-          ? (anchors.center_axis_x ?? midX)
-          : (anchors.sleeve_center_x ?? midX);
+        anchor.kind === "sleeve"
+          ? (anchors.sleeve_center_x ?? midX)
+          : anchor.kind === "panel"
+            ? zone.zx + zone.zw / 2
+            : (anchors.center_axis_x ?? midX);
       const anchorY =
-        anchor.kind === "neckline"
-          ? (anchors.neckline_point?.y ?? zone.zy)
-          : (anchors.sleeve_bottom_y ?? zone.zy + zone.zh);
+        anchor.kind === "sleeve"
+          ? (anchors.sleeve_bottom_y ?? zone.zy + zone.zh)
+          : anchor.kind === "panel"
+            ? zone.zy
+            : (anchors.neckline_point?.y ?? zone.zy);
       // Метка Ш×В с halo-подложкой для читаемости.
       const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} мм`;
       const whHalfW = wh.length * 3.5 + 2;
