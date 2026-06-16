@@ -72,6 +72,9 @@ export interface Asset {
   data_url?: string;
   /** Физический размер ассета в мм. */
   intrinsic_size_mm: { width: number; height: number };
+  /** Пиксельные размеры растрового исходника (для расчёта DPI печати). */
+  px_width?: number;
+  px_height?: number;
   dpi?: number;
   /** true — физический размер не выведен из файла, взят дефолт (оценка). */
   size_estimated?: boolean;
