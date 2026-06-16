@@ -11,6 +11,7 @@ import {
   type FlatDraft,
 } from "@/lib/admin/flatDraft";
 import { parseDxf, processPiece, type PieceRef } from "@/lib/import/dxf";
+import { buildSkuFromDxf } from "@/lib/import/dxfSku";
 import type { GarmentType, ViewKind, BaseSize } from "@/types";
 
 const FlatEditorCanvas = dynamic(
@@ -109,6 +110,14 @@ export default function AdminPage() {
     setSaved(null);
   };
 
+  const createFullSku = () => {
+    if (!dxf) return;
+    const id = `dxf-${Date.now().toString(36)}`;
+    const sku = buildSkuFromDxf(dxf, { skuId: id, skuName: "Модель из DXF" });
+    saveDraftSku(sku);
+    setSaved(sku.id);
+  };
+
   const json = useMemo(
     () => (draft ? JSON.stringify(buildSkuFromDraft(draft), null, 2) : ""),
     [draft],
@@ -202,10 +211,23 @@ export default function AdminPage() {
           </label>
           <button
             onClick={createFromDxf}
-            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            className="rounded-lg bg-neutral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-600"
           >
-            Создать черновик из детали
+            Черновик из детали
           </button>
+          <button
+            onClick={createFullSku}
+            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            title="Все виды (перёд/спина/оба рукава) + все ростовки сразу в каталог"
+          >
+            Собрать полный SKU (все виды + ростовки)
+          </button>
+          {saved && (
+            <span className="text-xs text-emerald-400">
+              «{saved}» в каталоге →{" "}
+              <Link href="/" className="underline">на главную</Link>
+            </span>
+          )}
         </div>
       )}
 
