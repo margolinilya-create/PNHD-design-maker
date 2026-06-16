@@ -39,4 +39,37 @@ describe("projectStore undo/redo", () => {
     useProjectStore.getState().addPlacement(sample);
     expect(useProjectStore.getState().future).toHaveLength(0);
   });
+
+  it("duplicatePlacement создаёт копию со сдвигом и undo откатывает", () => {
+    const s = useProjectStore.getState();
+    const id = s.addPlacement(sample);
+    useProjectStore.getState().duplicatePlacement(id);
+    let st = useProjectStore.getState();
+    expect(st.placements).toHaveLength(2);
+    expect(st.placements[1].x_mm).toBe(sample.x_mm + 10);
+    useProjectStore.getState().undo();
+    expect(useProjectStore.getState().placements).toHaveLength(1);
+  });
+
+  it("copyPlacementToView копирует с print_area_id целевого вида", () => {
+    useProjectStore.setState({
+      catalog: {
+        skus: [
+          {
+            id: "s", name: "S", type: "tshirt", base_size: "M", sizes: ["M"],
+            views: [
+              { id: "v1", kind: "front", flat_svg: "", scale_mm_per_unit: 1, anchors: {}, print_areas: [{ id: "z1", name: "z", polygon_mm: [[0, 0], [1, 0], [1, 1], [0, 1]], safe_inset_mm: 0 }] },
+              { id: "v2", kind: "back", flat_svg: "", scale_mm_per_unit: 1, anchors: {}, print_areas: [{ id: "z2", name: "z", polygon_mm: [[0, 0], [1, 0], [1, 1], [0, 1]], safe_inset_mm: 0 }] },
+            ],
+          },
+        ],
+      } as never,
+      skuId: "s", viewId: "v1",
+    });
+    const id = useProjectStore.getState().addPlacement({ ...sample, print_area_id: "z1" });
+    useProjectStore.getState().copyPlacementToView(id, "v2");
+    const ps = useProjectStore.getState().placements;
+    expect(ps).toHaveLength(2);
+    expect(ps[1].print_area_id).toBe("z2");
+  });
 });

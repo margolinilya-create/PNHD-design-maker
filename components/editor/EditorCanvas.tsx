@@ -122,8 +122,13 @@ export function EditorCanvas() {
   useEffect(() => {
     const tr = trRef.current;
     if (!tr) return;
+    const sel = selectedId
+      ? viewPlacements.find((x) => x.id === selectedId)
+      : null;
     const node =
-      selectedId && mode === "select" ? nodeRefs.current.get(selectedId) : null;
+      sel && mode === "select" && !sel.locked && !sel.hidden
+        ? nodeRefs.current.get(selectedId!)
+        : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
   }, [selectedId, viewPlacements, mode]);
@@ -144,9 +149,10 @@ export function EditorCanvas() {
 
   const { zone, safeInsetMm } = viewZone(view, garmentSize ?? undefined);
 
+  // Узлы рендерятся с центр-ориджином → node.x()/y() = центр (мм).
   const onDragEnd = (p: Placement, node: Konva.Image) => {
-    let x_mm = (node.x() - t.px(0)) / t.pxPerMM;
-    let y_mm = (node.y() - t.py(0)) / t.pxPerMM;
+    let cxmm = (node.x() - t.px(0)) / t.pxPerMM;
+    let cymm = (node.y() - t.py(0)) / t.pxPerMM;
     // Привязка: магнит к оси изделия и центру зоны (порог 5 мм).
     const { zone } = viewZone(view, garmentSize ?? undefined, p.print_area_id);
     const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
@@ -155,29 +161,38 @@ export function EditorCanvas() {
         ? (a.sleeve_center_x ?? zone.zx + zone.zw / 2)
         : (a.center_axis_x ?? zone.zx + zone.zw / 2);
     const SNAP = 5;
-    const cx = x_mm + p.width_mm / 2;
     const zoneCx = zone.zx + zone.zw / 2;
     const zoneCy = zone.zy + zone.zh / 2;
-    if (Math.abs(cx - axis) < SNAP) x_mm = axis - p.width_mm / 2;
-    else if (Math.abs(cx - zoneCx) < SNAP) x_mm = zoneCx - p.width_mm / 2;
-    if (Math.abs(y_mm + p.height_mm / 2 - zoneCy) < SNAP)
-      y_mm = zoneCy - p.height_mm / 2;
-    updatePlacement(p.id, { x_mm, y_mm });
+    if (Math.abs(cxmm - axis) < SNAP) cxmm = axis;
+    else if (Math.abs(cxmm - zoneCx) < SNAP) cxmm = zoneCx;
+    if (Math.abs(cymm - zoneCy) < SNAP) cymm = zoneCy;
+    updatePlacement(p.id, {
+      x_mm: cxmm - p.width_mm / 2,
+      y_mm: cymm - p.height_mm / 2,
+    });
   };
 
   const onTransformEnd = (p: Placement, node: Konva.Image) => {
-    const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
-    const newWpx = Math.max(4, node.width() * scaleX);
-    const newHpx = Math.max(4, node.height() * scaleY);
-    node.scaleX(1);
-    node.scaleY(1);
+    const sx = node.scaleX();
+    const sy = node.scaleY();
+    const wpx = Math.max(4, node.width() * Math.abs(sx));
+    const hpx = Math.max(4, node.height() * Math.abs(sy));
+    const flip_h = sx < 0;
+    const flip_v = sy < 0;
+    node.scaleX(flip_h ? -1 : 1);
+    node.scaleY(flip_v ? -1 : 1);
+    const w_mm = wpx / t.pxPerMM;
+    const h_mm = hpx / t.pxPerMM;
+    const cxmm = (node.x() - t.px(0)) / t.pxPerMM;
+    const cymm = (node.y() - t.py(0)) / t.pxPerMM;
     updatePlacement(p.id, {
-      x_mm: (node.x() - t.px(0)) / t.pxPerMM,
-      y_mm: (node.y() - t.py(0)) / t.pxPerMM,
-      width_mm: newWpx / t.pxPerMM,
-      height_mm: newHpx / t.pxPerMM,
+      x_mm: cxmm - w_mm / 2,
+      y_mm: cymm - h_mm / 2,
+      width_mm: w_mm,
+      height_mm: h_mm,
       rotation_deg: node.rotation(),
+      flip_h,
+      flip_v,
     });
   };
 
@@ -341,7 +356,7 @@ export function EditorCanvas() {
               t={t}
               garmentSize={garmentSize}
               selected={p.id === selectedId}
-              interactive={mode === "select"}
+              interactive={mode === "select" && !p.locked && !p.hidden}
               onSelect={() => selectPlacement(p.id)}
               registerRef={(n) => {
                 if (n) nodeRefs.current.set(p.id, n);
@@ -639,6 +654,11 @@ function PlacementNode({
   const out = info.check.out_of_zone;
   const zone = info.zone;
 
+  if (p.hidden) return null;
+
+  const wpx = t.s(p.width_mm);
+  const hpx = t.s(p.height_mm);
+
   return (
     <>
       {/* Маскирование по печатной зоне: всё вне зоны визуально обрезается. */}
@@ -648,14 +668,19 @@ function PlacementNode({
         clipWidth={t.s(zone.zw)}
         clipHeight={t.s(zone.zh)}
       >
+        {/* Центр-ориджин: поворот и флип — вокруг центра нанесения. */}
         <KImage
           ref={registerRef}
           image={img ?? undefined}
-          x={t.px(p.x_mm)}
-          y={t.py(p.y_mm)}
-          width={t.s(p.width_mm)}
-          height={t.s(p.height_mm)}
+          x={t.px(p.x_mm) + wpx / 2}
+          y={t.py(p.y_mm) + hpx / 2}
+          width={wpx}
+          height={hpx}
+          offsetX={wpx / 2}
+          offsetY={hpx / 2}
           rotation={p.rotation_deg}
+          scaleX={p.flip_h ? -1 : 1}
+          scaleY={p.flip_v ? -1 : 1}
           draggable={interactive}
           stroke={selected ? "#4f8cff" : undefined}
           strokeWidth={selected ? 1.5 : 0}
