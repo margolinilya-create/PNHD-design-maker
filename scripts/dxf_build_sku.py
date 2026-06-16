@@ -87,6 +87,18 @@ def main(dxf):
     spa_back = front_back_zones(bb, sp_back, back_cx, 300, 400, 90, "back", "Спина")
     spa_sleeve = sleeve_zones(bs, sp_sleeve, sleeve_cx, 150, 95)
 
+    # Этикетка на спине (демо мультизоны): малая зона под горловиной.
+    back_label = rect(back_cx - 40, bb["neckline_y"] + 12, 80, 35)
+    spa_back_label = {}
+    for tok, r in sp_back.items():
+        lw = 80 * (r["w"] / bb["w"])
+        spa_back_label[tok] = {"id": "label", "name": "Этикетка",
+                               "polygon_mm": rect(back_cx - lw / 2, r["neckline_y"] + 12, lw, 35),
+                               "safe_inset_mm": 6}
+    # Объединяем зоны спины: [спина, этикетка] на каждый размер.
+    for tok in spa_back:
+        spa_back[tok] = [spa_back[tok][0], spa_back_label[tok]]
+
     sizes = [t for t, _ in SIZES]
     sku = {
         "id": "tshirt-freefit",
@@ -109,12 +121,25 @@ def main(dxf):
                 "flat_svg": "/seed/flats/freefit-back.svg",
                 "scale_mm_per_unit": 1,
                 "anchors": bb["anchors"], "size_anchors": sa_back,
-                "print_areas": [{"id": "back", "name": "Спина",
-                                 "polygon_mm": back_zone, "safe_inset_mm": 20}],
+                "print_areas": [
+                    {"id": "back", "name": "Спина",
+                     "polygon_mm": back_zone, "safe_inset_mm": 20},
+                    {"id": "label", "name": "Этикетка",
+                     "polygon_mm": back_label, "safe_inset_mm": 6},
+                ],
                 "size_print_areas": spa_back,
             },
             {
                 "id": "freefit-sleeve-left", "kind": "sleeve_left",
+                "flat_svg": "/seed/flats/freefit-sleeve.svg",
+                "scale_mm_per_unit": 1,
+                "anchors": bs["anchors"], "size_anchors": sa_sleeve,
+                "print_areas": [{"id": "sleeve", "name": "Рукав",
+                                 "polygon_mm": sl_zone, "safe_inset_mm": 12}],
+                "size_print_areas": spa_sleeve,
+            },
+            {
+                "id": "freefit-sleeve-right", "kind": "sleeve_right",
                 "flat_svg": "/seed/flats/freefit-sleeve.svg",
                 "scale_mm_per_unit": 1,
                 "anchors": bs["anchors"], "size_anchors": sa_sleeve,

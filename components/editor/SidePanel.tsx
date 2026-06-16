@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/state/projectStore";
 import { loadAsset } from "@/lib/catalog/loadAsset";
-import { viewZone, placementInfo } from "@/lib/geometry/view";
+import {
+  viewZone,
+  placementInfo,
+  printAreasForSize,
+  presetPosition,
+  type PositionPreset,
+} from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
@@ -33,6 +39,20 @@ export function SidePanel() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // Целевая зона для загрузки (мультизонные виды).
+  const areas = useMemo(
+    () => (view ? printAreasForSize(view, size ?? undefined) : []),
+    [view, size],
+  );
+  const [targetAreaId, setTargetAreaId] = useState<string | null>(null);
+  useEffect(() => {
+    // Сброс выбора зоны при смене вида / отсутствии текущей зоны.
+    if (!areas.some((a) => a.id === targetAreaId)) {
+      setTargetAreaId(areas[0]?.id ?? null);
+    }
+  }, [areas, targetAreaId]);
+  const activeAreaId = targetAreaId ?? areas[0]?.id ?? null;
+
   // Выбранное нанесение — для точного позиционирования в мм.
   const selectedPlacement = useMemo(
     () => placements.find((p) => p.id === selectedId) ?? null,
@@ -54,7 +74,8 @@ export function SidePanel() {
       // Признак «размер оценочно» (для подсказки уточнить Ш×В).
       size_estimated: loaded.size_estimated,
     });
-    const { zone } = viewZone(view, size ?? undefined);
+    const areaId = activeAreaId ?? view.print_areas[0].id;
+    const { zone } = viewZone(view, size ?? undefined, areaId);
     // Вписываем макет в зону, сохраняя пропорции.
     const maxW = zone.zw * 0.7;
     const aspect =
@@ -62,7 +83,7 @@ export function SidePanel() {
     const w = Math.min(loaded.intrinsic_size_mm.width, maxW);
     const h = w * aspect;
     addPlacement({
-      print_area_id: view.print_areas[0].id,
+      print_area_id: areaId,
       asset_id: assetId,
       x_mm: zone.zx + (zone.zw - w) / 2,
       y_mm: zone.zy + (zone.zh - h) / 2,
@@ -144,6 +165,26 @@ export function SidePanel() {
             e.target.value = "";
           }}
         />
+        {areas.length > 1 && (
+          <div className="mb-2">
+            <label className="mb-1 block text-xs text-neutral-400">Зона</label>
+            <div className="flex flex-wrap gap-1.5">
+              {areas.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={() => setTargetAreaId(a.id)}
+                  className={`rounded px-2.5 py-1 text-xs ${
+                    a.id === activeAreaId
+                      ? "bg-blue-600 text-white"
+                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                  }`}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <button
           onClick={() => fileRef.current?.click()}
           className="w-full rounded-lg bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-500"
@@ -151,7 +192,10 @@ export function SidePanel() {
           Загрузить SVG / PNG
         </button>
         <p className="mt-1 text-xs text-neutral-500">
-          Добавится в зону «{view.print_areas[0].name}» текущего вида.
+          Добавится в зону «
+          {areas.find((a) => a.id === activeAreaId)?.name ??
+            view.print_areas[0].name}
+          » текущего вида.
         </p>
       </section>
 
@@ -203,6 +247,8 @@ export function SidePanel() {
       {selectedPlacement && (
         <PlacementInspector
           placement={selectedPlacement}
+          view={findViewForPlacement(sku.views, selectedPlacement)}
+          garmentSize={size}
           asset={assets[selectedPlacement.asset_id]}
           onChange={(patch) => updatePlacement(selectedPlacement.id, patch)}
         />
@@ -280,12 +326,17 @@ function PlacementRow({
             { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
             p.rotation_deg,
             garmentSize ?? undefined,
+            p.print_area_id,
           )
         : null,
-    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, garmentSize],
+    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, p.print_area_id, garmentSize],
   );
   const out = info?.check.out_of_zone;
   const d = info?.dimensions;
+  const areaName =
+    view?.print_areas.find((a) => a.id === p.print_area_id)?.name ??
+    view?.print_areas[0]?.name ??
+    "—";
 
   return (
     <div
@@ -297,7 +348,7 @@ function PlacementRow({
       }`}
     >
       <div className="flex items-center justify-between">
-        <span className="font-medium">{view?.print_areas[0].name ?? "—"}</span>
+        <span className="font-medium">{areaName}</span>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -339,16 +390,48 @@ function PlacementRow({
  */
 function PlacementInspector({
   placement: p,
+  view,
+  garmentSize,
   asset,
   onChange,
 }: {
   placement: Placement;
+  view: View | undefined;
+  garmentSize: string | null;
   asset: Asset | undefined;
   onChange: (patch: Partial<Placement>) => void;
 }) {
+  const applyPreset = (preset: PositionPreset) => {
+    if (!view) return;
+    const pos = presetPosition(
+      view,
+      { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+      preset,
+      garmentSize ?? undefined,
+      p.print_area_id,
+    );
+    onChange(pos);
+  };
+  const presets: { key: PositionPreset; label: string }[] = [
+    { key: "center-x", label: "Центр X" },
+    { key: "center-zone", label: "Центр зоны" },
+    { key: "top", label: "Вверх" },
+    { key: "bottom", label: "Вниз" },
+  ];
   return (
     <section>
       <h3 className="mb-2 font-semibold text-neutral-200">Позиция (мм)</h3>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {presets.map((pr) => (
+          <button
+            key={pr.key}
+            onClick={() => applyPreset(pr.key)}
+            className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+          >
+            {pr.label}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-2 gap-2">
         <MmField
           label="X"

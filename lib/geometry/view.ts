@@ -95,17 +95,54 @@ export function regradePosition(
   return { x_mm: nb.x, y_mm: nb.y };
 }
 
+export type PositionPreset = "center-x" | "center-zone" | "top" | "bottom";
+
+/**
+ * Готовая позиция нанесения по пресету (мм). Горизонталь — по оси изделия
+ * (center_axis_x / sleeve_center_x), верх/низ — с учётом safe-inset зоны.
+ */
+export function presetPosition(
+  view: View,
+  bbox: Bbox,
+  preset: PositionPreset,
+  size?: string,
+  areaId?: string,
+): { x_mm: number; y_mm: number } {
+  const { zone, safeInsetMm } = viewZone(view, size, areaId);
+  const anchors = size ? anchorsForSize(view, size) : view.anchors;
+  const axis = isSleeve(view)
+    ? (anchors.sleeve_center_x ?? zone.zx + zone.zw / 2)
+    : (anchors.center_axis_x ?? zone.zx + zone.zw / 2);
+  switch (preset) {
+    case "center-x":
+      return { x_mm: axis - bbox.w / 2, y_mm: bbox.y };
+    case "center-zone":
+      return { x_mm: axis - bbox.w / 2, y_mm: zone.zy + (zone.zh - bbox.h) / 2 };
+    case "top":
+      return { x_mm: bbox.x, y_mm: zone.zy + safeInsetMm };
+    case "bottom":
+      return { x_mm: bbox.x, y_mm: zone.zy + zone.zh - bbox.h - safeInsetMm };
+  }
+}
+
 /** Печатные зоны вида для размера (фоллбэк на базовые `print_areas`). */
 export function printAreasForSize(view: View, size?: string) {
   return (size && view.size_print_areas?.[size]) || view.print_areas;
 }
 
-/** Печатная зона вида (в MVP — первая), с учётом per-size зон. */
+/** Зона по id (для мультизонных видов); фоллбэк на первую. */
+export function findPrintArea(view: View, areaId?: string, size?: string) {
+  const areas = printAreasForSize(view, size);
+  return (areaId && areas.find((a) => a.id === areaId)) || areas[0];
+}
+
+/** Печатная зона вида по id зоны (или первая), с учётом per-size зон. */
 export function viewZone(
   view: View,
   size?: string,
+  areaId?: string,
 ): { zone: Zone; safeInsetMm: number } {
-  const area = printAreasForSize(view, size)[0];
+  const area = findPrintArea(view, areaId, size);
   return { zone: polygonToZone(area.polygon_mm), safeInsetMm: area.safe_inset_mm };
 }
 
@@ -118,9 +155,10 @@ export function placementInfo(
   bbox: Bbox,
   rotationDeg: number,
   size?: string,
+  areaId?: string,
 ): PlacementInfo {
   const aabb = rotatedAabb(bbox, rotationDeg);
-  const { zone, safeInsetMm } = viewZone(view, size);
+  const { zone, safeInsetMm } = viewZone(view, size, areaId);
   const dimensions = fullDimensions(aabb, zone);
   const check = checkZone(aabb, zone, safeInsetMm);
   const anchors = size ? anchorsForSize(view, size) : view.anchors;
