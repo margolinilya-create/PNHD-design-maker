@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/state/projectStore";
 import { loadAsset } from "@/lib/catalog/loadAsset";
 import { viewZone, placementInfo } from "@/lib/geometry/view";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
-import type { Placement, View } from "@/types";
+import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
   const sku = useProjectStore((s) => s.currentSku());
@@ -23,6 +23,7 @@ export function SidePanel() {
   const addAsset = useProjectStore((s) => s.addAsset);
   const addPlacement = useProjectStore((s) => s.addPlacement);
   const removePlacement = useProjectStore((s) => s.removePlacement);
+  const updatePlacement = useProjectStore((s) => s.updatePlacement);
   const selectPlacement = useProjectStore((s) => s.selectPlacement);
   const setMeta = useProjectStore((s) => s.setMeta);
   const setStatus = useProjectStore((s) => s.setStatus);
@@ -30,6 +31,12 @@ export function SidePanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Выбранное нанесение — для точного позиционирования в мм.
+  const selectedPlacement = useMemo(
+    () => placements.find((p) => p.id === selectedId) ?? null,
+    [placements, selectedId],
+  );
 
   const onUpload = async (file: File) => {
     if (!view) return;
@@ -39,6 +46,8 @@ export function SidePanel() {
       source_file: loaded.source_file,
       data_url: loaded.dataUrl,
       intrinsic_size_mm: loaded.intrinsic_size_mm,
+      // Признак «размер оценочно» (для подсказки уточнить Ш×В).
+      size_estimated: loaded.size_estimated,
     });
     const { zone } = viewZone(view);
     // Вписываем макет в зону, сохраняя пропорции.
@@ -155,8 +164,8 @@ export function SidePanel() {
           ))}
         </div>
         <p className="mt-1 text-xs text-neutral-500">
-          Отступ от горловины — константа на всех размерах (регрейдинг —
-          заглушка SizeGrade).
+          Отступ от горловины — константа на всех размерах (регрейдинг по
+          per-size якорям).
         </p>
       </section>
 
@@ -181,6 +190,14 @@ export function SidePanel() {
           ))}
         </div>
       </section>
+
+      {selectedPlacement && (
+        <PlacementInspector
+          placement={selectedPlacement}
+          asset={assets[selectedPlacement.asset_id]}
+          onChange={(patch) => updatePlacement(selectedPlacement.id, patch)}
+        />
+      )}
 
       <section>
         <h3 className="mb-2 font-semibold text-neutral-200">Проект</h3>
@@ -305,6 +322,118 @@ function PlacementRow({
       )}
     </div>
   );
+}
+
+/**
+ * Точное позиционирование выбранного нанесения: числовые поля в мм/градусах
+ * с двусторонней привязкой к updatePlacement.
+ */
+function PlacementInspector({
+  placement: p,
+  asset,
+  onChange,
+}: {
+  placement: Placement;
+  asset: Asset | undefined;
+  onChange: (patch: Partial<Placement>) => void;
+}) {
+  return (
+    <section>
+      <h3 className="mb-2 font-semibold text-neutral-200">Позиция (мм)</h3>
+      <div className="grid grid-cols-2 gap-2">
+        <MmField
+          label="X"
+          value={p.x_mm}
+          onCommit={(v) => onChange({ x_mm: v })}
+        />
+        <MmField
+          label="Y"
+          value={p.y_mm}
+          onCommit={(v) => onChange({ y_mm: v })}
+        />
+        <MmField
+          label="Ширина"
+          value={p.width_mm}
+          min={1}
+          onCommit={(v) => onChange({ width_mm: Math.max(1, v) })}
+        />
+        <MmField
+          label="Высота"
+          value={p.height_mm}
+          min={1}
+          onCommit={(v) => onChange({ height_mm: Math.max(1, v) })}
+        />
+        <MmField
+          label="Поворот°"
+          value={p.rotation_deg}
+          onCommit={(v) => onChange({ rotation_deg: v })}
+        />
+      </div>
+      {asset?.size_estimated && (
+        <p className="mt-2 rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
+          размер оценочно — уточните Ш×В
+        </p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Числовое поле в мм с локальным буфером ввода:
+ * правки фиксируются по blur/Enter, при этом поле синхронизируется,
+ * когда значение в сторе меняется извне (drag/стрелки на холсте).
+ */
+function MmField({
+  label,
+  value,
+  min,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  onCommit: (v: number) => void;
+}) {
+  const [draft, setDraft] = useState(() => round1(value));
+  const [editing, setEditing] = useState(false);
+
+  // Пока поле не редактируется — следуем за внешним значением.
+  useEffect(() => {
+    if (!editing) setDraft(round1(value));
+  }, [value, editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const n = parseFloat(draft.replace(",", "."));
+    if (Number.isFinite(n)) {
+      onCommit(min != null ? Math.max(min, n) : n);
+    } else {
+      setDraft(round1(value));
+    }
+  };
+
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs text-neutral-400">{label}</span>
+      <input
+        type="number"
+        step={1}
+        value={draft}
+        onFocus={() => setEditing(true)}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 tabular-nums"
+      />
+    </label>
+  );
+}
+
+/** Округление до 0.1 мм в строку (для поля ввода). */
+function round1(v: number): string {
+  return String(Math.round(v * 10) / 10);
 }
 
 /** Размер SVG в мм по viewBox (для сцены PDF). */

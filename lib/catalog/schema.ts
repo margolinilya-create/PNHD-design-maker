@@ -32,14 +32,110 @@ export const viewSchema = z.object({
   print_areas: z.array(printAreaSchema).min(1),
 });
 
-export const skuSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.enum(["tshirt", "sweatshirt", "hoodie", "shopper"]),
-  base_size: z.enum(["M", "L"]),
-  sizes: z.array(z.string()).min(1),
-  views: z.array(viewSchema).min(1),
-});
+export const skuSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(["tshirt", "sweatshirt", "hoodie", "shopper"]),
+    base_size: z.enum(["M", "L"]),
+    sizes: z.array(z.string()).min(1),
+    views: z.array(viewSchema).min(1),
+  })
+  .superRefine((sku, ctx) => {
+    const sizeSet = new Set(sku.sizes);
+
+    // base_size обязан входить в sizes.
+    if (!sizeSet.has(sku.base_size)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["base_size"],
+        message: `base_size "${sku.base_size}" отсутствует в sizes`,
+      });
+    }
+
+    sku.views.forEach((view, vi) => {
+      // Якоря согласуются с kind вида.
+      const isSleeve = view.kind === "sleeve_left" || view.kind === "sleeve_right";
+      const checkAnchors = (
+        a: z.infer<typeof anchorsSchema>,
+        path: (string | number)[],
+      ) => {
+        if (isSleeve) {
+          if (a.sleeve_bottom_y === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [...path, "sleeve_bottom_y"],
+              message: "для рукава обязателен sleeve_bottom_y",
+            });
+          }
+          if (a.sleeve_center_x === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [...path, "sleeve_center_x"],
+              message: "для рукава обязателен sleeve_center_x",
+            });
+          }
+        } else {
+          // front / back
+          if (a.neckline_point === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [...path, "neckline_point"],
+              message: "для front/back обязателен neckline_point",
+            });
+          }
+          if (a.center_axis_x === undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [...path, "center_axis_x"],
+              message: "для front/back обязателен center_axis_x",
+            });
+          }
+        }
+      };
+
+      // Базовые якоря вида.
+      checkAnchors(view.anchors, ["views", vi, "anchors"]);
+
+      // Per-size якоря: ключи ⊆ sizes и согласованность с kind.
+      if (view.size_anchors) {
+        for (const [size, a] of Object.entries(view.size_anchors)) {
+          if (!sizeSet.has(size)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["views", vi, "size_anchors", size],
+              message: `размер "${size}" отсутствует в sizes`,
+            });
+          }
+          checkAnchors(a, ["views", vi, "size_anchors", size]);
+        }
+      }
+
+      // Печатные зоны: невырожденность полигона и адекватность safe_inset.
+      view.print_areas.forEach((area, ai) => {
+        const xs = area.polygon_mm.map((p) => p[0]);
+        const ys = area.polygon_mm.map((p) => p[1]);
+        const w = Math.max(...xs) - Math.min(...xs);
+        const h = Math.max(...ys) - Math.min(...ys);
+
+        if (!(w > 0) || !(h > 0)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["views", vi, "print_areas", ai, "polygon_mm"],
+            message: "AABB полигона вырожден (ширина/высота должны быть > 0)",
+          });
+        }
+
+        if (!(area.safe_inset_mm * 2 < Math.min(w, h))) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["views", vi, "print_areas", ai, "safe_inset_mm"],
+            message: "safe_inset_mm * 2 должен быть меньше min(ширина, высота) зоны",
+          });
+        }
+      });
+    });
+  });
 
 export const catalogSchema = z.object({
   skus: z.array(skuSchema).min(1),
