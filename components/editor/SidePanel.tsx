@@ -372,8 +372,13 @@ function PlacementRow({
       </div>
       {info && (
         <div className="mt-0.5 text-xs text-neutral-500">
-          {info.anchor.kind === "neckline" ? "от горловины" : "от низа рукава"}:{" "}
-          {Math.round(Math.abs(info.anchor.vertical))} мм (константа на ростовках)
+          {info.anchor.kind === "neckline"
+            ? "от горловины"
+            : info.anchor.kind === "sleeve"
+              ? "от низа рукава"
+              : "от верха зоны"}
+          : {Math.round(Math.abs(info.anchor.vertical))} мм{" "}
+          {info.anchor.kind !== "panel" && "(константа на ростовках)"}
         </div>
       )}
       {out && (

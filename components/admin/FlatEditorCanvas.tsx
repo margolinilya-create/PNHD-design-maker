@@ -80,6 +80,7 @@ export function FlatEditorCanvas({
   }, [size, flatMm]);
 
   const sleeve = isSleeveKind(draft.viewKind);
+  const label = draft.viewKind.startsWith("label");
 
   // Калибровка: клик двух точек.
   const measureDist =
@@ -171,7 +172,7 @@ export function FlatEditorCanvas({
 
         {/* Якоря */}
         <Layer>
-          {!sleeve && (
+          {!sleeve && !label && (
             <>
               {/* Ось изделия (вертикаль) + ручка сверху */}
               <Line

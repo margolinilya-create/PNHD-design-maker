@@ -918,13 +918,17 @@ function DimensionOverlay({
     ? anchorsForSize(view, garmentSize)
     : view.anchors;
   const centerX =
-    anchor.kind === "neckline"
-      ? (sizeAnchors.center_axis_x ?? midX)
-      : (sizeAnchors.sleeve_center_x ?? midX);
+    anchor.kind === "sleeve"
+      ? (sizeAnchors.sleeve_center_x ?? midX)
+      : anchor.kind === "panel"
+        ? zone.zx + zone.zw / 2
+        : (sizeAnchors.center_axis_x ?? midX);
   const anchorY =
-    anchor.kind === "neckline"
-      ? (sizeAnchors.neckline_point?.y ?? zone.zy)
-      : (sizeAnchors.sleeve_bottom_y ?? zone.zy + zone.zh);
+    anchor.kind === "sleeve"
+      ? (sizeAnchors.sleeve_bottom_y ?? zone.zy + zone.zh)
+      : anchor.kind === "panel"
+        ? zone.zy
+        : (sizeAnchors.neckline_point?.y ?? zone.zy);
 
   return (
     <>

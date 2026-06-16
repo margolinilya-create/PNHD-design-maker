@@ -332,6 +332,27 @@ describe("мультизона + пресеты позиции", () => {
   });
 });
 
+describe("этикетка — панельный вид", () => {
+  const v = {
+    kind: "label_neck_inner",
+    anchors: {},
+    print_areas: [
+      {
+        id: "label", name: "Этикетка",
+        polygon_mm: [[15, 10], [85, 10], [85, 50], [15, 50]] as [number, number][],
+        safe_inset_mm: 5,
+      },
+    ],
+  } as unknown as import("@/types").View;
+
+  it("anchor.kind = panel, отсчёт от верха и центра зоны", () => {
+    const info = placementInfo(v, { x: 30, y: 20, w: 40, h: 20 }, 0);
+    expect(info.anchor.kind).toBe("panel");
+    expect(info.anchor.vertical).toBe(10); // 20 − zone.zy(10)
+    expect(info.anchor.horizontal).toBe(0); // центр макета = центр зоны
+  });
+});
+
 describe("rotatedAabb", () => {
   it("поворот на 90° меняет местами ширину и высоту", () => {
     const bbox: Bbox = { x: 100, y: 100, w: 200, h: 100 };

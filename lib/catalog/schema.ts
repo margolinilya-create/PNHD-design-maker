@@ -6,6 +6,8 @@ export const viewKindSchema = z.enum([
   "back",
   "sleeve_left",
   "sleeve_right",
+  "label_neck_inner",
+  "label_neck_outer",
 ]);
 
 export const printAreaSchema = z.object({
@@ -59,10 +61,12 @@ export const skuSchema = z
     sku.views.forEach((view, vi) => {
       // Якоря согласуются с kind вида.
       const isSleeve = view.kind === "sleeve_left" || view.kind === "sleeve_right";
+      const isLabel = view.kind.startsWith("label");
       const checkAnchors = (
         a: z.infer<typeof anchorsSchema>,
         path: (string | number)[],
       ) => {
+        if (isLabel) return; // этикетка — панельный вид, якоря не обязательны
         if (isSleeve) {
           if (a.sleeve_bottom_y === undefined) {
             ctx.addIssue({

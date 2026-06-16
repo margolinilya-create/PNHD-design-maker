@@ -271,6 +271,8 @@ export default function AdminPage() {
                   <option value="back">спина</option>
                   <option value="sleeve_left">рукав (л)</option>
                   <option value="sleeve_right">рукав (п)</option>
+                  <option value="label_neck_inner">этикетка (внутр.)</option>
+                  <option value="label_neck_outer">этикетка (внеш.)</option>
                 </select>
               </Field>
             </Section>
