@@ -37,6 +37,11 @@ export interface View {
   /** Коэффициент перевода единиц SVG в мм (1 = 1 unit → 1 мм). */
   scale_mm_per_unit: number;
   anchors: ViewAnchors;
+  /**
+   * Per-size якоря (регрейдинг). Ключ — размер из SKU.sizes.
+   * Если размера нет — берутся базовые `anchors`.
+   */
+  size_anchors?: Record<string, ViewAnchors>;
   print_areas: PrintArea[];
 }
 

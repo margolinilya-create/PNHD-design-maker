@@ -15,7 +15,7 @@ import {
 } from "react-konva";
 import { useProjectStore } from "@/lib/state/projectStore";
 import { useImage } from "@/lib/hooks/useImage";
-import { placementInfo, viewZone } from "@/lib/geometry/view";
+import { placementInfo, viewZone, anchorsForSize } from "@/lib/geometry/view";
 import type { Placement, View } from "@/types";
 
 /** Линейная развёртка мм → px стейджа. */
@@ -30,6 +30,7 @@ export function EditorCanvas() {
   const view = useProjectStore((s) => s.currentView());
   const placements = useProjectStore((s) => s.placements);
   const selectedId = useProjectStore((s) => s.selectedPlacementId);
+  const garmentSize = useProjectStore((s) => s.size);
   const selectPlacement = useProjectStore((s) => s.selectPlacement);
   const updatePlacement = useProjectStore((s) => s.updatePlacement);
 
@@ -165,6 +166,7 @@ export function EditorCanvas() {
               placement={p}
               view={view}
               t={t}
+              garmentSize={garmentSize}
               selected={p.id === selectedId}
               onSelect={() => selectPlacement(p.id)}
               registerRef={(n) => {
@@ -197,7 +199,14 @@ export function EditorCanvas() {
             (() => {
               const p = viewPlacements.find((x) => x.id === selectedId);
               if (!p) return null;
-              return <DimensionOverlay placement={p} view={view} t={t} />;
+              return (
+                <DimensionOverlay
+                  placement={p}
+                  view={view}
+                  t={t}
+                  garmentSize={garmentSize}
+                />
+              );
             })()}
         </Layer>
       </Stage>
@@ -252,6 +261,7 @@ function PlacementNode({
   placement: p,
   view,
   t,
+  garmentSize,
   selected,
   onSelect,
   registerRef,
@@ -261,6 +271,7 @@ function PlacementNode({
   placement: Placement;
   view: View;
   t: Transform;
+  garmentSize: string | null;
   selected: boolean;
   onSelect: () => void;
   registerRef: (n: Konva.Image | null) => void;
@@ -275,8 +286,9 @@ function PlacementNode({
         view,
         { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
         p.rotation_deg,
+        garmentSize ?? undefined,
       ),
-    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg],
+    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, garmentSize],
   );
   const out = info.check.out_of_zone;
 
@@ -304,15 +316,18 @@ function DimensionOverlay({
   placement: p,
   view,
   t,
+  garmentSize,
 }: {
   placement: Placement;
   view: View;
   t: Transform;
+  garmentSize: string | null;
 }) {
   const info = placementInfo(
     view,
     { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
     p.rotation_deg,
+    garmentSize ?? undefined,
   );
   const { aabb, zone, dimensions: d, anchor } = info;
   const midX = aabb.x + aabb.w / 2;
@@ -348,15 +363,18 @@ function DimensionOverlay({
     />
   );
 
-  // Якорь центра/горловины.
+  // Якорь центра/горловины (по якорям текущего размера).
+  const sizeAnchors = garmentSize
+    ? anchorsForSize(view, garmentSize)
+    : view.anchors;
   const centerX =
     anchor.kind === "neckline"
-      ? (view.anchors.center_axis_x ?? midX)
-      : (view.anchors.sleeve_center_x ?? midX);
+      ? (sizeAnchors.center_axis_x ?? midX)
+      : (sizeAnchors.sleeve_center_x ?? midX);
   const anchorY =
     anchor.kind === "neckline"
-      ? (view.anchors.neckline_point?.y ?? zone.zy)
-      : (view.anchors.sleeve_bottom_y ?? zone.zy + zone.zh);
+      ? (sizeAnchors.neckline_point?.y ?? zone.zy)
+      : (sizeAnchors.sleeve_bottom_y ?? zone.zy + zone.zh);
 
   return (
     <>

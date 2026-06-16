@@ -13,6 +13,7 @@ import {
   captureSleeveInvariant,
   applyInvariantSleeve,
 } from "./grading";
+import { placementInfo, regradePosition, anchorsForSize } from "./view";
 
 // Эталон из seed: перед tshirt-classic.
 const NECKLINE_Y = 92;
@@ -107,6 +108,56 @@ describe("grading — константа от горловины", () => {
     expect(verticalFromBottom(moved, 200)).toBe(inv.vertical_from_bottom);
     expect(moved.w).toBe(bbox.w);
     expect(moved.h).toBe(bbox.h);
+  });
+});
+
+describe("regradePosition — константа от горловины между размерами", () => {
+  // Мини-вид с per-size якорями (как в seed tshirt-classic front).
+  const view = {
+    id: "v",
+    kind: "front",
+    flat_svg: "",
+    scale_mm_per_unit: 1,
+    anchors: { neckline_point: { x: 300, y: 92 }, center_axis_x: 300 },
+    size_anchors: {
+      L: { neckline_point: { x: 300, y: 92 }, center_axis_x: 300 },
+      XXL: { neckline_point: { x: 300, y: 104 }, center_axis_x: 300 },
+    },
+    print_areas: [
+      {
+        id: "chest",
+        name: "Грудь",
+        polygon_mm: [
+          [150, 140],
+          [450, 140],
+          [450, 540],
+          [150, 540],
+        ] as [number, number][],
+        safe_inset_mm: 15,
+      },
+    ],
+  } as unknown as import("@/types").View;
+
+  it("при L→XXL отступ от горловины численно постоянен", () => {
+    const bbox = { x: 225, y: 150, w: 150, h: 200 };
+    const before = placementInfo(view, bbox, 0, "L").anchor.vertical;
+    const moved = regradePosition(view, "L", "XXL", bbox);
+    const after = placementInfo(
+      view,
+      { x: moved.x_mm, y: moved.y_mm, w: bbox.w, h: bbox.h },
+      0,
+      "XXL",
+    ).anchor.vertical;
+    expect(after).toBeCloseTo(before, 6);
+    // Горловина опустилась на 12 мм → и макет на 12 мм.
+    expect(moved.y_mm).toBeCloseTo(162, 6);
+    // Размер печати не изменился.
+    expect(moved.x_mm).toBeCloseTo(225, 6);
+  });
+
+  it("anchorsForSize фоллбэчит на базовые якоря", () => {
+    expect(anchorsForSize(view, "M")).toBe(view.anchors);
+    expect(anchorsForSize(view, "XXL").neckline_point?.y).toBe(104);
   });
 });
 

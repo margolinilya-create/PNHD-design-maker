@@ -28,6 +28,7 @@ export const viewSchema = z.object({
   flat_svg: z.string(),
   scale_mm_per_unit: z.number().positive(),
   anchors: anchorsSchema,
+  size_anchors: z.record(z.string(), anchorsSchema).optional(),
   print_areas: z.array(printAreaSchema).min(1),
 });
 

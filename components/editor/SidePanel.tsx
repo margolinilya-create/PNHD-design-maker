@@ -173,6 +173,7 @@ export function SidePanel() {
               key={p.id}
               placement={p}
               view={findViewForPlacement(sku.views, p)}
+              garmentSize={size}
               selected={p.id === selectedId}
               onSelect={() => selectPlacement(p.id)}
               onRemove={() => removePlacement(p.id)}
@@ -233,12 +234,14 @@ function findViewForPlacement(views: View[], p: Placement): View | undefined {
 function PlacementRow({
   placement: p,
   view,
+  garmentSize,
   selected,
   onSelect,
   onRemove,
 }: {
   placement: Placement;
   view: View | undefined;
+  garmentSize: string | null;
   selected: boolean;
   onSelect: () => void;
   onRemove: () => void;
@@ -250,9 +253,10 @@ function PlacementRow({
             view,
             { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
             p.rotation_deg,
+            garmentSize ?? undefined,
           )
         : null,
-    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg],
+    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, garmentSize],
   );
   const out = info?.check.out_of_zone;
   const d = info?.dimensions;
@@ -288,6 +292,12 @@ function PlacementRow({
           </>
         )}
       </div>
+      {info && (
+        <div className="mt-0.5 text-xs text-neutral-500">
+          {info.anchor.kind === "neckline" ? "от горловины" : "от низа рукава"}:{" "}
+          {Math.round(Math.abs(info.anchor.vertical))} мм (константа на ростовках)
+        </div>
+      )}
       {out && (
         <div className="mt-1 rounded bg-red-950 px-1.5 py-0.5 text-xs text-red-300">
           ⚠ выход за печатную зону

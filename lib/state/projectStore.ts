@@ -5,6 +5,7 @@
 import { create } from "zustand";
 import type { Catalog } from "@/lib/catalog/schema";
 import type { Asset, Placement, ProjectStatus, SKU, View } from "@/types";
+import { regradePosition } from "@/lib/geometry/view";
 
 let idCounter = 0;
 const nextId = (prefix: string) => `${prefix}-${Date.now()}-${idCounter++}`;
@@ -64,7 +65,34 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   selectView: (viewId) => set({ viewId, selectedPlacementId: null }),
-  selectSize: (size) => set({ size }),
+
+  selectSize: (size) => {
+    const { size: fromSize, placements, catalog, skuId } = get();
+    if (!fromSize || fromSize === size) {
+      set({ size });
+      return;
+    }
+    const sku = catalog?.skus.find((s) => s.id === skuId);
+    if (!sku) {
+      set({ size });
+      return;
+    }
+    // Регрейдинг: сохраняем отступ от горловины как константу (BUILD.md §4).
+    const regraded = placements.map((p) => {
+      const view = sku.views.find((v) =>
+        v.print_areas.some((a) => a.id === p.print_area_id),
+      ) as View | undefined;
+      if (!view) return p;
+      const { x_mm, y_mm } = regradePosition(view, fromSize, size, {
+        x: p.x_mm,
+        y: p.y_mm,
+        w: p.width_mm,
+        h: p.height_mm,
+      });
+      return { ...p, x_mm, y_mm };
+    });
+    set({ size, placements: regraded });
+  },
 
   addAsset: (asset) => {
     const id = nextId("asset");

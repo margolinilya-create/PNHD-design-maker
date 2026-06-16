@@ -63,6 +63,7 @@ export function buildSceneSvg(input: SceneInput): string {
         view,
         { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
         p.rotation_deg,
+        input.meta.size,
       );
       const { aabb, zone, dimensions: d, anchor } = info;
       const midX = aabb.x + aabb.w / 2;

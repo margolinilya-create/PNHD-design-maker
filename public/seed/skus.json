@@ -16,6 +16,13 @@
             "neckline_point": { "x": 300, "y": 92 },
             "center_axis_x": 300
           },
+          "size_anchors": {
+            "S": { "neckline_point": { "x": 300, "y": 80 }, "center_axis_x": 300 },
+            "M": { "neckline_point": { "x": 300, "y": 86 }, "center_axis_x": 300 },
+            "L": { "neckline_point": { "x": 300, "y": 92 }, "center_axis_x": 300 },
+            "XL": { "neckline_point": { "x": 300, "y": 98 }, "center_axis_x": 300 },
+            "XXL": { "neckline_point": { "x": 300, "y": 104 }, "center_axis_x": 300 }
+          },
           "print_areas": [
             {
               "id": "chest",
@@ -39,6 +46,13 @@
             "neckline_point": { "x": 300, "y": 58 },
             "center_axis_x": 300
           },
+          "size_anchors": {
+            "S": { "neckline_point": { "x": 300, "y": 46 }, "center_axis_x": 300 },
+            "M": { "neckline_point": { "x": 300, "y": 52 }, "center_axis_x": 300 },
+            "L": { "neckline_point": { "x": 300, "y": 58 }, "center_axis_x": 300 },
+            "XL": { "neckline_point": { "x": 300, "y": 64 }, "center_axis_x": 300 },
+            "XXL": { "neckline_point": { "x": 300, "y": 70 }, "center_axis_x": 300 }
+          },
           "print_areas": [
             {
               "id": "back",
@@ -61,6 +75,13 @@
           "anchors": {
             "sleeve_bottom_y": 180,
             "sleeve_center_x": 120
+          },
+          "size_anchors": {
+            "S": { "sleeve_bottom_y": 170, "sleeve_center_x": 120 },
+            "M": { "sleeve_bottom_y": 175, "sleeve_center_x": 120 },
+            "L": { "sleeve_bottom_y": 180, "sleeve_center_x": 120 },
+            "XL": { "sleeve_bottom_y": 185, "sleeve_center_x": 120 },
+            "XXL": { "sleeve_bottom_y": 190, "sleeve_center_x": 120 }
           },
           "print_areas": [
             {
