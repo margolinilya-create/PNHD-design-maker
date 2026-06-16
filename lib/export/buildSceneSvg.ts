@@ -2,6 +2,7 @@
 // Флэт + макеты + размерная обвязка + подписи + рамка проекта. Масштаб 1:1 в мм.
 import type { Asset, Placement, SKU, View } from "@/types";
 import { placementInfo, anchorsForSize, viewZone } from "@/lib/geometry/view";
+import { recolorGarment } from "@/lib/export/flatMarkup";
 
 export interface SceneInput {
   sku: SKU;
@@ -10,6 +11,8 @@ export interface SceneInput {
   flatMm: { w: number; h: number }; // габариты флэта В МИЛЛИМЕТРАХ
   /** Коэффициент единицы SVG флэта → мм (1 = 1 ед = 1 мм). */
   scaleMmPerUnit?: number;
+  /** Цвет ткани (перекраска силуэта). */
+  garmentColor?: string;
   placements: Placement[];
   assets: Record<string, Asset>;
   meta: { client: string; orderRef: string; size: string; date: string };
@@ -164,7 +167,7 @@ export function buildSceneSvg(input: SceneInput): string {
     ${clipDefs}
   </defs>
   <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
-  <g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(input.flatSvgMarkup)}</g>
+  <g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>
   ${placementSvg}
   ${dimsSvg}
   ${frame}

@@ -1,6 +1,12 @@
 // Получение SVG-разметки флэта: из data URL (DXF/черновик) или по сети (seed-файл).
 // Единый формат data URL — base64 (надёжно и для <img>, и для декода).
 
+/** Перекрасить заливку силуэта (элемент id="garment") в цвет ткани. */
+export function recolorGarment(svg: string, color: string): string {
+  if (!color) return svg;
+  return svg.replace(/(<[^>]*\bid="garment"[^>]*?)fill="[^"]*"/i, `$1fill="${color}"`);
+}
+
 /** SVG-строка → data URL (base64, UTF-8-safe). */
 export function svgToDataUrl(svg: string): string {
   const b64 =

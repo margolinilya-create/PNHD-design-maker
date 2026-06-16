@@ -16,6 +16,7 @@ import {
 } from "react-konva";
 import { useProjectStore } from "@/lib/state/projectStore";
 import { useImage } from "@/lib/hooks/useImage";
+import { useColoredFlat } from "@/lib/hooks/useColoredFlat";
 import {
   placementInfo,
   viewZone,
@@ -59,6 +60,8 @@ export function EditorCanvas() {
   const [showCheck, setShowCheck] = useState(false);
   // Калибровка: реальная длина измеренного отрезка (мм).
   const [realLen, setRealLen] = useState("");
+  // Live-гайды выравнивания при перетаскивании (мм-координаты линий).
+  const [guides, setGuides] = useState<{ x?: number; y?: number } | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -77,7 +80,10 @@ export function EditorCanvas() {
     return () => ro.disconnect();
   }, []);
 
-  const flat = useImage(view ? flatForSize(view, garmentSize ?? undefined) : null);
+  const garmentColor = useProjectStore((s) => s.garmentColor);
+  const baseFlat = view ? flatForSize(view, garmentSize ?? undefined) : null;
+  const coloredFlat = useColoredFlat(baseFlat, garmentColor);
+  const flat = useImage(coloredFlat);
 
   const flatMm = useMemo(() => {
     const scale = view?.scale_mm_per_unit ?? 1;
@@ -149,8 +155,44 @@ export function EditorCanvas() {
 
   const { zone, safeInsetMm } = viewZone(view, garmentSize ?? undefined);
 
+  // Цель привязки для нанесения: ось изделия, центр зоны (мм).
+  const snapTargets = (p: Placement) => {
+    const { zone } = viewZone(view, garmentSize ?? undefined, p.print_area_id);
+    const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
+    const axis =
+      view.kind === "sleeve_left" || view.kind === "sleeve_right"
+        ? (a.sleeve_center_x ?? zone.zx + zone.zw / 2)
+        : (a.center_axis_x ?? zone.zx + zone.zw / 2);
+    return { axis, zoneCx: zone.zx + zone.zw / 2, zoneCy: zone.zy + zone.zh / 2 };
+  };
+
+  // Live-привязка при перетаскивании: магнитим узел и показываем гайды.
+  const onDragMove = (p: Placement, node: Konva.Image) => {
+    const SNAP = 5;
+    const { axis, zoneCx, zoneCy } = snapTargets(p);
+    let cxmm = (node.x() - t.px(0)) / t.pxPerMM;
+    let cymm = (node.y() - t.py(0)) / t.pxPerMM;
+    let gx: number | undefined;
+    let gy: number | undefined;
+    if (Math.abs(cxmm - axis) < SNAP) {
+      cxmm = axis;
+      gx = axis;
+    } else if (Math.abs(cxmm - zoneCx) < SNAP) {
+      cxmm = zoneCx;
+      gx = zoneCx;
+    }
+    if (Math.abs(cymm - zoneCy) < SNAP) {
+      cymm = zoneCy;
+      gy = zoneCy;
+    }
+    node.x(t.px(cxmm));
+    node.y(t.py(cymm));
+    setGuides(gx === undefined && gy === undefined ? null : { x: gx, y: gy });
+  };
+
   // Узлы рендерятся с центр-ориджином → node.x()/y() = центр (мм).
   const onDragEnd = (p: Placement, node: Konva.Image) => {
+    setGuides(null);
     let cxmm = (node.x() - t.px(0)) / t.pxPerMM;
     let cymm = (node.y() - t.py(0)) / t.pxPerMM;
     // Привязка: магнит к оси изделия и центру зоны (порог 5 мм).
@@ -362,6 +404,7 @@ export function EditorCanvas() {
                 if (n) nodeRefs.current.set(p.id, n);
                 else nodeRefs.current.delete(p.id);
               }}
+              onDragMove={onDragMove}
               onDragEnd={onDragEnd}
               onTransformEnd={onTransformEnd}
             />
@@ -397,6 +440,26 @@ export function EditorCanvas() {
                 />
               );
             })()}
+        </Layer>
+
+        {/* Гайды выравнивания (live при перетаскивании) */}
+        <Layer listening={false}>
+          {guides?.x !== undefined && (
+            <Line
+              points={[t.px(guides.x), t.py(0), t.px(guides.x), t.py(flatMm.h)]}
+              stroke="#f59e0b"
+              strokeWidth={1}
+              dash={[4, 4]}
+            />
+          )}
+          {guides?.y !== undefined && (
+            <Line
+              points={[t.px(0), t.py(guides.y), t.px(flatMm.w), t.py(guides.y)]}
+              stroke="#f59e0b"
+              strokeWidth={1}
+              dash={[4, 4]}
+            />
+          )}
         </Layer>
 
         {/* Слой 5 — проверка точности лекала: якоря/оси/линейки + линейка-измеритель */}
@@ -615,6 +678,7 @@ function PlacementNode({
   interactive,
   onSelect,
   registerRef,
+  onDragMove,
   onDragEnd,
   onTransformEnd,
 }: {
@@ -626,6 +690,7 @@ function PlacementNode({
   interactive: boolean;
   onSelect: () => void;
   registerRef: (n: Konva.Image | null) => void;
+  onDragMove: (p: Placement, n: Konva.Image) => void;
   onDragEnd: (p: Placement, n: Konva.Image) => void;
   onTransformEnd: (p: Placement, n: Konva.Image) => void;
 }) {
@@ -686,6 +751,7 @@ function PlacementNode({
           strokeWidth={selected ? 1.5 : 0}
           onMouseDown={interactive ? onSelect : undefined}
           onTap={interactive ? onSelect : undefined}
+          onDragMove={(e) => onDragMove(p, e.target as Konva.Image)}
           onDragEnd={(e) => onDragEnd(p, e.target as Konva.Image)}
           onTransformEnd={(e) => onTransformEnd(p, e.target as Konva.Image)}
         />

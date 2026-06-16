@@ -50,6 +50,8 @@ export function SidePanel() {
   const reorderPlacement = useProjectStore((s) => s.reorderPlacement);
   const copyPlacementToView = useProjectStore((s) => s.copyPlacementToView);
   const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
+  const garmentColor = useProjectStore((s) => s.garmentColor);
+  const setGarmentColor = useProjectStore((s) => s.setGarmentColor);
 
   // Сохранение проектов (Supabase или localStorage).
   const [projName, setProjName] = useState("");
@@ -181,6 +183,7 @@ export function SidePanel() {
             flatSvgMarkup: markup,
             flatMm,
             scaleMmPerUnit: s,
+            garmentColor,
             placements: vp,
             assets,
             meta: {
@@ -281,6 +284,34 @@ export function SidePanel() {
           Отступ от горловины — константа на всех размерах (регрейдинг по
           per-size якорям).
         </p>
+      </section>
+
+      <section>
+        <h3 className="mb-2 font-semibold text-neutral-200">Цвет изделия</h3>
+        <div className="flex items-center gap-1.5">
+          {["", "#ffffff", "#1b1f24", "#3b4a6b", "#7a2230", "#2f5233", "#c9c4b8"].map(
+            (c) => (
+              <button
+                key={c || "none"}
+                onClick={() => setGarmentColor(c)}
+                title={c || "без цвета (как на лекале)"}
+                className={`h-6 w-6 rounded-full border ${
+                  garmentColor === c ? "border-blue-500 ring-1 ring-blue-500" : "border-neutral-600"
+                } ${!c ? "bg-neutral-900 text-[9px] text-neutral-500" : ""}`}
+                style={c ? { background: c } : undefined}
+              >
+                {!c ? "—" : ""}
+              </button>
+            ),
+          )}
+          <input
+            type="color"
+            value={garmentColor || "#1b1f24"}
+            onChange={(e) => setGarmentColor(e.target.value)}
+            title="Свой цвет"
+            className="h-6 w-8 cursor-pointer rounded border border-neutral-600 bg-transparent"
+          />
+        </div>
       </section>
 
       <section>
