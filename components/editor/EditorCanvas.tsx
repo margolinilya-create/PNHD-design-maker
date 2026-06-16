@@ -17,6 +17,7 @@ import {
 import { useProjectStore } from "@/lib/state/projectStore";
 import { useImage } from "@/lib/hooks/useImage";
 import { useColoredFlat } from "@/lib/hooks/useColoredFlat";
+import { useAddArtwork } from "@/lib/hooks/useAddArtwork";
 import {
   placementInfo,
   viewZone,
@@ -62,6 +63,9 @@ export function EditorCanvas() {
   const [realLen, setRealLen] = useState("");
   // Live-гайды выравнивания при перетаскивании (мм-координаты линий).
   const [guides, setGuides] = useState<{ x?: number; y?: number } | null>(null);
+  // Drag-n-drop загрузки макета на холст.
+  const addArtwork = useAddArtwork();
+  const [dropActive, setDropActive] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -238,6 +242,34 @@ export function EditorCanvas() {
     });
   };
 
+  // Drop файла на холст: позиция курсора → мм, целевая зона по попаданию.
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDropActive(false);
+    const el = containerRef.current;
+    const files = Array.from(e.dataTransfer.files).filter(
+      (f) => /image\/(png|svg\+xml)/.test(f.type) || /\.(png|svg)$/i.test(f.name),
+    );
+    if (!el || !files.length) return;
+    const rect = el.getBoundingClientRect();
+    const lx = (e.clientX - rect.left - stagePos.x) / stageScale;
+    const ly = (e.clientY - rect.top - stagePos.y) / stageScale;
+    const xMm = (lx - t.px(0)) / t.pxPerMM;
+    const yMm = (ly - t.py(0)) / t.pxPerMM;
+    const areas = printAreasForSize(view, garmentSize ?? undefined);
+    const hit = areas.find((a) => {
+      const xs = a.polygon_mm.map((p) => p[0]);
+      const ys = a.polygon_mm.map((p) => p[1]);
+      return (
+        xMm >= Math.min(...xs) && xMm <= Math.max(...xs) &&
+        yMm >= Math.min(...ys) && yMm <= Math.max(...ys)
+      );
+    });
+    for (const f of files) {
+      await addArtwork(f, { at: { xMm, yMm }, areaId: hit?.id });
+    }
+  };
+
   // Зум колесом к курсору: меняем ТОЛЬКО scale/position стейджа,
   // pxPerMM остаётся метрической константой.
   const onWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -345,6 +377,14 @@ export function EditorCanvas() {
       ref={containerRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDropActive(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setDropActive(false);
+      }}
+      onDrop={handleDrop}
       className="relative h-full w-full outline-none"
     >
       <Stage
@@ -562,6 +602,15 @@ export function EditorCanvas() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Подсветка зоны сброса файла */}
+      {dropActive && (
+        <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-500 bg-blue-500/10">
+          <span className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">
+            Отпустите, чтобы добавить макет
+          </span>
         </div>
       )}
 
