@@ -7,9 +7,9 @@ import { loadAsset } from "@/lib/catalog/loadAsset";
 import {
   buildSkuFromDraft,
   validateDraft,
-  saveDraftSku,
   type FlatDraft,
 } from "@/lib/admin/flatDraft";
+import { saveModel } from "@/lib/persistence/models";
 import { parseDxf, processPiece, type PieceRef } from "@/lib/import/dxf";
 import { buildSkuFromDxf } from "@/lib/import/dxfSku";
 import { svgToDataUrl } from "@/lib/export/flatMarkup";
@@ -111,11 +111,11 @@ export default function AdminPage() {
     setSaved(null);
   };
 
-  const createFullSku = () => {
+  const createFullSku = async () => {
     if (!dxf) return;
     const id = `dxf-${Date.now().toString(36)}`;
     const sku = buildSkuFromDxf(dxf, { skuId: id, skuName: "Модель из DXF" });
-    saveDraftSku(sku);
+    await saveModel(sku);
     setSaved(sku.id);
   };
 
@@ -136,9 +136,9 @@ export default function AdminPage() {
     URL.revokeObjectURL(url);
   };
 
-  const addToCatalog = () => {
+  const addToCatalog = async () => {
     if (!draft || errors.length) return;
-    saveDraftSku(buildSkuFromDraft(draft));
+    await saveModel(buildSkuFromDraft(draft));
     setSaved(draft.skuId);
   };
 

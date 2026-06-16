@@ -82,30 +82,4 @@ export function validateDraft(d: FlatDraft): string[] {
   return res.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
 }
 
-// ── Черновики в localStorage (превью в каталоге до сохранения файлов) ──
-const DRAFT_KEY = "pinhead.flatDrafts";
-
-export function loadDraftSkus(): SKU[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(DRAFT_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as SKU[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveDraftSku(sku: SKU): void {
-  if (typeof window === "undefined") return;
-  const list = loadDraftSkus().filter((s) => s.id !== sku.id);
-  list.push(sku);
-  window.localStorage.setItem(DRAFT_KEY, JSON.stringify(list));
-}
-
-export function removeDraftSku(id: string): void {
-  if (typeof window === "undefined") return;
-  const list = loadDraftSkus().filter((s) => s.id !== id);
-  window.localStorage.setItem(DRAFT_KEY, JSON.stringify(list));
-}
+// Хранение моделей каталога — в lib/persistence/models.ts (Supabase / localStorage).

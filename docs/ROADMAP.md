@@ -64,12 +64,14 @@
 - Этикетки шеи как отдельные **виды** (а не доп. зоны) — если нужен отдельный флэт этикетки.
 - Зоны печати у FreeFit — **выверить под реальную печать** (сейчас провизорные).
 
-## Сохранение проектов ✅ (Supabase-ready)
-- `lib/persistence/projects.ts`: API save/load/list/delete; бэкенд — **Supabase**
-  (если заданы `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`), иначе **localStorage**.
-- Стор: `snapshot()/restore()`; UI в панели «Проект» (сохранить/открыть/удалить).
-- Активация облака: выбрать Supabase-проект → применить миграцию (таблица
-  `pinhead_projects`) → прописать env в Vercel. Таблица/RLS — по выбору проекта.
+## Сохранение проектов и общий каталог ✅ (Supabase-ready)
+- `lib/persistence/projects.ts`: проекты save/load/list/delete; стор `snapshot()/restore()`;
+  UI в панели «Проект».
+- `lib/persistence/models.ts`: пользовательские модели каталога (из DXF/редактора)
+  save/list/delete — те же бэкенды. SkuPicker грузит их и даёт удалять; бейдж «моя».
+- Бэкенд: **Supabase** (если `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`), иначе **localStorage**.
+- Активация облака: выбрать Supabase-проект → миграции (таблицы `pinhead_projects`,
+  `pinhead_models`) + RLS → env в Vercel. Тогда проекты и каталог — общие для всех.
 
 ## Вне MVP (BUILD.md §12)
 3D · жёсткий DPI-блок · ручной регрейдинг per-size · интеграции CRM ·
