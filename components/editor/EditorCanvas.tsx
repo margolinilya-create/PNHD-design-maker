@@ -16,7 +16,12 @@ import {
 } from "react-konva";
 import { useProjectStore } from "@/lib/state/projectStore";
 import { useImage } from "@/lib/hooks/useImage";
-import { placementInfo, viewZone, anchorsForSize } from "@/lib/geometry/view";
+import {
+  placementInfo,
+  viewZone,
+  anchorsForSize,
+  printAreasForSize,
+} from "@/lib/geometry/view";
 import type { Zone } from "@/lib/geometry/coords";
 import type { Placement, View } from "@/types";
 
@@ -134,7 +139,7 @@ export function EditorCanvas() {
     );
   }
 
-  const { zone, safeInsetMm } = viewZone(view);
+  const { zone, safeInsetMm } = viewZone(view, garmentSize ?? undefined);
 
   const onDragEnd = (p: Placement, node: Konva.Image) => {
     updatePlacement(p.id, {
@@ -294,7 +299,7 @@ export function EditorCanvas() {
 
         {/* Слой 2 — печатная зона + safe-zone */}
         <Layer listening={false}>
-          <ZoneShapes view={view} t={t} />
+          <ZoneShapes view={view} t={t} size={garmentSize ?? undefined} />
         </Layer>
 
         {/* Слой 3 — нанесения */}
@@ -510,10 +515,18 @@ function GridLines({ zone, t }: { zone: Zone; t: Transform }) {
   return <>{lines}</>;
 }
 
-function ZoneShapes({ view, t }: { view: View; t: Transform }) {
+function ZoneShapes({
+  view,
+  t,
+  size,
+}: {
+  view: View;
+  t: Transform;
+  size?: string;
+}) {
   return (
     <>
-      {view.print_areas.map((area) => {
+      {printAreasForSize(view, size).map((area) => {
         const pts = area.polygon_mm.flatMap((pt) => [t.px(pt[0]), t.py(pt[1])]);
         // safe-zone — прямоугольный inset по AABB полигона.
         const xs = area.polygon_mm.map((p) => p[0]);

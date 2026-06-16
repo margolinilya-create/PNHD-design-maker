@@ -35,26 +35,57 @@ def main(dxf):
     open(os.path.join(FLATS, "freefit-back.svg"), "w").write(bb["svg"])
     open(os.path.join(FLATS, "freefit-sleeve.svg"), "w").write(bs["svg"])
 
-    # Per-size якоря (ось центра — константа базового размера).
-    def size_anchors(piece, cx):
+    # Per-size детали (геометрия каждого размера).
+    def size_pieces(piece, cx):
         out = {}
         for tok, label in SIZES:
             r = process_piece(blocks, piece, label, force_center=cx)
             if r:
-                out[tok] = r["anchors"]
+                out[tok] = r
         return out
 
-    sa_front = size_anchors("Pered", front_cx)
-    sa_back = size_anchors("Spinka", back_cx)
-    sa_sleeve = size_anchors("Rukav", sleeve_cx)
+    sp_front = size_pieces("Pered", front_cx)
+    sp_back = size_pieces("Spinka", back_cx)
+    sp_sleeve = size_pieces("Rukav", sleeve_cx)
+    sa_front = {t: r["anchors"] for t, r in sp_front.items()}
+    sa_back = {t: r["anchors"] for t, r in sp_back.items()}
+    sa_sleeve = {t: r["anchors"] for t, r in sp_sleeve.items()}
 
-    # Печатные зоны (провизорные, в мм; уточняются в редакторе).
     def rect(x, y, w, h):
-        return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+        return [[round(x, 1), round(y, 1)], [round(x + w, 1), round(y, 1)],
+                [round(x + w, 1), round(y + h, 1)], [round(x, 1), round(y + h, 1)]]
 
+    # Базовые зоны (провизорные, в мм; уточняются в редакторе).
     chest = rect(front_cx - 140, bf["neckline_y"] + 80, 280, 360)
     back_zone = rect(back_cx - 150, bb["neckline_y"] + 90, 300, 400)
     sl_zone = rect(sleeve_cx - 75, bs["h"] * 0.22, 150, 95)
+
+    # Per-size зоны: ширина/высота масштабируются по габаритам детали размера,
+    # верх привязан к горловине размера (центр — константа).
+    def front_back_zones(base_piece, sp, cx, zw, zh, top_off, area_id, area_name):
+        out = {}
+        for tok, r in sp.items():
+            sw = zw * (r["w"] / base_piece["w"])
+            sh = zh * (r["h"] / base_piece["h"])
+            top = r["neckline_y"] + top_off
+            out[tok] = [{"id": area_id, "name": area_name,
+                         "polygon_mm": rect(cx - sw / 2, top, sw, sh),
+                         "safe_inset_mm": 20}]
+        return out
+
+    def sleeve_zones(base_piece, sp, cx, zw, zh):
+        out = {}
+        for tok, r in sp.items():
+            sw = zw * (r["w"] / base_piece["w"])
+            sh = zh * (r["h"] / base_piece["h"])
+            out[tok] = [{"id": "sleeve", "name": "Рукав",
+                         "polygon_mm": rect(cx - sw / 2, r["h"] * 0.22, sw, sh),
+                         "safe_inset_mm": 12}]
+        return out
+
+    spa_front = front_back_zones(bf, sp_front, front_cx, 280, 360, 80, "chest", "Грудь")
+    spa_back = front_back_zones(bb, sp_back, back_cx, 300, 400, 90, "back", "Спина")
+    spa_sleeve = sleeve_zones(bs, sp_sleeve, sleeve_cx, 150, 95)
 
     sizes = [t for t, _ in SIZES]
     sku = {
@@ -71,6 +102,7 @@ def main(dxf):
                 "anchors": bf["anchors"], "size_anchors": sa_front,
                 "print_areas": [{"id": "chest", "name": "Грудь",
                                  "polygon_mm": chest, "safe_inset_mm": 20}],
+                "size_print_areas": spa_front,
             },
             {
                 "id": "freefit-back", "kind": "back",
@@ -79,6 +111,7 @@ def main(dxf):
                 "anchors": bb["anchors"], "size_anchors": sa_back,
                 "print_areas": [{"id": "back", "name": "Спина",
                                  "polygon_mm": back_zone, "safe_inset_mm": 20}],
+                "size_print_areas": spa_back,
             },
             {
                 "id": "freefit-sleeve-left", "kind": "sleeve_left",
@@ -87,6 +120,7 @@ def main(dxf):
                 "anchors": bs["anchors"], "size_anchors": sa_sleeve,
                 "print_areas": [{"id": "sleeve", "name": "Рукав",
                                  "polygon_mm": sl_zone, "safe_inset_mm": 12}],
+                "size_print_areas": spa_sleeve,
             },
         ],
     }

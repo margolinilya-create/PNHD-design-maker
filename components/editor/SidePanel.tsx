@@ -54,7 +54,7 @@ export function SidePanel() {
       // Признак «размер оценочно» (для подсказки уточнить Ш×В).
       size_estimated: loaded.size_estimated,
     });
-    const { zone } = viewZone(view);
+    const { zone } = viewZone(view, size ?? undefined);
     // Вписываем макет в зону, сохраняя пропорции.
     const maxW = zone.zw * 0.7;
     const aspect =

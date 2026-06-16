@@ -13,7 +13,12 @@ import {
   captureSleeveInvariant,
   applyInvariantSleeve,
 } from "./grading";
-import { placementInfo, regradePosition, anchorsForSize } from "./view";
+import {
+  placementInfo,
+  regradePosition,
+  anchorsForSize,
+  viewZone,
+} from "./view";
 
 // Эталон из seed: перед tshirt-classic.
 const NECKLINE_Y = 92;
@@ -238,6 +243,44 @@ describe("regradePosition — сквозной sleeve-регрейдинг", () 
     const moved = regradePosition(partial, "L", "XXL", bbox);
     expect(moved.x_mm).toBe(bbox.x);
     expect(moved.y_mm).toBe(bbox.y);
+  });
+});
+
+describe("viewZone — per-size зоны печати", () => {
+  const baseArea = {
+    id: "chest",
+    name: "Грудь",
+    polygon_mm: [
+      [150, 140],
+      [450, 140],
+      [450, 540],
+      [150, 540],
+    ] as [number, number][],
+    safe_inset_mm: 15,
+  };
+  const bigArea = { ...baseArea, polygon_mm: [
+    [130, 130],
+    [470, 130],
+    [470, 560],
+    [130, 560],
+  ] as [number, number][] };
+  const v = {
+    kind: "front",
+    print_areas: [baseArea],
+    size_print_areas: { XXL: [bigArea] },
+  } as unknown as import("@/types").View;
+
+  it("базовая зона при отсутствии per-size", () => {
+    const { zone } = viewZone(v, "M");
+    expect(zone.zw).toBe(300); // 450−150
+  });
+  it("per-size зона переопределяет базовую", () => {
+    const { zone } = viewZone(v, "XXL");
+    expect(zone.zw).toBe(340); // 470−130
+    expect(zone.zh).toBe(430); // 560−130
+  });
+  it("без размера — базовая", () => {
+    expect(viewZone(v).zone.zw).toBe(300);
   });
 });
 

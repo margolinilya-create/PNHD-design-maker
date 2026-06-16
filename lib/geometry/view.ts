@@ -95,9 +95,17 @@ export function regradePosition(
   return { x_mm: nb.x, y_mm: nb.y };
 }
 
-/** Печатная зона вида (в MVP — первая). */
-export function viewZone(view: View): { zone: Zone; safeInsetMm: number } {
-  const area = view.print_areas[0];
+/** Печатные зоны вида для размера (фоллбэк на базовые `print_areas`). */
+export function printAreasForSize(view: View, size?: string) {
+  return (size && view.size_print_areas?.[size]) || view.print_areas;
+}
+
+/** Печатная зона вида (в MVP — первая), с учётом per-size зон. */
+export function viewZone(
+  view: View,
+  size?: string,
+): { zone: Zone; safeInsetMm: number } {
+  const area = printAreasForSize(view, size)[0];
   return { zone: polygonToZone(area.polygon_mm), safeInsetMm: area.safe_inset_mm };
 }
 
@@ -112,7 +120,7 @@ export function placementInfo(
   size?: string,
 ): PlacementInfo {
   const aabb = rotatedAabb(bbox, rotationDeg);
-  const { zone, safeInsetMm } = viewZone(view);
+  const { zone, safeInsetMm } = viewZone(view, size);
   const dimensions = fullDimensions(aabb, zone);
   const check = checkZone(aabb, zone, safeInsetMm);
   const anchors = size ? anchorsForSize(view, size) : view.anchors;
