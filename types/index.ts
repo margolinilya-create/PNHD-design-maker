@@ -43,6 +43,8 @@ export interface View {
    */
   size_anchors?: Record<string, ViewAnchors>;
   print_areas: PrintArea[];
+  /** Per-size печатные зоны (фоллбэк на `print_areas`). Ключ — размер из SKU.sizes. */
+  size_print_areas?: Record<string, PrintArea[]>;
 }
 
 export interface SKU {

@@ -30,6 +30,9 @@ export const viewSchema = z.object({
   anchors: anchorsSchema,
   size_anchors: z.record(z.string(), anchorsSchema).optional(),
   print_areas: z.array(printAreaSchema).min(1),
+  size_print_areas: z
+    .record(z.string(), z.array(printAreaSchema).min(1))
+    .optional(),
 });
 
 export const skuSchema = z
@@ -112,28 +115,48 @@ export const skuSchema = z
       }
 
       // Печатные зоны: невырожденность полигона и адекватность safe_inset.
-      view.print_areas.forEach((area, ai) => {
+      const checkArea = (
+        area: z.infer<typeof printAreaSchema>,
+        path: (string | number)[],
+      ) => {
         const xs = area.polygon_mm.map((p) => p[0]);
         const ys = area.polygon_mm.map((p) => p[1]);
         const w = Math.max(...xs) - Math.min(...xs);
         const h = Math.max(...ys) - Math.min(...ys);
-
         if (!(w > 0) || !(h > 0)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ["views", vi, "print_areas", ai, "polygon_mm"],
+            path: [...path, "polygon_mm"],
             message: "AABB полигона вырожден (ширина/высота должны быть > 0)",
           });
         }
-
         if (!(area.safe_inset_mm * 2 < Math.min(w, h))) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ["views", vi, "print_areas", ai, "safe_inset_mm"],
+            path: [...path, "safe_inset_mm"],
             message: "safe_inset_mm * 2 должен быть меньше min(ширина, высота) зоны",
           });
         }
-      });
+      };
+      view.print_areas.forEach((area, ai) =>
+        checkArea(area, ["views", vi, "print_areas", ai]),
+      );
+
+      // Per-size зоны: ключи ⊆ sizes и валидность каждой зоны.
+      if (view.size_print_areas) {
+        for (const [size, areas] of Object.entries(view.size_print_areas)) {
+          if (!sizeSet.has(size)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["views", vi, "size_print_areas", size],
+              message: `размер "${size}" отсутствует в sizes`,
+            });
+          }
+          areas.forEach((area, ai) =>
+            checkArea(area, ["views", vi, "size_print_areas", size, ai]),
+          );
+        }
+      }
     });
   });
 
