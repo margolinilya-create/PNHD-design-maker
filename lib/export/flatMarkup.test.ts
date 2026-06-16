@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { svgToDataUrl, decodeDataUrlText, resolveFlatMarkup } from "./flatMarkup";
+import {
+  svgToDataUrl,
+  decodeDataUrlText,
+  resolveFlatMarkup,
+  recolorGarment,
+} from "./flatMarkup";
 
 const svg = '<svg viewBox="0 0 10 20"><path d="M0 0"/><text>горловина</text></svg>';
 
@@ -17,5 +22,17 @@ describe("flatMarkup", () => {
 
   it("resolveFlatMarkup декодит data URL без сети", async () => {
     expect(await resolveFlatMarkup(svgToDataUrl(svg))).toBe(svg);
+  });
+
+  it("recolorGarment красит только силуэт", () => {
+    const f = '<path id="garment" d="M0 0" fill="#1b1f24"/><rect id="print-area-x" fill="#4f8cff"/>';
+    const r = recolorGarment(f, "#ff0000");
+    expect(r).toContain('id="garment" d="M0 0" fill="#ff0000"');
+    expect(r).toContain('id="print-area-x" fill="#4f8cff"'); // зону не трогаем
+  });
+
+  it("recolorGarment без цвета — без изменений", () => {
+    const f = '<path id="garment" fill="#1b1f24"/>';
+    expect(recolorGarment(f, "")).toBe(f);
   });
 });
