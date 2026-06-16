@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/state/projectStore";
+import {
+  listProjects,
+  saveProject,
+  loadProject,
+  deleteProject,
+  isCloud,
+  type ProjectSnapshot,
+} from "@/lib/persistence/projects";
 import { loadAsset } from "@/lib/catalog/loadAsset";
 import {
   viewZone,
@@ -35,6 +43,48 @@ export function SidePanel() {
   const selectPlacement = useProjectStore((s) => s.selectPlacement);
   const setMeta = useProjectStore((s) => s.setMeta);
   const setStatus = useProjectStore((s) => s.setStatus);
+  const snapshot = useProjectStore((s) => s.snapshot);
+  const restore = useProjectStore((s) => s.restore);
+
+  // Сохранение проектов (Supabase или localStorage).
+  const [projName, setProjName] = useState("");
+  const [projId, setProjId] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectSnapshot[]>([]);
+  const [pmsg, setPmsg] = useState<string | null>(null);
+  const refreshProjects = useCallback(() => {
+    listProjects()
+      .then(setProjects)
+      .catch((e) => setPmsg(String(e)));
+  }, []);
+  useEffect(() => refreshProjects(), [refreshProjects]);
+
+  const onSaveProject = async () => {
+    const id = projId ?? (globalThis.crypto?.randomUUID?.() ?? String(Date.now()));
+    const name = projName.trim() || `${sku?.name ?? "Проект"} ${orderRef}`.trim();
+    try {
+      await saveProject(snapshot(id, name));
+      setProjId(id);
+      setProjName(name);
+      setPmsg(isCloud() ? "Сохранено в облако" : "Сохранено локально");
+      refreshProjects();
+    } catch (e) {
+      setPmsg(`Ошибка сохранения: ${e}`);
+    }
+  };
+  const onOpenProject = async (id: string) => {
+    const s = await loadProject(id);
+    if (s) {
+      restore(s);
+      setProjId(s.id);
+      setProjName(s.name);
+      setPmsg(`Открыт «${s.name}»`);
+    }
+  };
+  const onDeleteProject = async (id: string) => {
+    await deleteProject(id);
+    if (projId === id) setProjId(null);
+    refreshProjects();
+  };
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -283,6 +333,57 @@ export function SidePanel() {
           >
             {status === "approved" ? "Согласовано" : "Черновик"}
           </button>
+        </div>
+
+        {/* Сохранение проекта */}
+        <div className="mt-3 border-t border-neutral-800 pt-3">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs text-neutral-400">Проекты</span>
+            <span className="text-[10px] text-neutral-600">
+              {isCloud() ? "☁ облако" : "💾 локально"}
+            </span>
+          </div>
+          <div className="mb-2 flex gap-2">
+            <input
+              value={projName}
+              onChange={(e) => setProjName(e.target.value)}
+              placeholder="Название проекта"
+              className="flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+            />
+            <button
+              onClick={onSaveProject}
+              className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+            >
+              {projId ? "Сохранить" : "Сохранить"}
+            </button>
+          </div>
+          {projects.length > 0 && (
+            <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+              {projects.map((p) => (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
+                    p.id === projId ? "bg-neutral-800" : "hover:bg-neutral-800/60"
+                  }`}
+                >
+                  <button
+                    onClick={() => onOpenProject(p.id)}
+                    className="min-w-0 flex-1 truncate text-left text-neutral-200"
+                    title={p.name}
+                  >
+                    {p.name || "(без названия)"}
+                  </button>
+                  <button
+                    onClick={() => onDeleteProject(p.id)}
+                    className="ml-2 shrink-0 text-neutral-500 hover:text-red-400"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {pmsg && <p className="mt-1 text-[11px] text-neutral-500">{pmsg}</p>}
         </div>
       </section>
 

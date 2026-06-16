@@ -6,6 +6,7 @@ import { create } from "zustand";
 import type { Catalog } from "@/lib/catalog/schema";
 import type { Asset, Placement, ProjectStatus, SKU, View } from "@/types";
 import { regradePosition } from "@/lib/geometry/view";
+import type { ProjectSnapshot } from "@/lib/persistence/projects";
 
 let idCounter = 0;
 // crypto.randomUUID() для будущей персистентности; иначе — счётчик.
@@ -39,6 +40,10 @@ interface ProjectState {
   selectPlacement: (id: string | null) => void;
   setMeta: (meta: { client?: string; orderRef?: string }) => void;
   setStatus: (status: ProjectStatus) => void;
+
+  // сохранение/восстановление проекта
+  snapshot: (id: string, name: string) => ProjectSnapshot;
+  restore: (s: ProjectSnapshot) => void;
 
   // деривативы
   currentSku: () => SKU | null;
@@ -144,6 +149,30 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: orderRef ?? s.orderRef,
     })),
   setStatus: (status) => set({ status }),
+
+  snapshot: (id, name) => {
+    const st = get();
+    return {
+      id, name,
+      skuId: st.skuId, size: st.size,
+      client: st.client, orderRef: st.orderRef, status: st.status,
+      placements: st.placements, assets: st.assets, savedAt: Date.now(),
+    };
+  },
+  restore: (s) => {
+    const sku = get().catalog?.skus.find((x) => x.id === s.skuId);
+    set({
+      skuId: s.skuId,
+      size: s.size,
+      viewId: sku?.views[0]?.id ?? null,
+      assets: s.assets,
+      placements: s.placements,
+      client: s.client,
+      orderRef: s.orderRef,
+      status: s.status,
+      selectedPlacementId: null,
+    });
+  },
 
   currentSku: () => {
     const { catalog, skuId } = get();
