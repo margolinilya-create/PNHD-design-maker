@@ -10,9 +10,8 @@ import {
   isCloud,
   type ProjectSnapshot,
 } from "@/lib/persistence/projects";
-import { loadAsset } from "@/lib/catalog/loadAsset";
+import { useAddArtwork } from "@/lib/hooks/useAddArtwork";
 import {
-  viewZone,
   placementInfo,
   printAreasForSize,
   presetPosition,
@@ -37,8 +36,7 @@ export function SidePanel() {
   const status = useProjectStore((s) => s.status);
 
   const selectSize = useProjectStore((s) => s.selectSize);
-  const addAsset = useProjectStore((s) => s.addAsset);
-  const addPlacement = useProjectStore((s) => s.addPlacement);
+  const addArtwork = useAddArtwork();
   const removePlacement = useProjectStore((s) => s.removePlacement);
   const updatePlacement = useProjectStore((s) => s.updatePlacement);
   const selectPlacement = useProjectStore((s) => s.selectPlacement);
@@ -119,36 +117,7 @@ export function SidePanel() {
 
   const onUpload = async (file: File) => {
     if (!view) return;
-    const loaded = await loadAsset(file);
-    const assetId = addAsset({
-      type: loaded.type,
-      source_file: loaded.source_file,
-      data_url: loaded.dataUrl,
-      intrinsic_size_mm: loaded.intrinsic_size_mm,
-      // Пиксельные размеры — для расчёта DPI печати.
-      px_width: loaded.naturalWidth,
-      px_height: loaded.naturalHeight,
-      dpi: loaded.dpi,
-      // Признак «размер оценочно» (для подсказки уточнить Ш×В).
-      size_estimated: loaded.size_estimated,
-    });
-    const areaId = activeAreaId ?? view.print_areas[0].id;
-    const { zone } = viewZone(view, size ?? undefined, areaId);
-    // Вписываем макет в зону, сохраняя пропорции.
-    const maxW = zone.zw * 0.7;
-    const aspect =
-      loaded.intrinsic_size_mm.height / loaded.intrinsic_size_mm.width || 1;
-    const w = Math.min(loaded.intrinsic_size_mm.width, maxW);
-    const h = w * aspect;
-    addPlacement({
-      print_area_id: areaId,
-      asset_id: assetId,
-      x_mm: zone.zx + (zone.zw - w) / 2,
-      y_mm: zone.zy + (zone.zh - h) / 2,
-      width_mm: w,
-      height_mm: h,
-      rotation_deg: 0,
-    });
+    await addArtwork(file, { areaId: activeAreaId ?? undefined });
   };
 
   const onExport = async () => {
