@@ -20,6 +20,34 @@ function CanvasLoading() {
   );
 }
 
+function UndoRedo() {
+  const undo = useProjectStore((s) => s.undo);
+  const redo = useProjectStore((s) => s.redo);
+  const canUndo = useProjectStore((s) => s.past.length > 0);
+  const canRedo = useProjectStore((s) => s.future.length > 0);
+  const btn = "rounded px-2 py-1 text-sm disabled:opacity-30";
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={undo}
+        disabled={!canUndo}
+        title="Отменить (Ctrl+Z)"
+        className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}
+      >
+        ↶
+      </button>
+      <button
+        onClick={redo}
+        disabled={!canRedo}
+        title="Повторить (Ctrl+Shift+Z)"
+        className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}
+      >
+        ↷
+      </button>
+    </div>
+  );
+}
+
 export default function EditorPage() {
   const sku = useProjectStore((s) => s.currentSku());
 
@@ -44,6 +72,7 @@ export default function EditorPage() {
           <span className="text-sm font-semibold">{sku.name}</span>
           <ViewTabs />
         </div>
+        <UndoRedo />
       </header>
       <div className="flex min-h-0 flex-1">
         <main className="relative min-w-0 flex-1 bg-neutral-950">
