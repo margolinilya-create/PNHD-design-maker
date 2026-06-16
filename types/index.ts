@@ -38,8 +38,10 @@ export interface PrintArea {
 export interface View {
   id: string;
   kind: ViewKind;
-  /** Путь к SVG-флэту вида (в public/). */
+  /** Путь к SVG-флэту вида (базовый размер). */
   flat_svg: string;
+  /** Per-size флэты (фоллбэк на `flat_svg`). Ключ — размер из SKU.sizes. */
+  size_flats?: Record<string, string>;
   /** Коэффициент перевода единиц SVG в мм (1 = 1 unit → 1 мм). */
   scale_mm_per_unit: number;
   anchors: ViewAnchors;

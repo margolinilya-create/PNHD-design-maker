@@ -16,6 +16,7 @@ import {
   placementInfo,
   printAreasForSize,
   presetPosition,
+  flatForSize,
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
@@ -161,7 +162,7 @@ export function SidePanel() {
       }
       const scenes: string[] = [];
       for (const v of target) {
-        const markup = await resolveFlatMarkup(v.flat_svg);
+        const markup = await resolveFlatMarkup(flatForSize(v, size ?? undefined));
         // Габариты viewBox — в единицах SVG; переводим в мм через scale_mm_per_unit.
         const raw = svgSizeMm(markup);
         const s = v.scale_mm_per_unit ?? 1;

@@ -24,80 +24,76 @@ def main(dxf):
     blocks = parse_blocks(read_pairs(dxf))
     base_label = dict(SIZES)[BASE]
 
-    # Базовые детали (для флэта и центральных осей).
-    bf = process_piece(blocks, "Pered", base_label)
-    bb = process_piece(blocks, "Spinka", base_label)
-    bs = process_piece(blocks, "Rukav", base_label)
-    front_cx, back_cx, sleeve_cx = bf["cx"], bb["cx"], bs["cx"]
-
     os.makedirs(FLATS, exist_ok=True)
-    open(os.path.join(FLATS, "freefit-front.svg"), "w").write(bf["svg"])
-    open(os.path.join(FLATS, "freefit-back.svg"), "w").write(bb["svg"])
-    open(os.path.join(FLATS, "freefit-sleeve.svg"), "w").write(bs["svg"])
 
-    # Per-size детали (геометрия каждого размера).
-    def size_pieces(piece, cx):
-        out = {}
+    # Per-size детали: КАЖДАЯ ростовка в своей системе координат (без force_center),
+    # пишем per-size флэт-файл. Возвращаем {tok: piece} и {tok: путь к флэту}.
+    def size_pieces(piece, slug):
+        out, flats = {}, {}
         for tok, label in SIZES:
-            r = process_piece(blocks, piece, label, force_center=cx)
-            if r:
-                out[tok] = r
-        return out
+            r = process_piece(blocks, piece, label)
+            if not r:
+                continue
+            out[tok] = r
+            fn = f"freefit-{slug}-{tok}.svg"
+            open(os.path.join(FLATS, fn), "w").write(r["svg"])
+            flats[tok] = f"/seed/flats/{fn}"
+        return out, flats
 
-    sp_front = size_pieces("Pered", front_cx)
-    sp_back = size_pieces("Spinka", back_cx)
-    sp_sleeve = size_pieces("Rukav", sleeve_cx)
+    sp_front, sf_front = size_pieces("Pered", "front")
+    sp_back, sf_back = size_pieces("Spinka", "back")
+    sp_sleeve, sf_sleeve = size_pieces("Rukav", "sleeve")
+    bf, bb, bs = sp_front[BASE], sp_back[BASE], sp_sleeve[BASE]
     sa_front = {t: r["anchors"] for t, r in sp_front.items()}
     sa_back = {t: r["anchors"] for t, r in sp_back.items()}
     sa_sleeve = {t: r["anchors"] for t, r in sp_sleeve.items()}
+
+    # Базовые флэты (фоллбэк) = флэт базового размера.
+    open(os.path.join(FLATS, "freefit-front.svg"), "w").write(bf["svg"])
+    open(os.path.join(FLATS, "freefit-back.svg"), "w").write(bb["svg"])
+    open(os.path.join(FLATS, "freefit-sleeve.svg"), "w").write(bs["svg"])
 
     def rect(x, y, w, h):
         return [[round(x, 1), round(y, 1)], [round(x + w, 1), round(y, 1)],
                 [round(x + w, 1), round(y + h, 1)], [round(x, 1), round(y + h, 1)]]
 
-    # Базовые зоны (провизорные, в мм; уточняются в редакторе).
-    chest = rect(front_cx - 140, bf["neckline_y"] + 80, 280, 360)
-    back_zone = rect(back_cx - 150, bb["neckline_y"] + 90, 300, 400)
-    sl_zone = rect(sleeve_cx - 75, bs["h"] * 0.22, 150, 95)
+    # Базовые зоны (центр — ось базового размера; в мм, провизорные).
+    chest = rect(bf["cx"] - 140, bf["neckline_y"] + 80, 280, 360)
+    back_zone = rect(bb["cx"] - 150, bb["neckline_y"] + 90, 300, 400)
+    sl_zone = rect(bs["cx"] - 75, bs["h"] * 0.22, 150, 95)
 
-    # Per-size зоны: ширина/высота масштабируются по габаритам детали размера,
-    # верх привязан к горловине размера (центр — константа).
-    def front_back_zones(base_piece, sp, cx, zw, zh, top_off, area_id, area_name):
+    # Per-size зоны: центр — ось КАЖДОГО размера, масштаб по габаритам детали.
+    def front_back_zones(base_piece, sp, zw, zh, top_off, area_id, area_name):
         out = {}
         for tok, r in sp.items():
             sw = zw * (r["w"] / base_piece["w"])
             sh = zh * (r["h"] / base_piece["h"])
-            top = r["neckline_y"] + top_off
             out[tok] = [{"id": area_id, "name": area_name,
-                         "polygon_mm": rect(cx - sw / 2, top, sw, sh),
+                         "polygon_mm": rect(r["cx"] - sw / 2, r["neckline_y"] + top_off, sw, sh),
                          "safe_inset_mm": 20}]
         return out
 
-    def sleeve_zones(base_piece, sp, cx, zw, zh):
+    def sleeve_zones(base_piece, sp, zw, zh):
         out = {}
         for tok, r in sp.items():
             sw = zw * (r["w"] / base_piece["w"])
             sh = zh * (r["h"] / base_piece["h"])
             out[tok] = [{"id": "sleeve", "name": "Рукав",
-                         "polygon_mm": rect(cx - sw / 2, r["h"] * 0.22, sw, sh),
+                         "polygon_mm": rect(r["cx"] - sw / 2, r["h"] * 0.22, sw, sh),
                          "safe_inset_mm": 12}]
         return out
 
-    spa_front = front_back_zones(bf, sp_front, front_cx, 280, 360, 80, "chest", "Грудь")
-    spa_back = front_back_zones(bb, sp_back, back_cx, 300, 400, 90, "back", "Спина")
-    spa_sleeve = sleeve_zones(bs, sp_sleeve, sleeve_cx, 150, 95)
+    spa_front = front_back_zones(bf, sp_front, 280, 360, 80, "chest", "Грудь")
+    spa_back = front_back_zones(bb, sp_back, 300, 400, 90, "back", "Спина")
+    spa_sleeve = sleeve_zones(bs, sp_sleeve, 150, 95)
 
-    # Этикетка на спине (демо мультизоны): малая зона под горловиной.
-    back_label = rect(back_cx - 40, bb["neckline_y"] + 12, 80, 35)
-    spa_back_label = {}
+    # Этикетка на спине (демо мультизоны): малая зона под горловиной каждого размера.
+    back_label = rect(bb["cx"] - 40, bb["neckline_y"] + 12, 80, 35)
     for tok, r in sp_back.items():
         lw = 80 * (r["w"] / bb["w"])
-        spa_back_label[tok] = {"id": "label", "name": "Этикетка",
-                               "polygon_mm": rect(back_cx - lw / 2, r["neckline_y"] + 12, lw, 35),
-                               "safe_inset_mm": 6}
-    # Объединяем зоны спины: [спина, этикетка] на каждый размер.
-    for tok in spa_back:
-        spa_back[tok] = [spa_back[tok][0], spa_back_label[tok]]
+        spa_back[tok] = [spa_back[tok][0], {"id": "label", "name": "Этикетка",
+                         "polygon_mm": rect(r["cx"] - lw / 2, r["neckline_y"] + 12, lw, 35),
+                         "safe_inset_mm": 6}]
 
     sizes = [t for t, _ in SIZES]
     sku = {
@@ -110,6 +106,7 @@ def main(dxf):
             {
                 "id": "freefit-front", "kind": "front",
                 "flat_svg": "/seed/flats/freefit-front.svg",
+                "size_flats": sf_front,
                 "scale_mm_per_unit": 1,
                 "anchors": bf["anchors"], "size_anchors": sa_front,
                 "print_areas": [{"id": "chest", "name": "Грудь",
@@ -119,6 +116,7 @@ def main(dxf):
             {
                 "id": "freefit-back", "kind": "back",
                 "flat_svg": "/seed/flats/freefit-back.svg",
+                "size_flats": sf_back,
                 "scale_mm_per_unit": 1,
                 "anchors": bb["anchors"], "size_anchors": sa_back,
                 "print_areas": [
@@ -132,6 +130,7 @@ def main(dxf):
             {
                 "id": "freefit-sleeve-left", "kind": "sleeve_left",
                 "flat_svg": "/seed/flats/freefit-sleeve.svg",
+                "size_flats": sf_sleeve,
                 "scale_mm_per_unit": 1,
                 "anchors": bs["anchors"], "size_anchors": sa_sleeve,
                 "print_areas": [{"id": "sleeve", "name": "Рукав",
@@ -141,6 +140,7 @@ def main(dxf):
             {
                 "id": "freefit-sleeve-right", "kind": "sleeve_right",
                 "flat_svg": "/seed/flats/freefit-sleeve.svg",
+                "size_flats": sf_sleeve,
                 "scale_mm_per_unit": 1,
                 "anchors": bs["anchors"], "size_anchors": sa_sleeve,
                 "print_areas": [{"id": "sleeve", "name": "Рукав",
@@ -155,12 +155,9 @@ def main(dxf):
     cat["skus"].append(sku)
     json.dump(cat, open(SKUS, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
-    print(f"front: {bf['w']}×{bf['h']} мм, neckline_y={bf['neckline_y']}, cx={front_cx}")
-    print(f"back:  {bb['w']}×{bb['h']} мм, neckline_y={bb['neckline_y']}, cx={back_cx}")
-    print(f"sleeve:{bs['w']}×{bs['h']} мм, bottom_y={bs['h']}, cx={sleeve_cx}")
-    print(f"front neckline_y по размерам: "
-          + ", ".join(f"{t}={sa_front[t]['neckline_point']['y']}" for t in sizes))
-    print(f"добавлен SKU tshirt-freefit; флэты в public/seed/flats/")
+    print(f"front base: {bf['w']}×{bf['h']} мм cx={bf['cx']}; per-size флэты: {len(sf_front)}")
+    print(f"front w по размерам: " + ", ".join(f"{t}={sp_front[t]['w']}" for t in sizes))
+    print(f"добавлен SKU tshirt-freefit; per-size флэты в public/seed/flats/")
 
 
 if __name__ == "__main__":
