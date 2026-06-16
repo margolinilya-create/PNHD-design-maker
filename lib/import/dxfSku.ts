@@ -2,6 +2,7 @@
 // и зоны. TS-порт scripts/dxf_build_sku.py.
 import type { SKU, View, ViewKind, PrintArea, ViewAnchors, GarmentType } from "@/types";
 import { parseDxf, processPiece, type PieceRef, type ProcessedPiece } from "./dxf";
+import { svgToDataUrl } from "@/lib/export/flatMarkup";
 
 type Parsed = ReturnType<typeof parseDxf>;
 
@@ -14,9 +15,7 @@ function sortSizes(tokens: string[]): string[] {
   );
 }
 
-function dataUrl(svg: string): string {
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-}
+const dataUrl = svgToDataUrl;
 
 function rect(x: number, y: number, w: number, h: number): [number, number][] {
   return [

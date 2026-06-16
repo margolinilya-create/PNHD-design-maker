@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin/flatDraft";
 import { parseDxf, processPiece, type PieceRef } from "@/lib/import/dxf";
 import { buildSkuFromDxf } from "@/lib/import/dxfSku";
+import { svgToDataUrl } from "@/lib/export/flatMarkup";
 import type { GarmentType, ViewKind, BaseSize } from "@/types";
 
 const FlatEditorCanvas = dynamic(
@@ -46,7 +47,7 @@ function defaultDraft(dataUrl: string, wMm: number, hMm: number): FlatDraft {
 }
 
 function draftFromPiece(ref: PieceRef, r: ReturnType<typeof processPiece>): FlatDraft {
-  const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(r.svg)}`;
+  const dataUrl = svgToDataUrl(r.svg);
   const kind: ViewKind = r.kind === "label" ? "front" : r.kind;
   const sizeTok = ref.size.split("-")[0];
   const base: BaseSize = sizeTok.toUpperCase() === "L" ? "L" : "M";

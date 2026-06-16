@@ -13,6 +13,7 @@ import {
 import { printQuality } from "@/lib/catalog/dpi";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
+import { resolveFlatMarkup } from "@/lib/export/flatMarkup";
 import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
@@ -110,7 +111,7 @@ export function SidePanel() {
       }
       const scenes: string[] = [];
       for (const v of target) {
-        const markup = await fetch(v.flat_svg).then((r) => r.text());
+        const markup = await resolveFlatMarkup(v.flat_svg);
         // Габариты viewBox — в единицах SVG; переводим в мм через scale_mm_per_unit.
         const raw = svgSizeMm(markup);
         const s = v.scale_mm_per_unit ?? 1;
