@@ -1,7 +1,7 @@
 // Композиция итоговой сцены в ЕДИНЫЙ SVG (скил vector-pdf-export).
 // Флэт + макеты + размерная обвязка + подписи + рамка проекта. Масштаб 1:1 в мм.
 import type { Asset, Placement, SKU, View } from "@/types";
-import { placementInfo, anchorsForSize } from "@/lib/geometry/view";
+import { placementInfo, anchorsForSize, viewZone } from "@/lib/geometry/view";
 
 export interface SceneInput {
   sku: SKU;
@@ -82,17 +82,25 @@ export function buildSceneSvg(input: SceneInput): string {
   const W = Math.max(flatMm.w, 240);
   const H = flatMm.h + FRAME_H;
 
+  // Маскирование макета по его печатной зоне (как на холсте).
+  const clipDefs = placements
+    .map((p, i) => {
+      const { zone } = viewZone(view, meta.size, p.print_area_id);
+      return `<clipPath id="clip-${i}"><rect x="${zone.zx}" y="${zone.zy}" width="${zone.zw}" height="${zone.zh}"/></clipPath>`;
+    })
+    .join("\n    ");
+
   const placementSvg = placements
-    .map((p) => {
+    .map((p, i) => {
       const asset = assets[p.asset_id];
       if (!asset?.data_url) return "";
       const cx = p.x_mm + p.width_mm / 2;
       const cy = p.y_mm + p.height_mm / 2;
       // href + xlink:href (то же значение) для надёжной вставки в разных рендерах; значение экранируем.
       const hrefVal = escAttr(asset.data_url);
-      return `<g transform="rotate(${p.rotation_deg} ${cx} ${cy})">
+      return `<g clip-path="url(#clip-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy})">
         <image href="${hrefVal}" xlink:href="${hrefVal}" x="${p.x_mm}" y="${p.y_mm}" width="${p.width_mm}" height="${p.height_mm}" preserveAspectRatio="none"/>
-      </g>`;
+      </g></g>`;
     })
     .join("\n");
 
@@ -103,6 +111,7 @@ export function buildSceneSvg(input: SceneInput): string {
         { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
         p.rotation_deg,
         input.meta.size,
+        p.print_area_id,
       );
       const { aabb, zone, dimensions: d, anchor } = info;
       const midX = aabb.x + aabb.w / 2;
@@ -146,6 +155,7 @@ export function buildSceneSvg(input: SceneInput): string {
     <marker id="arr" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
       <path d="M0,4 L8,1 L8,7 Z" fill="#444"/>
     </marker>
+    ${clipDefs}
   </defs>
   <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
   <g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(input.flatSvgMarkup)}</g>

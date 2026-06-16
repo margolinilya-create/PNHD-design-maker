@@ -594,28 +594,62 @@ function PlacementNode({
         { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
         p.rotation_deg,
         garmentSize ?? undefined,
+        p.print_area_id,
       ),
-    [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, garmentSize],
+    [
+      view,
+      p.x_mm,
+      p.y_mm,
+      p.width_mm,
+      p.height_mm,
+      p.rotation_deg,
+      p.print_area_id,
+      garmentSize,
+    ],
   );
   const out = info.check.out_of_zone;
+  const zone = info.zone;
 
   return (
-    <KImage
-      ref={registerRef}
-      image={img ?? undefined}
-      x={t.px(p.x_mm)}
-      y={t.py(p.y_mm)}
-      width={t.s(p.width_mm)}
-      height={t.s(p.height_mm)}
-      rotation={p.rotation_deg}
-      draggable={interactive}
-      stroke={out ? "#ff5a5f" : selected ? "#4f8cff" : undefined}
-      strokeWidth={out || selected ? 1.5 : 0}
-      onMouseDown={interactive ? onSelect : undefined}
-      onTap={interactive ? onSelect : undefined}
-      onDragEnd={(e) => onDragEnd(p, e.target as Konva.Image)}
-      onTransformEnd={(e) => onTransformEnd(p, e.target as Konva.Image)}
-    />
+    <>
+      {/* Маскирование по печатной зоне: всё вне зоны визуально обрезается. */}
+      <Group
+        clipX={t.px(zone.zx)}
+        clipY={t.py(zone.zy)}
+        clipWidth={t.s(zone.zw)}
+        clipHeight={t.s(zone.zh)}
+      >
+        <KImage
+          ref={registerRef}
+          image={img ?? undefined}
+          x={t.px(p.x_mm)}
+          y={t.py(p.y_mm)}
+          width={t.s(p.width_mm)}
+          height={t.s(p.height_mm)}
+          rotation={p.rotation_deg}
+          draggable={interactive}
+          stroke={selected ? "#4f8cff" : undefined}
+          strokeWidth={selected ? 1.5 : 0}
+          onMouseDown={interactive ? onSelect : undefined}
+          onTap={interactive ? onSelect : undefined}
+          onDragEnd={(e) => onDragEnd(p, e.target as Konva.Image)}
+          onTransformEnd={(e) => onTransformEnd(p, e.target as Konva.Image)}
+        />
+      </Group>
+      {/* Предупреждение: при выходе за зону подсвечиваем её красным. */}
+      {out && (
+        <Rect
+          x={t.px(zone.zx)}
+          y={t.py(zone.zy)}
+          width={t.s(zone.zw)}
+          height={t.s(zone.zh)}
+          stroke="#ff5a5f"
+          strokeWidth={2}
+          dash={[6, 4]}
+          listening={false}
+        />
+      )}
+    </>
   );
 }
 
@@ -825,6 +859,7 @@ function DimensionOverlay({
     { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
     p.rotation_deg,
     garmentSize ?? undefined,
+    p.print_area_id,
   );
   const { aabb, zone, dimensions: d, anchor } = info;
   const midX = aabb.x + aabb.w / 2;

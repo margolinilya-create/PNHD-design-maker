@@ -18,6 +18,8 @@ import {
   regradePosition,
   anchorsForSize,
   viewZone,
+  findPrintArea,
+  presetPosition,
 } from "./view";
 
 // Эталон из seed: перед tshirt-classic.
@@ -281,6 +283,52 @@ describe("viewZone — per-size зоны печати", () => {
   });
   it("без размера — базовая", () => {
     expect(viewZone(v).zone.zw).toBe(300);
+  });
+});
+
+describe("мультизона + пресеты позиции", () => {
+  const chest = {
+    id: "chest", name: "Грудь",
+    polygon_mm: [[150, 140], [450, 140], [450, 540], [150, 540]] as [number, number][],
+    safe_inset_mm: 15,
+  };
+  const label = {
+    id: "label", name: "Этикетка",
+    polygon_mm: [[260, 90], [340, 90], [340, 120], [260, 120]] as [number, number][],
+    safe_inset_mm: 5,
+  };
+  const v = {
+    kind: "front",
+    anchors: { neckline_point: { x: 300, y: 92 }, center_axis_x: 300 },
+    print_areas: [chest, label],
+  } as unknown as import("@/types").View;
+
+  it("findPrintArea выбирает зону по id, иначе первую", () => {
+    expect(findPrintArea(v, "label").id).toBe("label");
+    expect(findPrintArea(v, "нет").id).toBe("chest");
+    expect(findPrintArea(v).id).toBe("chest");
+  });
+
+  it("viewZone по areaId даёт нужную зону", () => {
+    expect(viewZone(v, undefined, "label").zone.zw).toBe(80);
+    expect(viewZone(v, undefined, "chest").zone.zw).toBe(300);
+  });
+
+  it("пресет center-x центрирует по оси изделия", () => {
+    const r = presetPosition(v, { x: 0, y: 200, w: 100, h: 80 }, "center-x");
+    expect(r.x_mm).toBe(250); // 300 − 100/2
+    expect(r.y_mm).toBe(200); // y не трогаем
+  });
+
+  it("пресет top прижимает к верху зоны с safe-inset", () => {
+    const r = presetPosition(v, { x: 200, y: 300, w: 100, h: 80 }, "top", undefined, "chest");
+    expect(r.y_mm).toBe(155); // zone.zy 140 + safe 15
+  });
+
+  it("пресет center-zone центрирует в зоне (этикетка)", () => {
+    const r = presetPosition(v, { x: 0, y: 0, w: 40, h: 20 }, "center-zone", undefined, "label");
+    expect(r.x_mm).toBe(280); // ось 300 − 40/2
+    expect(r.y_mm).toBe(95); // 90 + (30−20)/2
   });
 });
 
