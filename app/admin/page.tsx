@@ -10,6 +10,7 @@ import {
   saveDraftSku,
   type FlatDraft,
 } from "@/lib/admin/flatDraft";
+import { parseDxf, processPiece, type PieceRef } from "@/lib/import/dxf";
 import type { GarmentType, ViewKind, BaseSize } from "@/types";
 
 const FlatEditorCanvas = dynamic(
@@ -43,10 +44,34 @@ function defaultDraft(dataUrl: string, wMm: number, hMm: number): FlatDraft {
   };
 }
 
+function draftFromPiece(ref: PieceRef, r: ReturnType<typeof processPiece>): FlatDraft {
+  const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(r.svg)}`;
+  const kind: ViewKind = r.kind === "label" ? "front" : r.kind;
+  const sizeTok = ref.size.split("-")[0];
+  const base: BaseSize = sizeTok.toUpperCase() === "L" ? "L" : "M";
+  const d = defaultDraft(dataUrl, r.wMm, r.hMm);
+  return {
+    ...d,
+    skuId: `freefit-${kind}-${sizeTok}`.toLowerCase(),
+    skuName: `${ref.piece} (${ref.size})`,
+    baseSize: base,
+    viewKind: kind,
+    scaleMmPerUnit: 1,
+    neckline: r.anchors.neckline_point ?? { x: r.cx, y: r.necklineY ?? 0 },
+    centerAxisX: r.anchors.center_axis_x ?? r.cx,
+    sleeveBottomY: r.anchors.sleeve_bottom_y ?? r.hMm,
+    sleeveCenterX: r.anchors.sleeve_center_x ?? r.cx,
+  };
+}
+
 export default function AdminPage() {
   const [draft, setDraft] = useState<FlatDraft | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dxfRef = useRef<HTMLInputElement>(null);
+  const [dxf, setDxf] = useState<ReturnType<typeof parseDxf> | null>(null);
+  const [pieceSel, setPieceSel] = useState("");
+  const [sizeSel, setSizeSel] = useState("");
 
   const patch = (p: Partial<FlatDraft>) =>
     setDraft((d) => (d ? { ...d, ...p } : d));
@@ -56,6 +81,31 @@ export default function AdminPage() {
     const w = loaded.intrinsic_size_mm.width;
     const h = loaded.intrinsic_size_mm.height;
     setDraft(defaultDraft(loaded.dataUrl, w, h));
+    setSaved(null);
+  };
+
+  const onDxf = async (file: File) => {
+    const text = await file.text();
+    const parsed = parseDxf(text);
+    setDxf(parsed);
+    setPieceSel(parsed.pieces[0]?.piece ?? "");
+    setSizeSel(parsed.pieces[0]?.size ?? "");
+  };
+
+  const dxfPieces = useMemo(
+    () => Array.from(new Set((dxf?.pieces ?? []).map((p) => p.piece))),
+    [dxf],
+  );
+  const dxfSizes = useMemo(
+    () => Array.from(new Set((dxf?.pieces ?? []).map((p) => p.size))),
+    [dxf],
+  );
+
+  const createFromDxf = () => {
+    if (!dxf) return;
+    const ref = dxf.pieces.find((p) => p.piece === pieceSel && p.size === sizeSel);
+    if (!ref) return;
+    setDraft(draftFromPiece(ref, processPiece(dxf.blocks, ref)));
     setSaved(null);
   };
 
@@ -100,13 +150,64 @@ export default function AdminPage() {
             e.target.value = "";
           }}
         />
+        <input
+          ref={dxfRef}
+          type="file"
+          accept=".dxf"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onDxf(f);
+            e.target.value = "";
+          }}
+        />
+        <button
+          onClick={() => dxfRef.current?.click()}
+          className="ml-auto rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-blue-500 hover:bg-neutral-900"
+        >
+          Импорт DXF
+        </button>
         <button
           onClick={() => fileRef.current?.click()}
-          className="ml-auto rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+          className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
         >
           Загрузить флэт (SVG/PNG)
         </button>
       </header>
+
+      {dxf && (
+        <div className="flex flex-wrap items-end gap-2 border-b border-neutral-800 bg-neutral-900/60 px-4 py-2 text-sm">
+          <span className="text-xs text-neutral-400">
+            DXF: {dxf.pieces.length} деталей
+          </span>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-neutral-500">Деталь</span>
+            <select value={pieceSel} onChange={(e) => setPieceSel(e.target.value)} className={inp}>
+              {dxfPieces.map((p) => (
+                <option key={p} value={p}>
+                  {p.replace(/^.*Futbolka_/, "")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-0.5">
+            <span className="text-xs text-neutral-500">Размер</span>
+            <select value={sizeSel} onChange={(e) => setSizeSel(e.target.value)} className={inp}>
+              {dxfSizes.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            onClick={createFromDxf}
+            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+          >
+            Создать черновик из детали
+          </button>
+        </div>
+      )}
 
       {!draft ? (
         <div className="flex flex-1 items-center justify-center text-neutral-500">
