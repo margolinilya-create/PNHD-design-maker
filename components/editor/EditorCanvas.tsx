@@ -9,6 +9,7 @@ import {
   Image as KImage,
   Line,
   Rect,
+  Circle,
   Transformer,
   Arrow,
   Text,
@@ -43,6 +44,11 @@ export function EditorCanvas() {
   // Экранный zoom/pan держим ОТДЕЛЬНО от pxPerMM (метрика мм неизменна).
   const [stageScale, setStageScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+
+  // Проверка точности лекала: режим линейки и оверлей якорей/линеек.
+  const [mode, setMode] = useState<"select" | "measure">("select");
+  const [measurePts, setMeasurePts] = useState<{ x: number; y: number }[]>([]);
+  const [showCheck, setShowCheck] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -106,10 +112,17 @@ export function EditorCanvas() {
   useEffect(() => {
     const tr = trRef.current;
     if (!tr) return;
-    const node = selectedId ? nodeRefs.current.get(selectedId) : null;
+    const node =
+      selectedId && mode === "select" ? nodeRefs.current.get(selectedId) : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selectedId, viewPlacements]);
+  }, [selectedId, viewPlacements, mode]);
+
+  // Сброс линейки при смене вида.
+  const viewId = view?.id;
+  useEffect(() => {
+    setMeasurePts([]);
+  }, [viewId]);
 
   if (!view) {
     return (
@@ -166,17 +179,48 @@ export function EditorCanvas() {
     });
   };
 
-  // Снятие выбора по клику на пустой фон (на onClick, не на mousedown —
-  // чтобы не конфликтовать с панорамой draggable-стейджа).
+  // Курсор экрана → мм (учитываем zoom/pan стейджа и метрику pxPerMM).
+  const pointerToMm = (): { x: number; y: number } | null => {
+    const stage = stageRef.current;
+    const pointer = stage?.getPointerPosition();
+    if (!stage || !pointer) return null;
+    const lx = (pointer.x - stagePos.x) / stageScale;
+    const ly = (pointer.y - stagePos.y) / stageScale;
+    return {
+      x: (lx - t.px(0)) / t.pxPerMM,
+      y: (ly - t.py(0)) / t.pxPerMM,
+    };
+  };
+
   const onStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    if (mode === "measure") {
+      const pt = pointerToMm();
+      if (!pt) return;
+      // 1-я точка ставит A, 2-я — B, 3-й клик начинает заново.
+      setMeasurePts((prev) => (prev.length >= 2 ? [pt] : [...prev, pt]));
+      return;
+    }
+    // Снятие выбора по клику на пустой фон (на onClick, не на mousedown —
+    // чтобы не конфликтовать с панорамой draggable-стейджа).
     if (e.target === e.target.getStage()) selectPlacement(null);
   };
+
+  // Дистанция линейки в мм (между двумя точками).
+  const measureDistMm =
+    measurePts.length === 2
+      ? Math.hypot(
+          measurePts[1].x - measurePts[0].x,
+          measurePts[1].y - measurePts[0].y,
+        )
+      : null;
 
   // Клавиатура: Delete/Backspace — удалить, Esc — снять выбор,
   // стрелки — сдвиг выбранного на 1 мм (Shift — 10 мм).
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Escape") {
       selectPlacement(null);
+      setMeasurePts([]);
+      if (mode === "measure") setMode("select");
       return;
     }
     if (!selectedId) return;
@@ -217,7 +261,7 @@ export function EditorCanvas() {
         scaleY={stageScale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable
+        draggable={mode === "select"}
         onWheel={onWheel}
         onClick={onStageClick}
         onDragEnd={(e) => {
@@ -260,6 +304,7 @@ export function EditorCanvas() {
               t={t}
               garmentSize={garmentSize}
               selected={p.id === selectedId}
+              interactive={mode === "select"}
               onSelect={() => selectPlacement(p.id)}
               registerRef={(n) => {
                 if (n) nodeRefs.current.set(p.id, n);
@@ -301,7 +346,57 @@ export function EditorCanvas() {
               );
             })()}
         </Layer>
+
+        {/* Слой 5 — проверка точности лекала: якоря/оси/линейки + линейка-измеритель */}
+        <Layer listening={false}>
+          {showCheck && (
+            <VerificationOverlay
+              view={view}
+              flatMm={flatMm}
+              t={t}
+              garmentSize={garmentSize}
+            />
+          )}
+          {measurePts.length > 0 && (
+            <MeasureOverlay
+              points={measurePts}
+              distMm={measureDistMm}
+              t={t}
+            />
+          )}
+        </Layer>
       </Stage>
+
+      {/* Тулбар проверки точности (поверх холста) */}
+      <div className="absolute left-3 top-3 flex gap-1.5">
+        <button
+          onClick={() => {
+            setShowCheck((v) => !v);
+          }}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
+            showCheck
+              ? "bg-blue-600 text-white"
+              : "bg-neutral-800/90 text-neutral-300 hover:bg-neutral-700"
+          }`}
+          title="Показать якоря, оси и краевые линейки лекала"
+        >
+          Проверка лекала
+        </button>
+        <button
+          onClick={() => {
+            setMode((m) => (m === "measure" ? "select" : "measure"));
+            setMeasurePts([]);
+          }}
+          className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
+            mode === "measure"
+              ? "bg-amber-500 text-black"
+              : "bg-neutral-800/90 text-neutral-300 hover:bg-neutral-700"
+          }`}
+          title="Линейка: кликните две точки на лекале, чтобы измерить в мм"
+        >
+          Линейка{measureDistMm != null ? ` · ${measureDistMm.toFixed(1)} мм` : ""}
+        </button>
+      </div>
 
       {/* Пустое состояние — мягкая подсказка поверх холста */}
       {isEmpty && (
@@ -405,6 +500,7 @@ function PlacementNode({
   t,
   garmentSize,
   selected,
+  interactive,
   onSelect,
   registerRef,
   onDragEnd,
@@ -415,6 +511,7 @@ function PlacementNode({
   t: Transform;
   garmentSize: string | null;
   selected: boolean;
+  interactive: boolean;
   onSelect: () => void;
   registerRef: (n: Konva.Image | null) => void;
   onDragEnd: (p: Placement, n: Konva.Image) => void;
@@ -443,14 +540,204 @@ function PlacementNode({
       width={t.s(p.width_mm)}
       height={t.s(p.height_mm)}
       rotation={p.rotation_deg}
-      draggable
+      draggable={interactive}
       stroke={out ? "#ff5a5f" : selected ? "#4f8cff" : undefined}
       strokeWidth={out || selected ? 1.5 : 0}
-      onMouseDown={onSelect}
-      onTap={onSelect}
+      onMouseDown={interactive ? onSelect : undefined}
+      onTap={interactive ? onSelect : undefined}
       onDragEnd={(e) => onDragEnd(p, e.target as Konva.Image)}
       onTransformEnd={(e) => onTransformEnd(p, e.target as Konva.Image)}
     />
+  );
+}
+
+/** Линейка-измеритель: две точки в мм + подпись дистанции. */
+function MeasureOverlay({
+  points,
+  distMm,
+  t,
+}: {
+  points: { x: number; y: number }[];
+  distMm: number | null;
+  t: Transform;
+}) {
+  const a = points[0];
+  const b = points[1];
+  const color = "#f59e0b";
+  return (
+    <>
+      {a && (
+        <Circle x={t.px(a.x)} y={t.py(a.y)} radius={3} fill={color} />
+      )}
+      {b && (
+        <Circle x={t.px(b.x)} y={t.py(b.y)} radius={3} fill={color} />
+      )}
+      {a && b && (
+        <>
+          <Line
+            points={[t.px(a.x), t.py(a.y), t.px(b.x), t.py(b.y)]}
+            stroke={color}
+            strokeWidth={1}
+            dash={[4, 3]}
+          />
+          {distMm != null &&
+            (() => {
+              const mx = t.px((a.x + b.x) / 2);
+              const my = t.py((a.y + b.y) / 2);
+              const text = `${distMm.toFixed(1)} мм`;
+              const w = text.length * 7 + 8;
+              return (
+                <Group>
+                  <Rect
+                    x={mx - w / 2}
+                    y={my - 18}
+                    width={w}
+                    height={15}
+                    cornerRadius={3}
+                    fill="rgba(15,18,24,0.8)"
+                  />
+                  <Text
+                    x={mx - w / 2}
+                    y={my - 15}
+                    width={w}
+                    align="center"
+                    text={text}
+                    fontSize={11}
+                    fontStyle="bold"
+                    fill={color}
+                  />
+                </Group>
+              );
+            })()}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Оверлей проверки лекала: якоря (горловина/центр/низ рукава), ось изделия
+ * и краевые линейки с тиками каждые 50 мм — для глаз-сверки импортированного лекала.
+ */
+function VerificationOverlay({
+  view,
+  flatMm,
+  t,
+  garmentSize,
+}: {
+  view: View;
+  flatMm: { w: number; h: number };
+  t: Transform;
+  garmentSize: string | null;
+}) {
+  const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
+  const isSleeve = view.kind === "sleeve_left" || view.kind === "sleeve_right";
+  const tickColor = "rgba(148,163,184,0.55)";
+  const step = 50;
+
+  // Краевые линейки: тики сверху (по X) и слева (по Y) с подписями.
+  const ticks: React.ReactNode[] = [];
+  for (let x = 0; x <= flatMm.w + 0.01; x += step) {
+    ticks.push(
+      <Line
+        key={`tx${x}`}
+        points={[t.px(x), t.py(0), t.px(x), t.py(0) - 6]}
+        stroke={tickColor}
+        strokeWidth={1}
+      />,
+    );
+    ticks.push(
+      <Text
+        key={`txl${x}`}
+        x={t.px(x) - 12}
+        y={t.py(0) - 18}
+        width={24}
+        align="center"
+        text={`${x}`}
+        fontSize={8}
+        fill="#94a3b8"
+      />,
+    );
+  }
+  for (let y = 0; y <= flatMm.h + 0.01; y += step) {
+    ticks.push(
+      <Line
+        key={`ty${y}`}
+        points={[t.px(0), t.py(y), t.px(0) - 6, t.py(y)]}
+        stroke={tickColor}
+        strokeWidth={1}
+      />,
+    );
+    ticks.push(
+      <Text
+        key={`tyl${y}`}
+        x={t.px(0) - 30}
+        y={t.py(y) - 4}
+        width={22}
+        align="right"
+        text={`${y}`}
+        fontSize={8}
+        fill="#94a3b8"
+      />,
+    );
+  }
+
+  return (
+    <>
+      {ticks}
+      {!isSleeve && a.center_axis_x != null && (
+        <Line
+          points={[t.px(a.center_axis_x), t.py(0), t.px(a.center_axis_x), t.py(flatMm.h)]}
+          stroke="#4f8cff"
+          strokeWidth={1}
+          dash={[4, 5]}
+          opacity={0.8}
+        />
+      )}
+      {!isSleeve && a.neckline_point && (
+        <>
+          <Circle
+            x={t.px(a.neckline_point.x)}
+            y={t.py(a.neckline_point.y)}
+            radius={4}
+            fill="#ff5a5f"
+          />
+          <Text
+            x={t.px(a.neckline_point.x) + 6}
+            y={t.py(a.neckline_point.y) - 5}
+            text="горловина"
+            fontSize={9}
+            fill="#ff8a8d"
+          />
+        </>
+      )}
+      {isSleeve && a.sleeve_bottom_y != null && (
+        <>
+          <Line
+            points={[t.px(0), t.py(a.sleeve_bottom_y), t.px(flatMm.w), t.py(a.sleeve_bottom_y)]}
+            stroke="#ff5a5f"
+            strokeWidth={1}
+            dash={[4, 4]}
+          />
+          <Text
+            x={t.px(4)}
+            y={t.py(a.sleeve_bottom_y) + 2}
+            text="низ рукава"
+            fontSize={9}
+            fill="#ff8a8d"
+          />
+        </>
+      )}
+      {isSleeve && a.sleeve_center_x != null && (
+        <Line
+          points={[t.px(a.sleeve_center_x), t.py(0), t.px(a.sleeve_center_x), t.py(flatMm.h)]}
+          stroke="#4f8cff"
+          strokeWidth={1}
+          dash={[4, 5]}
+          opacity={0.8}
+        />
+      )}
+    </>
   );
 }
 

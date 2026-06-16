@@ -51,6 +51,28 @@ function dimArrow(
     <text x="${mx}" y="${my - 3}" font-size="11" fill="${c}" text-anchor="middle">${esc(text)}</text>`;
 }
 
+/**
+ * Калибровочная шкала 100 мм с тиками (каждые 10 мм) — печатается на тех-листе.
+ * Приложив линейку, оператор подтверждает масштаб 1:1. Тег data-calibration-mm
+ * — для автотеста.
+ */
+function calibrationBar(x: number, y: number): string {
+  const LEN = 100; // мм
+  let ticks = "";
+  for (let i = 0; i <= 10; i++) {
+    const tx = x + i * 10;
+    const h = i % 5 === 0 ? 5 : 3;
+    ticks += `<line x1="${tx}" y1="${y}" x2="${tx}" y2="${y - h}" stroke="#111" stroke-width="0.5"/>`;
+  }
+  return `<g data-calibration-mm="${LEN}">
+    <text x="${x}" y="${y - 8}" font-size="8" fill="#666">контроль масштаба 1:1</text>
+    <line x1="${x}" y1="${y}" x2="${x + LEN}" y2="${y}" stroke="#111" stroke-width="0.75"/>
+    ${ticks}
+    <text x="${x}" y="${y + 9}" font-size="9" fill="#111">0</text>
+    <text x="${x + LEN}" y="${y + 9}" font-size="9" fill="#111" text-anchor="end">100 мм</text>
+  </g>`;
+}
+
 /** Собрать SVG сцены. Размеры страницы — в мм (1 unit = 1 мм). */
 export function buildSceneSvg(input: SceneInput): string {
   const { view, flatMm, placements, assets, sku, meta } = input;
@@ -128,5 +150,6 @@ export function buildSceneSvg(input: SceneInput): string {
   ${placementSvg}
   ${dimsSvg}
   ${frame}
+  ${calibrationBar(W - 110, flatMm.h + 50)}
 </svg>`;
 }
