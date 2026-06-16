@@ -5,7 +5,13 @@
       "name": "Футболка классическая",
       "type": "tshirt",
       "base_size": "L",
-      "sizes": ["S", "M", "L", "XL", "XXL"],
+      "sizes": [
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL"
+      ],
       "views": [
         {
           "id": "tshirt-classic-front",
@@ -13,25 +19,70 @@
           "flat_svg": "/seed/flats/tshirt-L-front.svg",
           "scale_mm_per_unit": 1,
           "anchors": {
-            "neckline_point": { "x": 300, "y": 92 },
+            "neckline_point": {
+              "x": 300,
+              "y": 92
+            },
             "center_axis_x": 300
           },
           "size_anchors": {
-            "S": { "neckline_point": { "x": 300, "y": 80 }, "center_axis_x": 300 },
-            "M": { "neckline_point": { "x": 300, "y": 86 }, "center_axis_x": 300 },
-            "L": { "neckline_point": { "x": 300, "y": 92 }, "center_axis_x": 300 },
-            "XL": { "neckline_point": { "x": 300, "y": 98 }, "center_axis_x": 300 },
-            "XXL": { "neckline_point": { "x": 300, "y": 104 }, "center_axis_x": 300 }
+            "S": {
+              "neckline_point": {
+                "x": 300,
+                "y": 80
+              },
+              "center_axis_x": 300
+            },
+            "M": {
+              "neckline_point": {
+                "x": 300,
+                "y": 86
+              },
+              "center_axis_x": 300
+            },
+            "L": {
+              "neckline_point": {
+                "x": 300,
+                "y": 92
+              },
+              "center_axis_x": 300
+            },
+            "XL": {
+              "neckline_point": {
+                "x": 300,
+                "y": 98
+              },
+              "center_axis_x": 300
+            },
+            "XXL": {
+              "neckline_point": {
+                "x": 300,
+                "y": 104
+              },
+              "center_axis_x": 300
+            }
           },
           "print_areas": [
             {
               "id": "chest",
               "name": "Грудь",
               "polygon_mm": [
-                [150, 140],
-                [450, 140],
-                [450, 540],
-                [150, 540]
+                [
+                  150,
+                  140
+                ],
+                [
+                  450,
+                  140
+                ],
+                [
+                  450,
+                  540
+                ],
+                [
+                  150,
+                  540
+                ]
               ],
               "safe_inset_mm": 15
             }
@@ -43,25 +94,70 @@
           "flat_svg": "/seed/flats/tshirt-L-back.svg",
           "scale_mm_per_unit": 1,
           "anchors": {
-            "neckline_point": { "x": 300, "y": 58 },
+            "neckline_point": {
+              "x": 300,
+              "y": 58
+            },
             "center_axis_x": 300
           },
           "size_anchors": {
-            "S": { "neckline_point": { "x": 300, "y": 46 }, "center_axis_x": 300 },
-            "M": { "neckline_point": { "x": 300, "y": 52 }, "center_axis_x": 300 },
-            "L": { "neckline_point": { "x": 300, "y": 58 }, "center_axis_x": 300 },
-            "XL": { "neckline_point": { "x": 300, "y": 64 }, "center_axis_x": 300 },
-            "XXL": { "neckline_point": { "x": 300, "y": 70 }, "center_axis_x": 300 }
+            "S": {
+              "neckline_point": {
+                "x": 300,
+                "y": 46
+              },
+              "center_axis_x": 300
+            },
+            "M": {
+              "neckline_point": {
+                "x": 300,
+                "y": 52
+              },
+              "center_axis_x": 300
+            },
+            "L": {
+              "neckline_point": {
+                "x": 300,
+                "y": 58
+              },
+              "center_axis_x": 300
+            },
+            "XL": {
+              "neckline_point": {
+                "x": 300,
+                "y": 64
+              },
+              "center_axis_x": 300
+            },
+            "XXL": {
+              "neckline_point": {
+                "x": 300,
+                "y": 70
+              },
+              "center_axis_x": 300
+            }
           },
           "print_areas": [
             {
               "id": "back",
               "name": "Спина",
               "polygon_mm": [
-                [140, 110],
-                [460, 110],
-                [460, 530],
-                [140, 530]
+                [
+                  140,
+                  110
+                ],
+                [
+                  460,
+                  110
+                ],
+                [
+                  460,
+                  530
+                ],
+                [
+                  140,
+                  530
+                ]
               ],
               "safe_inset_mm": 15
             }
@@ -77,23 +173,348 @@
             "sleeve_center_x": 120
           },
           "size_anchors": {
-            "S": { "sleeve_bottom_y": 170, "sleeve_center_x": 120 },
-            "M": { "sleeve_bottom_y": 175, "sleeve_center_x": 120 },
-            "L": { "sleeve_bottom_y": 180, "sleeve_center_x": 120 },
-            "XL": { "sleeve_bottom_y": 185, "sleeve_center_x": 120 },
-            "XXL": { "sleeve_bottom_y": 190, "sleeve_center_x": 120 }
+            "S": {
+              "sleeve_bottom_y": 170,
+              "sleeve_center_x": 120
+            },
+            "M": {
+              "sleeve_bottom_y": 175,
+              "sleeve_center_x": 120
+            },
+            "L": {
+              "sleeve_bottom_y": 180,
+              "sleeve_center_x": 120
+            },
+            "XL": {
+              "sleeve_bottom_y": 185,
+              "sleeve_center_x": 120
+            },
+            "XXL": {
+              "sleeve_bottom_y": 190,
+              "sleeve_center_x": 120
+            }
           },
           "print_areas": [
             {
               "id": "sleeve",
               "name": "Рукав",
               "polygon_mm": [
-                [60, 70],
-                [180, 70],
-                [180, 160],
-                [60, 160]
+                [
+                  60,
+                  70
+                ],
+                [
+                  180,
+                  70
+                ],
+                [
+                  180,
+                  160
+                ],
+                [
+                  60,
+                  160
+                ]
               ],
               "safe_inset_mm": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tshirt-freefit",
+      "name": "Футболка FreeFit (oversized)",
+      "type": "tshirt",
+      "base_size": "M",
+      "sizes": [
+        "2XS",
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "2XL",
+        "3XL",
+        "4XL"
+      ],
+      "views": [
+        {
+          "id": "freefit-front",
+          "kind": "front",
+          "flat_svg": "/seed/flats/freefit-front.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {
+            "neckline_point": {
+              "x": 307.5,
+              "y": 114.0
+            },
+            "center_axis_x": 307.5
+          },
+          "size_anchors": {
+            "2XS": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 108.5
+              },
+              "center_axis_x": 307.5
+            },
+            "XS": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 108.5
+              },
+              "center_axis_x": 307.5
+            },
+            "S": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 108.5
+              },
+              "center_axis_x": 307.5
+            },
+            "M": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 114.0
+              },
+              "center_axis_x": 307.5
+            },
+            "L": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 115.8
+              },
+              "center_axis_x": 307.5
+            },
+            "XL": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 117.6
+              },
+              "center_axis_x": 307.5
+            },
+            "2XL": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 119.4
+              },
+              "center_axis_x": 307.5
+            },
+            "3XL": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 121.2
+              },
+              "center_axis_x": 307.5
+            },
+            "4XL": {
+              "neckline_point": {
+                "x": 307.5,
+                "y": 123.2
+              },
+              "center_axis_x": 307.5
+            }
+          },
+          "print_areas": [
+            {
+              "id": "chest",
+              "name": "Грудь",
+              "polygon_mm": [
+                [
+                  167.5,
+                  194.0
+                ],
+                [
+                  447.5,
+                  194.0
+                ],
+                [
+                  447.5,
+                  554.0
+                ],
+                [
+                  167.5,
+                  554.0
+                ]
+              ],
+              "safe_inset_mm": 20
+            }
+          ]
+        },
+        {
+          "id": "freefit-back",
+          "kind": "back",
+          "flat_svg": "/seed/flats/freefit-back.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {
+            "neckline_point": {
+              "x": 306.5,
+              "y": 35.4
+            },
+            "center_axis_x": 306.5
+          },
+          "size_anchors": {
+            "2XS": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 33.7
+              },
+              "center_axis_x": 306.5
+            },
+            "XS": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 33.7
+              },
+              "center_axis_x": 306.5
+            },
+            "S": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 33.7
+              },
+              "center_axis_x": 306.5
+            },
+            "M": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 35.4
+              },
+              "center_axis_x": 306.5
+            },
+            "L": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 36.0
+              },
+              "center_axis_x": 306.5
+            },
+            "XL": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 36.6
+              },
+              "center_axis_x": 306.5
+            },
+            "2XL": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 37.1
+              },
+              "center_axis_x": 306.5
+            },
+            "3XL": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 37.7
+              },
+              "center_axis_x": 306.5
+            },
+            "4XL": {
+              "neckline_point": {
+                "x": 306.5,
+                "y": 38.3
+              },
+              "center_axis_x": 306.5
+            }
+          },
+          "print_areas": [
+            {
+              "id": "back",
+              "name": "Спина",
+              "polygon_mm": [
+                [
+                  156.5,
+                  125.4
+                ],
+                [
+                  456.5,
+                  125.4
+                ],
+                [
+                  456.5,
+                  525.4
+                ],
+                [
+                  156.5,
+                  525.4
+                ]
+              ],
+              "safe_inset_mm": 20
+            }
+          ]
+        },
+        {
+          "id": "freefit-sleeve-left",
+          "kind": "sleeve_left",
+          "flat_svg": "/seed/flats/freefit-sleeve.svg",
+          "scale_mm_per_unit": 1,
+          "anchors": {
+            "sleeve_bottom_y": 287.0,
+            "sleeve_center_x": 231.2
+          },
+          "size_anchors": {
+            "2XS": {
+              "sleeve_bottom_y": 251.0,
+              "sleeve_center_x": 213.6
+            },
+            "XS": {
+              "sleeve_bottom_y": 251.0,
+              "sleeve_center_x": 213.6
+            },
+            "S": {
+              "sleeve_bottom_y": 251.0,
+              "sleeve_center_x": 213.6
+            },
+            "M": {
+              "sleeve_bottom_y": 287.0,
+              "sleeve_center_x": 231.2
+            },
+            "L": {
+              "sleeve_bottom_y": 299.0,
+              "sleeve_center_x": 237.1
+            },
+            "XL": {
+              "sleeve_bottom_y": 311.0,
+              "sleeve_center_x": 243.1
+            },
+            "2XL": {
+              "sleeve_bottom_y": 323.0,
+              "sleeve_center_x": 249.0
+            },
+            "3XL": {
+              "sleeve_bottom_y": 335.0,
+              "sleeve_center_x": 254.9
+            },
+            "4XL": {
+              "sleeve_bottom_y": 347.0,
+              "sleeve_center_x": 260.9
+            }
+          },
+          "print_areas": [
+            {
+              "id": "sleeve",
+              "name": "Рукав",
+              "polygon_mm": [
+                [
+                  156.2,
+                  63.14
+                ],
+                [
+                  306.2,
+                  63.14
+                ],
+                [
+                  306.2,
+                  158.14
+                ],
+                [
+                  156.2,
+                  158.14
+                ]
+              ],
+              "safe_inset_mm": 12
             }
           ]
         }
