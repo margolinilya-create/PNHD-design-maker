@@ -53,6 +53,14 @@ export interface View {
   print_areas: PrintArea[];
   /** Per-size печатные зоны (фоллбэк на `print_areas`). Ключ — размер из SKU.sizes. */
   size_print_areas?: Record<string, PrintArea[]>;
+  /**
+   * Фото-мокап для клиентского превью: фото изделия + положение печатной зоны
+   * на фото (нормировано 0..1: левый-верх зоны + ширина; высота — по аспекту зоны).
+   */
+  mockup?: {
+    photo: string;
+    print: { x: number; y: number; w: number };
+  };
 }
 
 export interface SKU {
