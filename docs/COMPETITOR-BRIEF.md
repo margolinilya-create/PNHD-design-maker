@@ -29,8 +29,8 @@ POD (Printful, Printify, Gelato) задаёт **UX-планку размещен
 
 | Категория | Кто | Что берут как референс | Чего у них нет для нас |
 |---|---|---|---|
-| **A. POD mockup/design makers** | Printful Design Maker, Printify, Gelato, Gooten, Spreadshirt | UX размещения, печатные зоны front/back/sleeve, safe-zone, простота за 5 шагов | Точность (px, не мм), всё облачное, нет тех-чертежа/обвязки |
-| **B. Standalone mockup-генераторы** | Placeit, Smartmockups, Mediamodifier, Pacdora, Kittl, Dynamic Mockups, Mockey AI | Batch/API-генерация, smart objects, шаблонные библиотеки, AI | Чисто маркетинговая визуализация, ноль производственной логики |
+| **A. POD mockup/design makers** | Printful Design Maker, Printify Product Creator, Gelato, Gooten, Spreadshirt | UX размещения, печатные зоны front/back/sleeve, safe-zone, «дублировать на все зоны», Fit/Fill, флажки проблем до заказа | Точность (px/дюймы, не мм), всё облачное, нет тех-чертежа/обвязки |
+| **B. Standalone mockup-генераторы** | Placeit (Envato), ~~Smartmockups~~ (закрыт), Dynamic Mockups, Mediamodifier, Pacdora, Kittl, Mockey AI | Batch/API-генерация, PSD smart objects, Bulk Create, шаблонные библиотеки, AI | Чисто маркетинговая визуализация, ноль производственной логики |
 | **C. Web-to-print / product personalization** | Fancy Product Designer, Zakeke, InkXE, Customily, DecoNetwork, Pixelixe, Threekit | **DPI-валидация, печатные зоны/маски, method-aware вывод, print-ready файлы** | Покупательский конфигуратор, не цеховой инструмент; обвязки нет |
 | **D. Tech-pack / apparel PLM / CAD** | Techpacker, Backbone, CLO3D/CLO-SET, Browzwear, Gerber/Lectra, Optitex, Audaces, Tukatech | **Вычисляемая обвязка, POM-таблицы, grade-rules ΔX/ΔY, approval-workflow** | Тяжёлый pattern-CAD, не про печатные зоны мерча; дорого, сложно |
 | **E. Препресс / печать** | Kornit (Konnect/Apollo), Esko, InkSplit, T-Seps | Print-ready PDF, spot/Pantone, RIP-дружественный вывод, hotfolder | Это печать, не чертёж |
@@ -106,6 +106,16 @@ POD (Printful, Printify, Gelato) задаёт **UX-планку размещен
 | 25 | **Версионирование проекта** (история ревизий макета) | PLM-стандарт | **P2 отложить** | ☐ да ☐ нет ☐ потом |
 | 26 | Интеграции CRM/ERP/учёт заказов | — | **NO в core** (вынести в API #21, не строить внутри) | ☐ да ☐ нет ☐ потом |
 
+### 3.7 UX-ускорители из POD/standalone (категории A/B)
+
+| # | Функция | Источник-референс | Рекомендация | Вариант ответа |
+|---|---|---|---|---|
+| 32 | **Pre-export чеклист проблем** перед сохранением/PDF: low-DPI, нет прозрачного фона, выход за зону, нет привязки якоря — список с переходом к проблеме | Printful Design Maker (флажит low-res PNG / missing transparency до заказа) | **P1 внедрять** (агрегирует #2/#5 в один барьер качества) | ☐ да ☐ нет ☐ потом |
+| 33 | **Дублировать нанесение на все зоны/виды одним кликом** (грудь→спина→рукав), затем подправить | Printify Product Creator («duplicate design to all print areas») | **P2 внедрять** (дёшево, ускоряет мультинанесение) | ☐ да ☐ нет ☐ потом |
+| 34 | **Fit / Fill в зону** как быстрые действия (вписать целиком / заполнить зону), scale относительно исходного размера | Printify (Fit and Fill) | **P2 внедрять** (дополняет текущие пресеты позиции) | ☐ да ☐ нет ☐ потом |
+| 35 | **Превью вышивки** ≈ направление стежков / отдельный digitization-preview (мокап ≠ реальная вышивка) | Printify/Printful (digitization preview точнее мокапа) | **P2 отложить** (нишево; только если цех много вышивает) | ☐ да ☐ нет ☐ потом |
+| 36 | Маркетплейс-шаблоны дизайнов, AI-генерация артов, текст-эффекты, клипарт-библиотеки | Kittl, Placeit | **NO** (это инструмент дизайнера-маркетолога, не цеха) | ☐ да ☐ нет ☐ потом |
+
 ### 3.6 Что НЕ делаем (NO) — маркетинг/SaaS, не наш профиль
 
 | # | Функция | Почему нет |
@@ -146,11 +156,31 @@ POD (Printful, Printify, Gelato) задаёт **UX-планку размещен
 
 ---
 
+## 6a. Детализация категорий A и B (POD-мейкеры и standalone-мокапы)
+
+### POD-мейкеры (A) — что берём как UX-планку
+
+- **Printful Design Maker.** DPI: 150 — «sweet spot», 300 — для премиум-печати; для печати 12–16″ файл должен быть 3 600–4 800 px. Печатная зона t-shirt — до **12″×16″**, на части DTG — до **15″×18″**. Дефолты размещения: центр груди — **3–3.5″ ниже горловины**, размер 6×6…10×8″; left chest — **~3″ ниже воротника, ~2″ от подмышки**, 2.5–5″. Design Maker **флажит проблемы до заказа** (low-res PNG, отсутствие прозрачного фона). → влияет на наши решения **#2, #11, #32**.
+- **Printify Product Creator** (ex Mockup Generator). **«Дублировать дизайн на все печатные зоны одним кликом»**; **Fit and Fill** (вписать / заполнить зону), scale авто относительно исходного размера; **до 10 слоёв на зону** (20 для стикеров; вышивка ограничена). Для вышивки **digitization-preview точнее мокапа** (показывает направление стежков; мокап использует файл до диджитайза). → решения **#33, #34, #35**.
+- **Вывод:** POD задаёт UX-планку (простота, дефолты в дюймах, дублирование на зоны), но всё в px/дюймах и облачно — точности и тех-чертежа нет. Берём UX-приёмы, не архитектуру.
+
+### Standalone-мокапы (B) — что берём из автоматизации
+
+- **Dynamic Mockups** — лидер автоматизации: **API render batch** (один render или батч, ответ — batch UUID + URL рендеров), **PSD smart objects**, **Bulk Create** (загрузил пачку дизайнов × цветов → все варианты автоматом), rate-limit 100 req/min, все Photoshop blend-modes, интеграции Etsy/Shopify. → подтверждает наши **#20 (batch-PDF)** и **#21 (API-first)**.
+- **Placeit (Envato)** — близкий замены Smartmockups, но **без bulk** → для POD с десятками товаров медленно.
+- **Smartmockups — закрыт** (был у Canva, свёрнут). Урок: чисто маркетинговые мокап-SaaS волатильны; наш self-hosted тех-инструмент — устойчивее по контролю.
+- **Kittl** — AI-first дизайн-платформа для POD: AI-генерация картинок/лого, фон-ремувер, 1400 шрифтов, текст-эффекты, **бесплатный мокап-генератор**; $15–30/мес. Это инструмент **дизайнера-маркетолога**, не цеха → **NO (#36)**, максимум импорт готового файла.
+- **Вывод:** из категории B берём только **batch/API-автоматизацию** (Dynamic Mockups) — остальное маркетинговая визуализация, не наш профиль.
+
+---
+
 ## 7. Источники (ключевые)
 
 Полные ссылки — в исследовательских отчётах (раздел по tech-pack/PLM и раздел US/EU+тренды). Опорные:
 
 - POD/print-методы US/EU: ASI Central (PRINTING United Expo 2025), Mordor Intelligence (DTG), Printify/Printful/Gelato blogs.
+- POD-мейкеры (UX/дефолты/DPI): Printful (t-shirt-design-placement-guide, prepare-the-perfect-printfile), Printify (whats-new-in-the-printify-mockup-generator, t-shirt-design-placement-guide), Merch Titans / FreePrintTools (DPI specs).
+- Standalone-мокапы/автоматизация: Dynamic Mockups (api-mockup-guide, mockup-generator-api, pricing), Mockupify (smartmockups-alternatives-2026 — подтверждение закрытия Smartmockups), Kittl (kittl.com/tools/mockups, pricing).
 - Web-to-print подготовка к печати: Zakeke (zakeke.zendesk.com — 300 DPI, SVG/PDF/PNG/DXF, low-quality warning, PNG-mask зоны), Fancy Product Designer (support.fancyproductdesigner.com — Printing Box vs Bounding Box, mm, red/green resolution, min-DPI), InkXE (CMYK vector, on-premise license), DecoNetwork (per-method production, CMYK separation).
 - Tech-pack/CAD: CLO3D/CLO-SET (2D-замеры, Precise Graphic Placement, 2D Grading Review, Target+Tolerance+HTM), Browzwear (формульный 2D Measure), Gerber AccuMark (help.gerbertechnology.com — Delta X/Y grade rules), Optitex (DMC), Techpacker/Backbone (POM, callouts, approval).
 - Препресс/печать: Kornit (Apollo PDF→RIP, Konnect), InkSplit/T-Seps (сепарация), Esko (hotfolder).
