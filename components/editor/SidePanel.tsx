@@ -20,7 +20,9 @@ import {
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
+import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
+import { exportSvgAsPng } from "@/lib/export/exportPng";
 import { resolveFlatMarkup } from "@/lib/export/flatMarkup";
 import type { Asset, Placement, View } from "@/types";
 
@@ -118,6 +120,37 @@ export function SidePanel() {
   const onUpload = async (file: File) => {
     if (!view) return;
     await addArtwork(file, { areaId: activeAreaId ?? undefined });
+  };
+
+  // Чистое превью текущего вида → PNG (для клиента).
+  const onExportPng = async () => {
+    if (!sku || !view) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const markup = await resolveFlatMarkup(flatForSize(view, size ?? undefined));
+      const s = view.scale_mm_per_unit ?? 1;
+      const raw = svgSizeMm(markup);
+      const vp = placements.filter((p) =>
+        view.print_areas.some((a) => a.id === p.print_area_id),
+      );
+      const svg = buildPreviewSvg({
+        view,
+        flatSvgMarkup: markup,
+        flatMm: { w: raw.w * s, h: raw.h * s },
+        scaleMmPerUnit: s,
+        garmentColor,
+        size: size ?? undefined,
+        placements: vp,
+        assets,
+      });
+      await exportSvgAsPng(svg, `${sku.id}-${view.kind}-preview.png`);
+      setMsg("PNG-превью готов");
+    } catch (e) {
+      setMsg(`Ошибка превью: ${e}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onExport = async () => {
@@ -407,13 +440,20 @@ export function SidePanel() {
         </div>
       </section>
 
-      <section className="mt-auto">
+      <section className="mt-auto space-y-2">
+        <button
+          onClick={onExportPng}
+          disabled={busy}
+          className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
+        >
+          Превью для клиента (PNG)
+        </button>
         <button
           onClick={onExport}
           disabled={busy}
           className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
-          {busy ? "Сборка PDF…" : "Экспорт PDF (1:1)"}
+          {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
         </button>
         {msg && <p className="mt-2 text-xs text-neutral-400">{msg}</p>}
       </section>
