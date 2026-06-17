@@ -33,7 +33,7 @@ describe("buildPreviewSvg — фото-мокап", () => {
     expect(svg).toContain('width="1000" height="1000"'); // размер по фото
     expect(svg).toMatch(/<image href="data:image\/jpeg/); // фото-подложка
     expect(svg).toMatch(/x="300"[^>]*width="300"/); // макет в зоне
-    expect(svg).toContain("mix-blend-mode:multiply");
+    expect(svg).toContain('clip-path="url(#mk-0)"'); // клип по зоне
   });
 
   it("без мокапа — чистый флэт-превью (виден силуэт, нет фото)", () => {
