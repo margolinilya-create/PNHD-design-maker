@@ -46,9 +46,10 @@ function buildMockupSvg(input: PreviewInput): string {
       const href = escAttr(asset.data_url);
       // Клип по зоне на фото, чтобы макет не вылезал на рукава/ворот.
       const clip = `<clipPath id="mk-${i}"><rect x="${ox}" y="${oy}" width="${zone.zw * scale}" height="${zone.zh * scale}"/></clipPath>`;
+      // Обычное наложение (надёжно и для светлых принтов на тёмной ткани).
       return {
         clip,
-        body: `<g clip-path="url(#mk-${i})" style="mix-blend-mode:multiply"><g transform="rotate(${p.rotation_deg} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})">
+        body: `<g clip-path="url(#mk-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})">
           <image href="${href}" xlink:href="${href}" x="${PX}" y="${PY}" width="${PW}" height="${PH}" preserveAspectRatio="none"/>
         </g></g>`,
       };
