@@ -134,6 +134,12 @@ export function SidePanel() {
       const vp = placements.filter((p) =>
         view.print_areas.some((a) => a.id === p.print_area_id),
       );
+      // Фото-мокап (если у вида есть фото), иначе — чистый флэт.
+      let mockup;
+      if (view.mockup) {
+        const ph = await loadPhoto(view.mockup.photo);
+        mockup = { dataUrl: ph.dataUrl, imgW: ph.w, imgH: ph.h, print: view.mockup.print };
+      }
       const svg = buildPreviewSvg({
         view,
         flatSvgMarkup: markup,
@@ -143,9 +149,14 @@ export function SidePanel() {
         size: size ?? undefined,
         placements: vp,
         assets,
+        mockup,
       });
-      await exportSvgAsPng(svg, `${sku.id}-${view.kind}-preview.png`);
-      setMsg("PNG-превью готов");
+      await exportSvgAsPng(
+        svg,
+        `${sku.id}-${view.kind}-preview.png`,
+        mockup ? 1 : 3,
+      );
+      setMsg(mockup ? "Фото-мокап готов" : "PNG-превью готов");
     } catch (e) {
       setMsg(`Ошибка превью: ${e}`);
     } finally {
@@ -775,6 +786,26 @@ function MmField({
 /** Округление до 0.1 мм в строку (для поля ввода). */
 function round1(v: number): string {
   return String(Math.round(v * 10) / 10);
+}
+
+/** Загрузить фото (URL) → data URL + натуральные размеры. */
+async function loadPhoto(
+  src: string,
+): Promise<{ dataUrl: string; w: number; h: number }> {
+  const blob = await fetch(src).then((r) => r.blob());
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result as string);
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(blob);
+  });
+  const dims = await new Promise<{ w: number; h: number }>((res, rej) => {
+    const img = new window.Image();
+    img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => rej(new Error("Не удалось загрузить фото"));
+    img.src = dataUrl;
+  });
+  return { dataUrl, ...dims };
 }
 
 /** Размер SVG в мм по viewBox (для сцены PDF). */
