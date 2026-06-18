@@ -27,6 +27,28 @@ export interface ViewAnchors {
   sleeve_center_x?: number;
 }
 
+/** Дельта якоря на один шаг размера (мм). */
+export interface AnchorDelta {
+  dx?: number;
+  dy?: number;
+}
+
+/**
+ * Правило ростовки (grade-rule, S2.3): дельты якорей на ОДИН шаг размера.
+ * Разворачивается в per-size якоря (linear ΔX/ΔY × шаг от базового размера).
+ * Явные `size_anchors` приоритетнее правила.
+ */
+export interface GradeRule {
+  /** ΔX/ΔY горловины (front/back) на шаг. */
+  neckline?: AnchorDelta;
+  /** ΔX оси центра на шаг. */
+  center_axis_dx?: number;
+  /** ΔY нижнего края рукава на шаг. */
+  sleeve_bottom_dy?: number;
+  /** ΔX центра рукава на шаг. */
+  sleeve_center_dx?: number;
+}
+
 /** Печатная зона в мм. */
 export interface PrintArea {
   id: string;
@@ -54,6 +76,8 @@ export interface View {
    * Если размера нет — берутся базовые `anchors`.
    */
   size_anchors?: Record<string, ViewAnchors>;
+  /** Правило ростовки: разворачивается в `size_anchors` при загрузке каталога. */
+  grade_rule?: GradeRule;
   print_areas: PrintArea[];
   /** Per-size печатные зоны (фоллбэк на `print_areas`). Ключ — размер из SKU.sizes. */
   size_print_areas?: Record<string, PrintArea[]>;

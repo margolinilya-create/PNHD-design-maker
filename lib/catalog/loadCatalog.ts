@@ -1,5 +1,6 @@
 // Загрузка и валидация каталога seed (BUILD.md §3, Фаза 1).
 import { catalogSchema, type Catalog } from "./schema";
+import { expandCatalogGradeRules } from "@/lib/geometry/gradeRule";
 import type { SKU, View } from "@/types";
 
 export const SEED_CATALOG_URL = "/seed/skus.json";
@@ -13,7 +14,8 @@ export async function loadCatalog(
     throw new Error(`Не удалось загрузить каталог: ${res.status}`);
   }
   const json = await res.json();
-  return catalogSchema.parse(json);
+  // Разворачиваем grade_rule в per-size якоря — дальше всё работает как обычно.
+  return expandCatalogGradeRules(catalogSchema.parse(json));
 }
 
 export function findSku(catalog: Catalog, skuId: string): SKU | undefined {

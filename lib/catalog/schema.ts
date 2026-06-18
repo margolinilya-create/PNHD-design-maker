@@ -27,6 +27,18 @@ export const anchorsSchema = z.object({
   sleeve_center_x: z.number().optional(),
 });
 
+export const anchorDeltaSchema = z.object({
+  dx: z.number().optional(),
+  dy: z.number().optional(),
+});
+
+export const gradeRuleSchema = z.object({
+  neckline: anchorDeltaSchema.optional(),
+  center_axis_dx: z.number().optional(),
+  sleeve_bottom_dy: z.number().optional(),
+  sleeve_center_dx: z.number().optional(),
+});
+
 export const viewSchema = z.object({
   id: z.string(),
   kind: viewKindSchema,
@@ -35,6 +47,7 @@ export const viewSchema = z.object({
   anchors: anchorsSchema,
   size_flats: z.record(z.string(), z.string()).optional(),
   size_anchors: z.record(z.string(), anchorsSchema).optional(),
+  grade_rule: gradeRuleSchema.optional(),
   print_areas: z.array(printAreaSchema).min(1),
   size_print_areas: z
     .record(z.string(), z.array(printAreaSchema).min(1))
