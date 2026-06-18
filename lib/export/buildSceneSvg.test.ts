@@ -72,6 +72,88 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
     expect(svg).toMatch(/height="660mm"/);
   });
 
+  it("разделяет слои: garment / production-artwork / markup", () => {
+    const svg = scene();
+    expect(svg).toContain('data-layer="garment"');
+    expect(svg).toContain('data-layer="production-artwork"');
+    expect(svg).toContain('data-layer="markup"');
+  });
+
+  it("method-aware: помечает нанесение методом и режимом цвета", () => {
+    const svg = buildSceneSvg({
+      sku,
+      view,
+      flatSvgMarkup: '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+      flatMm: { w: 600, h: 760 },
+      placements: [
+        {
+          id: "p1",
+          print_area_id: "chest",
+          asset_id: "a1",
+          x_mm: 200,
+          y_mm: 200,
+          width_mm: 100,
+          height_mm: 100,
+          rotation_deg: 0,
+          method: "screenprint",
+        },
+      ],
+      assets: {
+        a1: {
+          id: "a1",
+          type: "png",
+          source_file: "logo.png",
+          data_url: "data:image/png;base64,AAAA",
+          intrinsic_size_mm: { width: 100, height: 100 },
+        },
+      },
+      meta: { client: "", orderRef: "", size: "L", date: "16.06.2026" },
+    });
+    // production-группа несёт метод и режим цвета
+    expect(svg).toContain('data-method="screenprint"');
+    expect(svg).toContain('data-color-mode="spot"');
+    // подпись метода в обвязке и сводка в рамке
+    expect(svg).toContain("Шелкография");
+    expect(svg).toContain("spot/Pantone");
+  });
+
+  it("default_method зоны применяется без явного метода нанесения", () => {
+    const embView: View = {
+      ...view,
+      print_areas: [{ ...view.print_areas[0], default_method: "embroidery" }],
+    };
+    const svg = buildSceneSvg({
+      sku: { ...sku, views: [embView] },
+      view: embView,
+      flatSvgMarkup: '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+      flatMm: { w: 600, h: 760 },
+      placements: [
+        {
+          id: "p2",
+          print_area_id: "chest",
+          asset_id: "a1",
+          x_mm: 200,
+          y_mm: 200,
+          width_mm: 80,
+          height_mm: 80,
+          rotation_deg: 0,
+        },
+      ],
+      assets: {
+        a1: {
+          id: "a1",
+          type: "png",
+          source_file: "logo.png",
+          data_url: "data:image/png;base64,AAAA",
+          intrinsic_size_mm: { width: 80, height: 80 },
+        },
+      },
+      meta: { client: "", orderRef: "", size: "L", date: "16.06.2026" },
+    });
+    expect(svg).toContain('data-method="embroidery"');
+    expect(svg).toContain("Вышивка");
+  });
+
   it("содержит калибровочную шкалу ровно 100 мм", () => {
     const svg = scene();
     expect(svg).toContain('data-calibration-mm="100"');
