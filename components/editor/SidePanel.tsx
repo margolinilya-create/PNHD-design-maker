@@ -494,6 +494,10 @@ export function SidePanel() {
           issues={preflightIssues}
           onCancel={() => setPreflightIssues(null)}
           onProceed={() => void runExport()}
+          onSelect={(pid) => {
+            selectPlacement(pid);
+            setPreflightIssues(null);
+          }}
         />
       )}
     </div>
@@ -505,10 +509,12 @@ function PreflightModal({
   issues,
   onCancel,
   onProceed,
+  onSelect,
 }: {
   issues: PreflightIssue[];
   onCancel: () => void;
   onProceed: () => void;
+  onSelect: (placementId: string) => void;
 }) {
   const blocking = hasBlockingErrors(issues);
   return (
@@ -529,19 +535,28 @@ function PreflightModal({
             : "Найдены предупреждения. Можно исправить или продолжить."}
         </p>
         <ul className="flex flex-col gap-1.5">
-          {issues.map((it, i) => (
-            <li
-              key={i}
-              className={`rounded px-2 py-1.5 text-xs ${
-                it.level === "error"
-                  ? "bg-red-950/70 text-red-300"
-                  : "bg-amber-950/50 text-amber-200"
-              }`}
-            >
-              {it.level === "error" ? "⛔ " : "⚠ "}
-              {it.message}
-            </li>
-          ))}
+          {issues.map((it, i) => {
+            const clickable = !!it.placementId;
+            return (
+              <li
+                key={i}
+                onClick={
+                  clickable ? () => onSelect(it.placementId!) : undefined
+                }
+                title={clickable ? "Перейти к нанесению" : undefined}
+                className={`rounded px-2 py-1.5 text-xs ${
+                  clickable ? "cursor-pointer hover:brightness-125" : ""
+                } ${
+                  it.level === "error"
+                    ? "bg-red-950/70 text-red-300"
+                    : "bg-amber-950/50 text-amber-200"
+                }`}
+              >
+                {it.level === "error" ? "⛔ " : "⚠ "}
+                {it.message}
+              </li>
+            );
+          })}
         </ul>
         <div className="mt-4 flex justify-end gap-2">
           <button
