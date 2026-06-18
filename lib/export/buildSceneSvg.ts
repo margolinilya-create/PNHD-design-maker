@@ -1,7 +1,8 @@
 // Композиция итоговой сцены в ЕДИНЫЙ SVG (скил vector-pdf-export).
 // Флэт + макеты + размерная обвязка + подписи + рамка проекта. Масштаб 1:1 в мм.
 import type { Asset, Placement, SKU, View } from "@/types";
-import { placementInfo, anchorsForSize, viewZone } from "@/lib/geometry/view";
+import { viewZone } from "@/lib/geometry/view";
+import { buildDimensionLines } from "@/lib/geometry/dimensionLines";
 import { recolorGarment } from "@/lib/export/flatMarkup";
 import { resolveMethod, printMethodProfile } from "@/lib/catalog/printMethod";
 
@@ -122,30 +123,35 @@ export function buildSceneSvg(input: SceneInput): string {
 
   const dimsSvg = placements
     .map((p) => {
-      const info = placementInfo(
+      // S2.1: обвязка как структурный объект — единый источник линий и чисел.
+      const scene = buildDimensionLines(
         view,
         { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
         p.rotation_deg,
         input.meta.size,
         p.print_area_id,
       );
-      const { aabb, zone, dimensions: d, anchor } = info;
+      const { aabb, zone, centerX, anchorY, lines } = scene;
       const midX = aabb.x + aabb.w / 2;
       const midY = aabb.y + aabb.h / 2;
-      // Per-size якоря: линия и число должны браться по тому же размеру (а не по базовым).
-      const anchors = anchorsForSize(view, input.meta.size);
-      const centerX =
-        anchor.kind === "sleeve"
-          ? (anchors.sleeve_center_x ?? midX)
-          : anchor.kind === "panel"
-            ? zone.zx + zone.zw / 2
-            : (anchors.center_axis_x ?? midX);
-      const anchorY =
-        anchor.kind === "sleeve"
-          ? (anchors.sleeve_bottom_y ?? zone.zy + zone.zh)
-          : anchor.kind === "panel"
-            ? zone.zy
-            : (anchors.neckline_point?.y ?? zone.zy);
+      const line = (k: (typeof lines)[number]["kind"]) =>
+        lines.find((l) => l.kind === k)!;
+      // Размерные стрелки до краёв зоны (left/right/top/bottom).
+      const edges = (["left", "right", "top", "bottom"] as const)
+        .map((k) => {
+          const l = line(k);
+          return dimArrow(
+            l.from.x,
+            l.from.y,
+            l.to.x,
+            l.to.y,
+            `${Math.round(l.value)}`,
+            l.danger,
+          );
+        })
+        .join("\n        ");
+      const vAnchor = line("vertical-anchor");
+      const hAnchor = line("horizontal-anchor");
       // Метка Ш×В с halo-подложкой для читаемости.
       const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} мм`;
       const whHalfW = wh.length * 3.5 + 2;
@@ -154,14 +160,11 @@ export function buildSceneSvg(input: SceneInput): string {
       const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}`;
       const mtHalfW = methodText.length * 2.8 + 2;
       return `
-        ${dimArrow(zone.zx, midY, aabb.x, midY, `${Math.round(d.left)}`, d.left < 0)}
-        ${dimArrow(aabb.x + aabb.w, midY, zone.zx + zone.zw, midY, `${Math.round(d.right)}`, d.right < 0)}
-        ${dimArrow(midX, zone.zy, midX, aabb.y, `${Math.round(d.top)}`, d.top < 0)}
-        ${dimArrow(midX, aabb.y + aabb.h, midX, zone.zy + zone.zh, `${Math.round(d.bottom)}`, d.bottom < 0)}
-        <line x1="${centerX}" y1="${anchorY}" x2="${centerX}" y2="${midY}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
-        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(Math.abs(anchor.vertical))}</text>
+        ${edges}
+        <line x1="${vAnchor.from.x}" y1="${vAnchor.from.y}" x2="${vAnchor.to.x}" y2="${vAnchor.to.y}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(vAnchor.value)}</text>
         <line x1="${centerX}" y1="${zone.zy}" x2="${centerX}" y2="${zone.zy + zone.zh}" stroke="#d12f33" stroke-width="0.75" stroke-dasharray="3 3"/>
-        ${dimArrow(centerX, midY, midX, midY, `${Math.round(anchor.horizontal)}`, false)}
+        ${dimArrow(hAnchor.from.x, hAnchor.from.y, hAnchor.to.x, hAnchor.to.y, `${Math.round(hAnchor.value)}`, false)}
         <rect x="${midX - whHalfW}" y="${midY - 11}" width="${whHalfW * 2}" height="14" fill="#ffffff" fill-opacity="0.75"/>
         <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${esc(wh)}</text>
         <rect x="${midX - mtHalfW}" y="${midY + 3}" width="${mtHalfW * 2}" height="11" fill="#ffffff" fill-opacity="0.75"/>
