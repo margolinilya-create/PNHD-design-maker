@@ -29,6 +29,11 @@ import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
 import { exportSvgAsPng } from "@/lib/export/exportPng";
 import { resolveFlatMarkup } from "@/lib/export/flatMarkup";
+import {
+  preflight,
+  hasBlockingErrors,
+  type PreflightIssue,
+} from "@/lib/export/preflight";
 import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
@@ -101,6 +106,10 @@ export function SidePanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Pre-export чеклист (S1.4): список проблем перед сборкой PDF.
+  const [preflightIssues, setPreflightIssues] = useState<
+    PreflightIssue[] | null
+  >(null);
 
   // Целевая зона для загрузки (мультизонные виды).
   const areas = useMemo(
@@ -158,8 +167,25 @@ export function SidePanel() {
     }
   };
 
-  const onExport = async () => {
+  // Гейт перед экспортом: прогоняем чеклист, при проблемах — модалка.
+  const onExport = () => {
     if (!sku) return;
+    const issues = preflight({
+      views: sku.views,
+      placements,
+      assets,
+      size: size ?? undefined,
+    });
+    if (issues.length > 0) {
+      setPreflightIssues(issues);
+      return;
+    }
+    void runExport();
+  };
+
+  const runExport = async () => {
+    if (!sku) return;
+    setPreflightIssues(null);
     setBusy(true);
     setMsg(null);
     try {
@@ -462,6 +488,78 @@ export function SidePanel() {
         </button>
         {msg && <p className="mt-2 text-xs text-neutral-400">{msg}</p>}
       </section>
+
+      {preflightIssues && (
+        <PreflightModal
+          issues={preflightIssues}
+          onCancel={() => setPreflightIssues(null)}
+          onProceed={() => void runExport()}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Модалка pre-export чеклиста (S1.4). */
+function PreflightModal({
+  issues,
+  onCancel,
+  onProceed,
+}: {
+  issues: PreflightIssue[];
+  onCancel: () => void;
+  onProceed: () => void;
+}) {
+  const blocking = hasBlockingErrors(issues);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 font-semibold text-neutral-100">
+          Проверка перед экспортом
+        </h3>
+        <p className="mb-3 text-xs text-neutral-500">
+          {blocking
+            ? "Есть блокирующая проблема — экспорт невозможен."
+            : "Найдены предупреждения. Можно исправить или продолжить."}
+        </p>
+        <ul className="flex flex-col gap-1.5">
+          {issues.map((it, i) => (
+            <li
+              key={i}
+              className={`rounded px-2 py-1.5 text-xs ${
+                it.level === "error"
+                  ? "bg-red-950/70 text-red-300"
+                  : "bg-amber-950/50 text-amber-200"
+              }`}
+            >
+              {it.level === "error" ? "⛔ " : "⚠ "}
+              {it.message}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+          >
+            {blocking ? "Закрыть" : "Отмена"}
+          </button>
+          {!blocking && (
+            <button
+              onClick={onProceed}
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            >
+              Экспортировать всё равно
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
