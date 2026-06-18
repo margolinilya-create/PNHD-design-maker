@@ -738,11 +738,20 @@ function PlacementInspector({
     );
     onChange(pos);
   };
+  const isFrontBack =
+    view?.kind === "front" || view?.kind === "back";
   const presets: { key: PositionPreset; label: string }[] = [
     { key: "center-x", label: "Центр X" },
     { key: "center-zone", label: "Центр зоны" },
     { key: "top", label: "Вверх" },
     { key: "bottom", label: "Вниз" },
+    // Стандарты от горловины — только для front/back.
+    ...(isFrontBack
+      ? ([
+          { key: "chest-standard", label: "Грудь (3″)" },
+          { key: "left-chest", label: "Лев. грудь" },
+        ] as { key: PositionPreset; label: string }[])
+      : []),
   ];
   return (
     <section>

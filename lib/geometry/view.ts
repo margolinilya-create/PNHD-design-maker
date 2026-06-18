@@ -97,11 +97,32 @@ export function regradePosition(
   return { x_mm: nb.x, y_mm: nb.y };
 }
 
-export type PositionPreset = "center-x" | "center-zone" | "top" | "bottom";
+export type PositionPreset =
+  | "center-x"
+  | "center-zone"
+  | "top"
+  | "bottom"
+  | "chest-standard"
+  | "left-chest";
+
+/**
+ * Индустриальные стандарты размещения от якорей изделия (мм, ≈ дюймовые нормы):
+ * центр груди ~75 мм (3") ниже горловины; left chest ~60 мм ниже и ~89 мм (3.5")
+ * от центра. Источник: screenprinting.com / Printful placement guide.
+ */
+export const STANDARD_PLACEMENT = {
+  chestBelowNecklineMm: 75,
+  leftChestBelowNecklineMm: 60,
+  leftChestFromCenterMm: 89,
+} as const;
+
+/** Пресеты, требующие якоря горловины (front/back). */
+export const NECKLINE_PRESETS: PositionPreset[] = ["chest-standard", "left-chest"];
 
 /**
  * Готовая позиция нанесения по пресету (мм). Горизонталь — по оси изделия
  * (center_axis_x / sleeve_center_x), верх/низ — с учётом safe-inset зоны.
+ * Стандартные пресеты (chest/left-chest) отсчитываются от горловины изделия.
  */
 export function presetPosition(
   view: View,
@@ -115,6 +136,7 @@ export function presetPosition(
   const axis = isSleeve(view)
     ? (anchors.sleeve_center_x ?? zone.zx + zone.zw / 2)
     : (anchors.center_axis_x ?? zone.zx + zone.zw / 2);
+  const necklineY = anchors.neckline_point?.y ?? zone.zy;
   switch (preset) {
     case "center-x":
       return { x_mm: axis - bbox.w / 2, y_mm: bbox.y };
@@ -124,6 +146,19 @@ export function presetPosition(
       return { x_mm: bbox.x, y_mm: zone.zy + safeInsetMm };
     case "bottom":
       return { x_mm: bbox.x, y_mm: zone.zy + zone.zh - bbox.h - safeInsetMm };
+    case "chest-standard":
+      // По центру оси, верх макета на стандартном отступе от горловины.
+      return {
+        x_mm: axis - bbox.w / 2,
+        y_mm: necklineY + STANDARD_PLACEMENT.chestBelowNecklineMm,
+      };
+    case "left-chest":
+      // Смещение от центра + верх ниже горловины (грудь слева у владельца).
+      return {
+        x_mm:
+          axis + STANDARD_PLACEMENT.leftChestFromCenterMm - bbox.w / 2,
+        y_mm: necklineY + STANDARD_PLACEMENT.leftChestBelowNecklineMm,
+      };
   }
 }
 

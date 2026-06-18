@@ -330,6 +330,18 @@ describe("мультизона + пресеты позиции", () => {
     expect(r.x_mm).toBe(280); // ось 300 − 40/2
     expect(r.y_mm).toBe(95); // 90 + (30−20)/2
   });
+
+  it("пресет chest-standard: центр по оси, верх 75 мм ниже горловины", () => {
+    const r = presetPosition(v, { x: 0, y: 0, w: 120, h: 100 }, "chest-standard", undefined, "chest");
+    expect(r.x_mm).toBe(240); // ось 300 − 120/2
+    expect(r.y_mm).toBe(167); // горловина 92 + 75
+  });
+
+  it("пресет left-chest: смещение 89 мм от центра, верх 60 мм ниже горловины", () => {
+    const r = presetPosition(v, { x: 0, y: 0, w: 80, h: 80 }, "left-chest", undefined, "chest");
+    expect(r.x_mm).toBe(349); // ось 300 + 89 − 80/2
+    expect(r.y_mm).toBe(152); // горловина 92 + 60
+  });
 });
 
 describe("этикетка — панельный вид", () => {
