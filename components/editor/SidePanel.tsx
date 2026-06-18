@@ -19,6 +19,11 @@ import {
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
+import {
+  PRINT_METHOD_LIST,
+  printMethodProfile,
+  resolveMethod,
+} from "@/lib/catalog/printMethod";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
@@ -516,9 +521,22 @@ function LayerRow({
         : false,
     [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, p.print_area_id, garmentSize],
   );
-  const { quality, dpi } = printQuality(asset, p.width_mm);
+  const areaDefault = view?.print_areas.find(
+    (a) => a.id === p.print_area_id,
+  )?.default_method;
+  const method = resolveMethod(p.method, areaDefault);
+  const profile = printMethodProfile(method);
+  const { quality, dpi } = printQuality(asset, p.width_mm, method);
   const dpiColor =
     quality === "low" ? "text-red-400" : quality === "mid" ? "text-amber-400" : "text-neutral-500";
+  const qualityLabel =
+    quality === "vector"
+      ? "вектор"
+      : quality === "embroidery"
+        ? "деталь"
+        : dpi
+          ? `${Math.round(dpi)}dpi`
+          : "";
 
   const icon = "rounded px-1.5 py-0.5 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200";
   return (
@@ -541,8 +559,14 @@ function LayerRow({
           onChange={(e) => onRename(e.target.value)}
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-200 outline-none focus:rounded focus:bg-neutral-950 focus:px-1"
         />
+        <span
+          className="shrink-0 rounded bg-neutral-800 px-1 text-[9px] text-neutral-400"
+          title={profile.label}
+        >
+          {profile.short}
+        </span>
         <span className={`shrink-0 text-[10px] tabular-nums ${dpiColor}`}>
-          {quality === "vector" ? "вектор" : dpi ? `${Math.round(dpi)}dpi` : ""}
+          {qualityLabel}
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-0.5 text-xs">
@@ -585,6 +609,11 @@ function PlacementInspector({
 }) {
   const isSleeve = view?.kind === "sleeve_left" || view?.kind === "sleeve_right";
   const otherViews = views.filter((v) => v.id !== view?.id);
+  const areaDefault = view?.print_areas.find(
+    (a) => a.id === p.print_area_id,
+  )?.default_method;
+  const method = resolveMethod(p.method, areaDefault);
+  const profile = printMethodProfile(method);
   const applyPreset = (preset: PositionPreset) => {
     if (!view) return;
     const pos = presetPosition(
@@ -674,12 +703,38 @@ function PlacementInspector({
         )}
       </div>
 
+      {/* Метод печати — задаёт профиль качества и production-вывод */}
+      <div className="mt-3 border-t border-neutral-800 pt-3">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-xs text-neutral-400">Метод печати</span>
+          <span className="text-[10px] text-neutral-500">
+            {profile.colorMode === "spot" ? "spot / Pantone" : "CMYK"}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {PRINT_METHOD_LIST.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => onChange({ method: m.id })}
+              title={m.label}
+              className={`rounded px-2.5 py-1 text-xs ${
+                m.id === method
+                  ? "bg-blue-600 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {asset?.size_estimated && (
         <p className="mt-2 rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
           размер оценочно — уточните Ш×В
         </p>
       )}
-      <DpiBadge asset={asset} printWidthMm={p.width_mm} />
+      <DpiBadge asset={asset} printWidthMm={p.width_mm} method={method} />
     </section>
   );
 }
@@ -687,16 +742,29 @@ function PlacementInspector({
 const tbtn = (active?: boolean) =>
   `rounded px-2 py-1 text-xs ${active ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-200 hover:bg-neutral-700"}`;
 
-/** Индикатор качества печати (DPI) на текущем размере макета. */
+/** Индикатор качества печати на текущем размере макета (с учётом метода). */
 function DpiBadge({
   asset,
   printWidthMm,
+  method,
 }: {
   asset: Asset | undefined;
   printWidthMm: number;
+  method?: import("@/types").PrintMethod;
 }) {
-  const { quality, dpi } = printQuality(asset, printWidthMm);
+  const { quality, dpi } = printQuality(asset, printWidthMm, method);
   if (quality === "unknown") return null;
+  const profile = printMethodProfile(method);
+  if (quality === "embroidery") {
+    const d = profile.detail!;
+    return (
+      <p className="mt-2 rounded bg-sky-950/60 px-2 py-1 text-xs text-sky-300">
+        вышивка — проверьте мин. деталь: линия ≥ {d.minLineMm} мм, текст ≥{" "}
+        {d.minTextMm} мм (диджитайз вне инструмента)
+      </p>
+    );
+  }
+  const good = profile.dpi?.good ?? 300;
   const map: Record<string, { cls: string; text: string }> = {
     vector: {
       cls: "bg-emerald-950/60 text-emerald-300",
@@ -708,7 +776,7 @@ function DpiBadge({
     },
     mid: {
       cls: "bg-amber-950/60 text-amber-300",
-      text: `${Math.round(dpi ?? 0)} DPI — приемлемо (уменьшите макет для 300+)`,
+      text: `${Math.round(dpi ?? 0)} DPI — приемлемо (уменьшите макет для ${good}+)`,
     },
     low: {
       cls: "bg-red-950/70 text-red-300",

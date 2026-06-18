@@ -10,11 +10,14 @@ export const viewKindSchema = z.enum([
   "label_neck_outer",
 ]);
 
+export const printMethodSchema = z.enum(["dtf", "screenprint", "embroidery"]);
+
 export const printAreaSchema = z.object({
   id: z.string(),
   name: z.string(),
   polygon_mm: z.array(z.tuple([z.number(), z.number()])).min(3),
   safe_inset_mm: z.number().nonnegative(),
+  default_method: printMethodSchema.optional(),
 });
 
 export const anchorsSchema = z.object({

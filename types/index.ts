@@ -12,6 +12,8 @@ export type ViewKind =
   | "label_neck_outer";
 export type AssetType = "svg" | "png";
 export type ProjectStatus = "draft" | "approved";
+/** Метод нанесения (профиль подготовки к печати). */
+export type PrintMethod = "dtf" | "screenprint" | "embroidery";
 
 /** Якоря вида, привязанные к изделию (не к холсту). Все в единицах SVG вида. */
 export interface ViewAnchors {
@@ -33,6 +35,8 @@ export interface PrintArea {
   polygon_mm: [number, number][];
   /** Внутренний отступ safe-zone в мм. */
   safe_inset_mm: number;
+  /** Метод печати по умолчанию для зоны (напр. этикетка/грудь — вышивка). */
+  default_method?: PrintMethod;
 }
 
 export interface View {
@@ -100,6 +104,8 @@ export interface Placement {
   width_mm: number;
   height_mm: number;
   rotation_deg: number;
+  /** Метод печати нанесения (фоллбэк — default_method зоны, затем DTF). */
+  method?: PrintMethod;
   /** Зеркалирование по горизонтали/вертикали. */
   flip_h?: boolean;
   flip_v?: boolean;
