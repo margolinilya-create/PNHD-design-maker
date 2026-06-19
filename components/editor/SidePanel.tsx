@@ -25,6 +25,7 @@ import {
   printMethodProfile,
   resolveMethod,
 } from "@/lib/catalog/printMethod";
+import { PANTONE_SWATCHES } from "@/lib/catalog/pantone";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
@@ -934,6 +935,48 @@ function PreflightModal({
   );
 }
 
+/** Выбор spot-цветов Pantone для нанесения (P2 #6). */
+function PantonePicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (codes: string[]) => void;
+}) {
+  const toggle = (code: string) =>
+    onChange(
+      selected.includes(code)
+        ? selected.filter((c) => c !== code)
+        : [...selected, code],
+    );
+  return (
+    <div className="mt-2">
+      <span className="mb-1 block text-[11px] text-neutral-500">
+        Pantone (spot) {selected.length > 0 && `· ${selected.length}`}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {PANTONE_SWATCHES.map((sw) => {
+          const on = selected.includes(sw.code);
+          return (
+            <button
+              key={sw.code}
+              onClick={() => toggle(sw.code)}
+              title={sw.code}
+              className={`h-5 w-5 rounded-full border ${
+                on ? "border-blue-400 ring-1 ring-blue-400" : "border-neutral-600"
+              }`}
+              style={{ background: sw.hex }}
+            />
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <p className="mt-1 text-[10px] text-neutral-400">{selected.join(", ")}</p>
+      )}
+    </div>
+  );
+}
+
 /** Форма добавления комментария согласования (P1 #24). */
 function CommentBox({
   onAdd,
@@ -1292,6 +1335,14 @@ function PlacementInspector({
             </button>
           ))}
         </div>
+        {profile.colorMode === "spot" && (
+          <PantonePicker
+            selected={p.pantone ?? []}
+            onChange={(codes) =>
+              onChange({ pantone: codes.length ? codes : undefined })
+            }
+          />
+        )}
       </div>
 
       {/* Спецификация для цеха: допуск ± и «как мерить» (P1 #13) */}

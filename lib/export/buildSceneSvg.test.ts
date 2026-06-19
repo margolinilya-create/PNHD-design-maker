@@ -102,6 +102,7 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
           height_mm: 100,
           rotation_deg: 0,
           method: "screenprint",
+          pantone: ["PMS 186 C"],
         },
       ],
       assets: {
@@ -121,6 +122,8 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
     // подпись метода в обвязке и сводка в рамке
     expect(svg).toContain("Шелкография");
     expect(svg).toContain("spot/Pantone");
+    // spot-метод печатает выбранный код Pantone
+    expect(svg).toContain("PMS 186 C");
   });
 
   it("default_method зоны применяется без явного метода нанесения", () => {

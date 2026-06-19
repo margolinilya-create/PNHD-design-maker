@@ -146,6 +146,8 @@ export interface Placement {
   tolerance_mm?: number;
   /** How-To-Measure: краткая заметка «как мерить» для цеха. */
   htm?: string;
+  /** Коды Pantone (spot-цвета) для шелкографии/вышивки. */
+  pantone?: string[];
   /** Зеркалирование по горизонтали/вертикали. */
   flip_h?: boolean;
   flip_v?: boolean;

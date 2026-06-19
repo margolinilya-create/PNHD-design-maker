@@ -172,7 +172,12 @@ export function buildSceneSvg(input: SceneInput): string {
       const whHalfW = wh.length * 3.5 + 2;
       // Подпись метода печати под Ш×В (режим цвета — для цеха).
       const profile = placementMethod(view, p);
-      const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}`;
+      // Для spot-методов добавляем выбранные коды Pantone (P2 #6).
+      const pantone =
+        profile.colorMode === "spot" && p.pantone?.length
+          ? ` · ${p.pantone.join(", ")}`
+          : "";
+      const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}${pantone}`;
       const mtHalfW = methodText.length * 2.8 + 2;
       // Допуск ± на ключевую меру (отступ от горловины) и HTM-заметка (P1 #13).
       const tol =
