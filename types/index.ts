@@ -152,6 +152,14 @@ export interface Placement {
   name?: string;
 }
 
+/** Комментарий согласования (P1 #24). Роль — кто оставил. */
+export interface ProjectComment {
+  id: string;
+  role: "client" | "shop";
+  text: string;
+  ts: number;
+}
+
 export interface Project {
   id: string;
   sku_id: string;
@@ -159,4 +167,5 @@ export interface Project {
   order_ref: string;
   status: ProjectStatus;
   placements: Placement[];
+  comments?: ProjectComment[];
 }

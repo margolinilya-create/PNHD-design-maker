@@ -64,6 +64,11 @@ export function SidePanel() {
   const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
   const garmentColor = useProjectStore((s) => s.garmentColor);
   const setGarmentColor = useProjectStore((s) => s.setGarmentColor);
+  const comments = useProjectStore((s) => s.comments);
+  const addComment = useProjectStore((s) => s.addComment);
+  const removeComment = useProjectStore((s) => s.removeComment);
+  const readOnly = useProjectStore((s) => s.readOnly);
+  const setReadOnly = useProjectStore((s) => s.setReadOnly);
 
   // Сохранение проектов (Supabase или localStorage).
   const [projName, setProjName] = useState("");
@@ -325,6 +330,23 @@ export function SidePanel() {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 text-sm">
+      <div className="flex items-center justify-between rounded-lg bg-neutral-800/60 px-3 py-2">
+        <span className="text-xs text-neutral-300">
+          {readOnly ? "👁 Просмотр (правки заблокированы)" : "✏ Редактирование"}
+        </span>
+        <button
+          onClick={() => setReadOnly(!readOnly)}
+          className={`rounded px-2.5 py-1 text-xs ${
+            readOnly
+              ? "bg-blue-600 text-white"
+              : "bg-neutral-700 text-neutral-200 hover:bg-neutral-600"
+          }`}
+        >
+          {readOnly ? "Включить правки" : "Только просмотр"}
+        </button>
+      </div>
+
+      {!readOnly && (
       <section>
         <h3 className="mb-2 font-semibold text-neutral-200">Макет</h3>
         <input
@@ -371,6 +393,7 @@ export function SidePanel() {
           » текущего вида.
         </p>
       </section>
+      )}
 
       <section>
         <h3 className="mb-2 font-semibold text-neutral-200">Размер (эталон)</h3>
@@ -438,6 +461,7 @@ export function SidePanel() {
               asset={assets[p.asset_id]}
               garmentSize={size}
               selected={p.id === selectedId}
+              readOnly={readOnly}
               onSelect={() => selectPlacement(p.id)}
               onRemove={() => removePlacement(p.id)}
               onDup={() => duplicatePlacement(p.id)}
@@ -451,7 +475,7 @@ export function SidePanel() {
         </div>
       </section>
 
-      {selectedPlacement && (
+      {selectedPlacement && !readOnly && (
         <PlacementInspector
           placement={selectedPlacement}
           view={findViewForPlacement(sku.views, selectedPlacement)}
@@ -493,6 +517,43 @@ export function SidePanel() {
           >
             {status === "approved" ? "Согласовано" : "Черновик"}
           </button>
+        </div>
+
+        {/* Комментарии согласования (P1 #24) */}
+        <div className="mt-3 border-t border-neutral-800 pt-3">
+          <span className="mb-1 block text-xs text-neutral-400">
+            Согласование ({comments.length})
+          </span>
+          <CommentBox onAdd={(role, text) => addComment({ role, text })} />
+          {comments.length > 0 && (
+            <div className="mt-2 flex max-h-44 flex-col gap-1.5 overflow-y-auto">
+              {comments.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded bg-neutral-800/60 px-2 py-1.5 text-xs"
+                >
+                  <div className="mb-0.5 flex items-center justify-between">
+                    <span
+                      className={`rounded px-1 text-[10px] ${
+                        c.role === "client"
+                          ? "bg-blue-950 text-blue-300"
+                          : "bg-emerald-950 text-emerald-300"
+                      }`}
+                    >
+                      {c.role === "client" ? "Клиент" : "Цех"}
+                    </span>
+                    <button
+                      onClick={() => removeComment(c.id)}
+                      className="text-neutral-600 hover:text-red-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="whitespace-pre-wrap text-neutral-200">{c.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Сохранение проекта */}
@@ -870,6 +931,58 @@ function PreflightModal({
   );
 }
 
+/** Форма добавления комментария согласования (P1 #24). */
+function CommentBox({
+  onAdd,
+}: {
+  onAdd: (role: "client" | "shop", text: string) => void;
+}) {
+  const [role, setRole] = useState<"client" | "shop">("shop");
+  const [text, setText] = useState("");
+  const submit = () => {
+    const t = text.trim();
+    if (!t) return;
+    onAdd(role, t);
+    setText("");
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1.5">
+        {(["shop", "client"] as const).map((r) => (
+          <button
+            key={r}
+            onClick={() => setRole(r)}
+            className={`rounded px-2 py-0.5 text-[11px] ${
+              role === r
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            {r === "client" ? "Клиент" : "Цех"}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder="Комментарий…"
+          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs"
+        />
+        <button
+          onClick={submit}
+          className="shrink-0 rounded bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function findViewForPlacement(views: View[], p: Placement): View | undefined {
   return views.find((v) => v.print_areas.some((a) => a.id === p.print_area_id));
 }
@@ -889,6 +1002,7 @@ function LayerRow({
   asset,
   garmentSize,
   selected,
+  readOnly,
   onSelect,
   onRemove,
   onDup,
@@ -903,6 +1017,7 @@ function LayerRow({
   asset: Asset | undefined;
   garmentSize: string | null;
   selected: boolean;
+  readOnly?: boolean;
   onSelect: () => void;
   onRemove: () => void;
   onDup: () => void;
@@ -961,6 +1076,7 @@ function LayerRow({
           value={findViewForPlacementName(view, p)}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onRename(e.target.value)}
+          readOnly={readOnly}
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-200 outline-none focus:rounded focus:bg-neutral-950 focus:px-1"
         />
         <span
@@ -974,12 +1090,16 @@ function LayerRow({
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-0.5 text-xs">
-        <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}>▲</button>
-        <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}>▼</button>
-        <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? "🙈" : "👁"}</button>
-        <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? "🔒" : "🔓"}</button>
-        <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}>⎘</button>
-        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-400`}>✕</button>
+        {!readOnly && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}>▲</button>
+            <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}>▼</button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? "🙈" : "👁"}</button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? "🔒" : "🔓"}</button>
+            <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}>⎘</button>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-400`}>✕</button>
+          </>
+        )}
         {out && <span className="ml-auto rounded bg-red-950 px-1 text-[10px] text-red-300">за зоной</span>}
       </div>
     </div>

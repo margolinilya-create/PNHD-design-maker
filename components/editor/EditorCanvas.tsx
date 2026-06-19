@@ -41,6 +41,7 @@ export function EditorCanvas() {
   const placements = useProjectStore((s) => s.placements);
   const selectedId = useProjectStore((s) => s.selectedPlacementId);
   const garmentSize = useProjectStore((s) => s.size);
+  const readOnly = useProjectStore((s) => s.readOnly);
   const selectPlacement = useProjectStore((s) => s.selectPlacement);
   const updatePlacement = useProjectStore((s) => s.updatePlacement);
 
@@ -136,12 +137,12 @@ export function EditorCanvas() {
       ? viewPlacements.find((x) => x.id === selectedId)
       : null;
     const node =
-      sel && mode === "select" && !sel.locked && !sel.hidden
+      sel && mode === "select" && !sel.locked && !sel.hidden && !readOnly
         ? nodeRefs.current.get(selectedId!)
         : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selectedId, viewPlacements, mode]);
+  }, [selectedId, viewPlacements, mode, readOnly]);
 
   // Сброс линейки при смене вида.
   const viewId = view?.id;
@@ -438,7 +439,7 @@ export function EditorCanvas() {
               t={t}
               garmentSize={garmentSize}
               selected={p.id === selectedId}
-              interactive={mode === "select" && !p.locked && !p.hidden}
+              interactive={mode === "select" && !p.locked && !p.hidden && !readOnly}
               onSelect={() => selectPlacement(p.id)}
               registerRef={(n) => {
                 if (n) nodeRefs.current.set(p.id, n);

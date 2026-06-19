@@ -4,7 +4,14 @@
 
 import { create } from "zustand";
 import type { Catalog } from "@/lib/catalog/schema";
-import type { Asset, Placement, ProjectStatus, SKU, View } from "@/types";
+import type {
+  Asset,
+  Placement,
+  ProjectComment,
+  ProjectStatus,
+  SKU,
+  View,
+} from "@/types";
 import { regradePosition } from "@/lib/geometry/view";
 import type { ProjectSnapshot } from "@/lib/persistence/projects";
 
@@ -45,6 +52,9 @@ interface ProjectState {
   client: string;
   orderRef: string;
   status: ProjectStatus;
+  comments: ProjectComment[];
+  /** Режим «только просмотр» (для согласования) — блокирует правки. */
+  readOnly: boolean;
 
   // история (undo/redo) — снимки редактируемого состояния
   past: EditableSnapshot[];
@@ -64,6 +74,9 @@ interface ProjectState {
   selectPlacement: (id: string | null) => void;
   setMeta: (meta: { client?: string; orderRef?: string }) => void;
   setStatus: (status: ProjectStatus) => void;
+  addComment: (c: Pick<ProjectComment, "role" | "text">) => void;
+  removeComment: (id: string) => void;
+  setReadOnly: (v: boolean) => void;
   garmentColor: string;
   setGarmentColor: (c: string) => void;
 
@@ -93,6 +106,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   client: "",
   orderRef: "",
   status: "draft",
+  comments: [],
+  readOnly: false,
   garmentColor: "",
   past: [],
   future: [],
@@ -138,6 +153,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       placements: [],
       selectedPlacementId: null,
       garmentColor: "",
+      comments: [],
       past: [],
       future: [],
     });
@@ -221,6 +237,16 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: orderRef ?? s.orderRef,
     })),
   setStatus: (status) => set({ status }),
+  addComment: ({ role, text }) =>
+    set((s) => ({
+      comments: [
+        ...s.comments,
+        { id: nextId("cmt"), role, text, ts: Date.now() },
+      ],
+    })),
+  removeComment: (id) =>
+    set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
+  setReadOnly: (readOnly) => set({ readOnly }),
   setGarmentColor: (garmentColor) => {
     get().pushHistory();
     set({ garmentColor });
@@ -306,7 +332,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       skuId: st.skuId, size: st.size,
       client: st.client, orderRef: st.orderRef, status: st.status,
       placements: st.placements, assets: st.assets,
-      garmentColor: st.garmentColor, savedAt: Date.now(),
+      garmentColor: st.garmentColor, comments: st.comments, savedAt: Date.now(),
     };
   },
   restore: (s) => {
@@ -321,6 +347,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: s.orderRef,
       status: s.status,
       garmentColor: s.garmentColor ?? "",
+      comments: s.comments ?? [],
       selectedPlacementId: null,
       past: [],
       future: [],
