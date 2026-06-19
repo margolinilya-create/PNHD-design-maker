@@ -18,6 +18,8 @@ import {
   setSizeAnchors,
   updateSizeZoneRect,
   clearSizeOverride,
+  clearSizeAnchors,
+  clearSizeZones,
 } from "./skuEdit";
 import type { SKU } from "@/types";
 
@@ -128,6 +130,15 @@ describe("skuEdit", () => {
     const c = clearSizeOverride(b, "v-front", "L");
     expect(effAnchors(c.views[0], "L", "M").neckline_point?.y).toBe(30);
     expect(c.views[0].size_print_areas).toBeUndefined();
+
+    // гранулярный сброс: только зоны — якоря остаются
+    const d = clearSizeZones(b, "v-front", "L");
+    expect(d.views[0].size_print_areas).toBeUndefined();
+    expect(effAnchors(d.views[0], "L", "M").neckline_point?.y).toBe(44); // якоря целы
+    // только якоря — зоны остаются
+    const e = clearSizeAnchors(b, "v-front", "L");
+    expect(e.views[0].size_anchors).toBeUndefined();
+    expect(zoneRect(effZones(e.views[0], "L", "M")[0]).w).toBe(240); // зоны целы
   });
 
   it("idError — формат и коллизии", () => {

@@ -25,6 +25,9 @@ import {
   setSizeFlat,
   updateSizeZoneRect,
   clearSizeOverride,
+  clearSizeAnchors,
+  clearSizeZones,
+  clearSizeFlat,
 } from "@/lib/admin/skuEdit";
 import { saveModel, deleteModel } from "@/lib/persistence/models";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
@@ -39,6 +42,8 @@ import type {
 } from "@/types";
 
 const inp = "w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm";
+const resetBtn =
+  "rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-700";
 
 const SkuViewCanvas = dynamic(
   () => import("@/components/admin/SkuViewCanvas").then((m) => m.SkuViewCanvas),
@@ -338,13 +343,49 @@ export function SkuEditor({
                   );
                 })}
               </div>
-              {perSize && (
-                <button
-                  onClick={() => setSku(clearSizeOverride(sku, view.id, editSize))}
-                  className="mt-1 self-start rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-700"
-                >
-                  Сбросить {editSize} под базовый
-                </button>
+              {perSize &&
+                (view.size_flats?.[editSize] ||
+                  view.size_anchors?.[editSize] ||
+                  view.size_print_areas?.[editSize]) && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-neutral-500">Сбросить:</span>
+                    {view.size_flats?.[editSize] && (
+                      <button
+                        onClick={() => setSku(clearSizeFlat(sku, view.id, editSize))}
+                        className={resetBtn}
+                      >
+                        флэт
+                      </button>
+                    )}
+                    {view.size_anchors?.[editSize] && (
+                      <button
+                        onClick={() => setSku(clearSizeAnchors(sku, view.id, editSize))}
+                        className={resetBtn}
+                      >
+                        якоря
+                      </button>
+                    )}
+                    {view.size_print_areas?.[editSize] && (
+                      <button
+                        onClick={() => setSku(clearSizeZones(sku, view.id, editSize))}
+                        className={resetBtn}
+                      >
+                        зоны
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSku(clearSizeOverride(sku, view.id, editSize))}
+                      className={resetBtn}
+                    >
+                      всё
+                    </button>
+                  </div>
+                )}
+              {perSize && view.grade_rule && view.size_anchors?.[editSize] && (
+                <p className="rounded bg-amber-950/40 px-2 py-1 text-[11px] text-amber-300">
+                  ⚠ На размере {editSize} заданы явные якоря — они имеют приоритет
+                  над grade-rule (правило для этого размера не применится).
+                </p>
               )}
               <p className="text-[11px] text-neutral-500">
                 {perSize
@@ -509,6 +550,11 @@ export function SkuEditor({
                   isSleeve={!!isSleeve}
                   onChange={(r) => setSku(setGradeRule(sku, view.id, r))}
                 />
+                <p className="text-[11px] text-neutral-500">
+                  Правило раскладывает якоря по ростовке от базового размера. Если
+                  на размере заданы явные якоря (вкладка размера) — они перекрывают
+                  правило для этого размера.
+                </p>
               </Section>
             )}
           </div>
