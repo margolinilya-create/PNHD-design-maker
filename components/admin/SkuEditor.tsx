@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { loadAsset } from "@/lib/catalog/loadAsset";
 import {
   validateSku,
+  idError,
   addSize,
   removeSize,
   addView,
@@ -16,8 +17,16 @@ import {
   zoneRect,
   rectZone,
   setGradeRule,
+  effAnchors,
+  effZones,
+  effFlat,
+  setSizeAnchors,
+  setSizeZones,
+  setSizeFlat,
+  updateSizeZoneRect,
+  clearSizeOverride,
 } from "@/lib/admin/skuEdit";
-import { saveModel } from "@/lib/persistence/models";
+import { saveModel, deleteModel } from "@/lib/persistence/models";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
 import type {
   BaseSize,
@@ -54,10 +63,12 @@ const VIEW_KINDS: { value: ViewKind; label: string }[] = [
 
 export function SkuEditor({
   initial,
+  reservedIds = [],
   onBack,
   onSaved,
 }: {
   initial: SKU;
+  reservedIds?: string[];
   onBack: () => void;
   onSaved: (id: string) => void;
 }) {
@@ -68,29 +79,68 @@ export function SkuEditor({
   );
   const [newSize, setNewSize] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  // Размер, под который правим геометрию (per-size override; базовый = общий).
+  const [editSize, setEditSize] = useState<string>(initial.base_size);
+
+  // editSize всегда должен быть среди размеров (напр. после удаления размера).
+  useEffect(() => {
+    if (!sku.sizes.includes(editSize) && sku.sizes.length) {
+      setEditSize(sku.base_size);
+    }
+  }, [sku.sizes, sku.base_size, editSize]);
 
   const replaceFlat = async (file: File, viewId: string) => {
     const loaded = await loadAsset(file);
-    // scale = реальная ширина (мм) / пиксели → флэт сразу в верном масштабе
-    // (как в FlatCreator). При оценочном размере калибровка уточнит вручную.
+    // scale = реальная ширина (мм) / пиксели → флэт сразу в верном масштабе.
     const scale =
       loaded.naturalWidth > 0
         ? loaded.intrinsic_size_mm.width / loaded.naturalWidth
         : 1;
-    setSku((s) =>
-      updateView(s, viewId, {
-        flat_svg: loaded.dataUrl,
-        scale_mm_per_unit: scale,
-      }),
-    );
+    setSku((s) => {
+      // Флэт — per-size; масштаб (scale) — общий на вид.
+      const withScale = updateView(s, viewId, { scale_mm_per_unit: scale });
+      return setSizeFlat(withScale, viewId, editSize, s.base_size, loaded.dataUrl);
+    });
   };
 
   const errors = useMemo(() => validateSku(sku), [sku]);
+  const idErr = useMemo(
+    () => idError(sku.id, reservedIds),
+    [sku.id, reservedIds],
+  );
   const view = sku.views.find((v) => v.id === activeViewId) ?? sku.views[0];
+  const base = sku.base_size;
+  const perSize = editSize !== base;
+
+  // Эффективный вид для выбранного размера (override → фоллбэк на базовые).
+  const effView: View | null = view
+    ? {
+        ...view,
+        flat_svg: effFlat(view, editSize, base),
+        anchors: effAnchors(view, editSize, base),
+        print_areas: effZones(view, editSize, base),
+      }
+    : null;
+
+  // Правки с холста → роутинг по размеру.
+  const onCanvasChange = (patch: Partial<View>) => {
+    if (!view) return;
+    if (patch.anchors) {
+      setSku(setSizeAnchors(sku, view.id, editSize, base, patch.anchors));
+    } else if (patch.print_areas) {
+      setSku(setSizeZones(sku, view.id, editSize, base, patch.print_areas));
+    } else if (patch.scale_mm_per_unit !== undefined) {
+      setSku(updateView(sku, view.id, { scale_mm_per_unit: patch.scale_mm_per_unit }));
+    } else {
+      setSku(updateView(sku, view.id, patch));
+    }
+  };
 
   const save = async () => {
-    if (errors.length) return;
+    if (errors.length || idErr) return;
     await saveModel(sku);
+    // Переименование id: убрать старую запись модели, чтобы не плодить дубли.
+    if (sku.id !== initial.id) await deleteModel(initial.id);
     setMsg("Сохранено");
     onSaved(sku.id);
   };
@@ -106,12 +156,20 @@ export function SkuEditor({
           ← К списку
         </button>
         <span className="text-sm font-semibold">Редактирование SKU</span>
-        <span className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
-          {sku.id}
-        </span>
+        <label className="flex items-center gap-1 text-xs text-neutral-500">
+          id:
+          <input
+            value={sku.id}
+            onChange={(e) => setSku({ ...sku, id: e.target.value.trim() })}
+            className={`w-44 rounded border bg-neutral-950 px-2 py-1 text-xs ${
+              idErr ? "border-red-600 text-red-300" : "border-neutral-700 text-neutral-200"
+            }`}
+          />
+        </label>
+        {idErr && <span className="text-xs text-red-400">{idErr}</span>}
         <button
           onClick={save}
-          disabled={errors.length > 0}
+          disabled={errors.length > 0 || !!idErr}
           className="ml-auto rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           Сохранить в каталог
@@ -252,8 +310,49 @@ export function SkuEditor({
           </Section>
 
           {/* Активный вид — продолжение формы */}
-          {view && (
+          {view && effView && (
           <div className="space-y-4">
+            <Section title="Размер геометрии">
+              <div className="flex flex-wrap gap-1.5">
+                {sku.sizes.map((sz) => {
+                  const overridden =
+                    sz !== base &&
+                    !!(
+                      view.size_anchors?.[sz] ||
+                      view.size_print_areas?.[sz] ||
+                      view.size_flats?.[sz]
+                    );
+                  return (
+                    <button
+                      key={sz}
+                      onClick={() => setEditSize(sz)}
+                      className={`rounded px-2.5 py-1 text-xs ${
+                        sz === editSize
+                          ? "bg-blue-600 text-white"
+                          : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                      }`}
+                    >
+                      {sz}
+                      {sz === base ? " (база)" : overridden ? " ●" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              {perSize && (
+                <button
+                  onClick={() => setSku(clearSizeOverride(sku, view.id, editSize))}
+                  className="mt-1 self-start rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-700"
+                >
+                  Сбросить {editSize} под базовый
+                </button>
+              )}
+              <p className="text-[11px] text-neutral-500">
+                {perSize
+                  ? `Правка флэта, якорей и прямоугольников зон — только для ${editSize}. Состав зон, метод, размеры и grade-rule — общие.`
+                  : "Базовый размер: правки идут в основную геометрию вида."}
+              </p>
+            </Section>
+
             <Section title={`Вид: ${view.kind}`}>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Тип вида">
@@ -293,7 +392,9 @@ export function SkuEditor({
               </div>
 
               <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-blue-500">
-                {view.flat_svg ? "Заменить флэт (SVG/PNG)" : "Загрузить флэт (SVG/PNG)"}
+                {(effView.flat_svg ? "Заменить флэт" : "Загрузить флэт") +
+                  (perSize ? ` (${editSize})` : "") +
+                  " · SVG/PNG"}
                 <input
                   type="file"
                   accept=".svg,.png,image/svg+xml,image/png"
@@ -306,29 +407,31 @@ export function SkuEditor({
                 />
               </label>
 
-              {/* Якоря */}
+              {/* Якоря (per-size: пишем под выбранный размер) */}
               {!isLabel && (
                 <div className="grid grid-cols-2 gap-2">
                   {isSleeve ? (
                     <>
                       <NumField
                         label="низ рукава Y"
-                        value={view.anchors.sleeve_bottom_y ?? 0}
+                        value={effView.anchors.sleeve_bottom_y ?? 0}
                         onChange={(n) =>
                           setSku(
-                            updateView(sku, view.id, {
-                              anchors: { ...view.anchors, sleeve_bottom_y: n },
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              sleeve_bottom_y: n,
                             }),
                           )
                         }
                       />
                       <NumField
                         label="центр рукава X"
-                        value={view.anchors.sleeve_center_x ?? 0}
+                        value={effView.anchors.sleeve_center_x ?? 0}
                         onChange={(n) =>
                           setSku(
-                            updateView(sku, view.id, {
-                              anchors: { ...view.anchors, sleeve_center_x: n },
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              sleeve_center_x: n,
                             }),
                           )
                         }
@@ -338,16 +441,14 @@ export function SkuEditor({
                     <>
                       <NumField
                         label="горловина Y"
-                        value={view.anchors.neckline_point?.y ?? 0}
+                        value={effView.anchors.neckline_point?.y ?? 0}
                         onChange={(n) =>
                           setSku(
-                            updateView(sku, view.id, {
-                              anchors: {
-                                ...view.anchors,
-                                neckline_point: {
-                                  x: view.anchors.neckline_point?.x ?? 0,
-                                  y: n,
-                                },
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              neckline_point: {
+                                x: effView.anchors.neckline_point?.x ?? 0,
+                                y: n,
                               },
                             }),
                           )
@@ -355,11 +456,12 @@ export function SkuEditor({
                       />
                       <NumField
                         label="ось центра X"
-                        value={view.anchors.center_axis_x ?? 0}
+                        value={effView.anchors.center_axis_x ?? 0}
                         onChange={(n) =>
                           setSku(
-                            updateView(sku, view.id, {
-                              anchors: { ...view.anchors, center_axis_x: n },
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              center_axis_x: n,
                             }),
                           )
                         }
@@ -371,25 +473,33 @@ export function SkuEditor({
             </Section>
 
             <Section title="Печатные зоны">
-              {view.print_areas.map((a) => (
+              {effView.print_areas.map((a) => (
                 <ZoneEditor
                   key={a.id}
                   area={a}
-                  canRemove={view.print_areas.length > 1}
+                  perSize={perSize}
+                  canRemove={!perSize && effView.print_areas.length > 1}
                   selected={a.id === selectedZoneId}
                   onSelect={() => setSelectedZoneId(a.id)}
-                  onChange={(patch) =>
+                  onRect={(rect) =>
+                    setSku(
+                      updateSizeZoneRect(sku, view.id, editSize, base, a.id, rect),
+                    )
+                  }
+                  onMeta={(patch) =>
                     setSku(updateZone(sku, view.id, a.id, patch))
                   }
                   onRemove={() => setSku(removeZone(sku, view.id, a.id))}
                 />
               ))}
-              <button
-                onClick={() => setSku(addZone(sku, view.id))}
-                className="mt-1 w-full rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
-              >
-                + зона
-              </button>
+              {!perSize && (
+                <button
+                  onClick={() => setSku(addZone(sku, view.id))}
+                  className="mt-1 w-full rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
+                >
+                  + зона
+                </button>
+              )}
             </Section>
 
             {!isLabel && (
@@ -407,12 +517,13 @@ export function SkuEditor({
 
         {/* Холст активного вида */}
         <main className="relative min-w-0 flex-1 bg-neutral-950">
-          {view && (
+          {effView && (
             <SkuViewCanvas
-              view={view}
+              key={`${effView.id}-${editSize}`}
+              view={effView}
               selectedZoneId={selectedZoneId}
               onSelectZone={setSelectedZoneId}
-              onChange={(patch) => setSku(updateView(sku, view.id, patch))}
+              onChange={onCanvasChange}
             />
           )}
         </main>
@@ -423,24 +534,26 @@ export function SkuEditor({
 
 function ZoneEditor({
   area,
+  perSize,
   canRemove,
   selected,
   onSelect,
-  onChange,
+  onRect,
+  onMeta,
   onRemove,
 }: {
   area: PrintArea;
+  perSize: boolean;
   canRemove: boolean;
   selected: boolean;
   onSelect: () => void;
-  onChange: (patch: Partial<PrintArea>) => void;
+  onRect: (rect: { x: number; y: number; w: number; h: number }) => void;
+  onMeta: (patch: Partial<PrintArea>) => void;
   onRemove: () => void;
 }) {
   const r = zoneRect(area);
-  const setRect = (p: Partial<{ x: number; y: number; w: number; h: number }>) => {
-    const nr = { ...r, ...p };
-    onChange({ polygon_mm: rectZone(area.id, area.name, nr.x, nr.y, nr.w, nr.h).polygon_mm });
-  };
+  const setRect = (p: Partial<{ x: number; y: number; w: number; h: number }>) =>
+    onRect({ ...r, ...p });
   return (
     <div
       onClick={onSelect}
@@ -451,8 +564,9 @@ function ZoneEditor({
       <div className="mb-2 flex items-center gap-2">
         <input
           value={area.name}
-          onChange={(e) => onChange({ name: e.target.value })}
-          className="flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm"
+          onChange={(e) => onMeta({ name: e.target.value })}
+          disabled={perSize}
+          className="flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm disabled:opacity-60"
         />
         {canRemove && (
           <button onClick={onRemove} className="text-neutral-500 hover:text-red-400">
@@ -466,33 +580,35 @@ function ZoneEditor({
         <NumField label="Ш" value={r.w} onChange={(n) => setRect({ w: Math.max(1, n) })} />
         <NumField label="В" value={r.h} onChange={(n) => setRect({ h: Math.max(1, n) })} />
       </div>
-      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-        <NumField
-          label="safe-inset"
-          value={area.safe_inset_mm}
-          onChange={(n) => onChange({ safe_inset_mm: Math.max(0, n) })}
-        />
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] text-neutral-500">метод по умолч.</span>
-          <select
-            value={area.default_method ?? ""}
-            onChange={(e) =>
-              onChange({
-                default_method: (e.target.value || undefined) as
-                  | PrintArea["default_method"],
-              })
-            }
-            className="rounded border border-neutral-700 bg-neutral-950 px-1.5 py-1 text-xs"
-          >
-            <option value="">— нет —</option>
-            {PRINT_METHOD_LIST.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {!perSize && (
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          <NumField
+            label="safe-inset"
+            value={area.safe_inset_mm}
+            onChange={(n) => onMeta({ safe_inset_mm: Math.max(0, n) })}
+          />
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] text-neutral-500">метод по умолч.</span>
+            <select
+              value={area.default_method ?? ""}
+              onChange={(e) =>
+                onMeta({
+                  default_method: (e.target.value || undefined) as
+                    | PrintArea["default_method"],
+                })
+              }
+              className="rounded border border-neutral-700 bg-neutral-950 px-1.5 py-1 text-xs"
+            >
+              <option value="">— нет —</option>
+              {PRINT_METHOD_LIST.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
     </div>
   );
 }

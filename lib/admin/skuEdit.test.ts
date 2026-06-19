@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   cloneSku,
   validateSku,
+  idError,
   addSize,
   removeSize,
   addView,
@@ -12,6 +13,11 @@ import {
   rectZone,
   zoneRect,
   emptySku,
+  effAnchors,
+  effZones,
+  setSizeAnchors,
+  updateSizeZoneRect,
+  clearSizeOverride,
 } from "./skuEdit";
 import type { SKU } from "@/types";
 
@@ -86,5 +92,48 @@ describe("skuEdit", () => {
 
   it("emptySku валиден по схеме", () => {
     expect(validateSku(emptySku("new", "Новая", "tshirt"))).toEqual([]);
+  });
+
+  it("per-size: override якорей/зон, фоллбэк на базовые, валидность", () => {
+    // базовый размер — фоллбэк на базовые
+    expect(effAnchors(sku.views[0], "M", "M").neckline_point?.y).toBe(30);
+    expect(effAnchors(sku.views[0], "L", "M").neckline_point?.y).toBe(30); // нет override → базовые
+
+    // override якорей на L
+    const a = setSizeAnchors(sku, "v-front", "L", "M", {
+      neckline_point: { x: 150, y: 44 },
+      center_axis_x: 150,
+    });
+    expect(effAnchors(a.views[0], "L", "M").neckline_point?.y).toBe(44);
+    expect(effAnchors(a.views[0], "M", "M").neckline_point?.y).toBe(30); // базовый не тронут
+    expect(validateSku(a)).toEqual([]);
+
+    // override прямоугольника зоны на L (copy-on-write всех зон)
+    const b = updateSizeZoneRect(a, "v-front", "L", "M", "chest", {
+      x: 50,
+      y: 70,
+      w: 240,
+      h: 300,
+    });
+    expect(zoneRect(effZones(b.views[0], "L", "M")[0])).toEqual({
+      x: 50,
+      y: 70,
+      w: 240,
+      h: 300,
+    });
+    expect(zoneRect(effZones(b.views[0], "M", "M")[0]).w).toBe(220); // базовый цел
+    expect(validateSku(b)).toEqual([]);
+
+    // сброс override → снова базовые
+    const c = clearSizeOverride(b, "v-front", "L");
+    expect(effAnchors(c.views[0], "L", "M").neckline_point?.y).toBe(30);
+    expect(c.views[0].size_print_areas).toBeUndefined();
+  });
+
+  it("idError — формат и коллизии", () => {
+    expect(idError("tee-1", ["seed-a"])).toBeNull();
+    expect(idError("", [])).toBeTruthy();
+    expect(idError("Tee 1", [])).toBeTruthy(); // пробел/регистр
+    expect(idError("tshirt-classic", ["tshirt-classic"])).toBeTruthy(); // занят
   });
 });

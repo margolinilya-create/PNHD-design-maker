@@ -15,7 +15,7 @@ export function SkuList({
   onEdit,
   onCreate,
 }: {
-  onEdit: (sku: SKU) => void;
+  onEdit: (sku: SKU, reservedIds: string[]) => void;
   onCreate: () => void;
 }) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
@@ -51,12 +51,16 @@ export function SkuList({
     );
   }, [entries, q]);
 
+  const reservedFor = (id: string) =>
+    (entries ?? []).filter((e) => e.sku.id !== id).map((e) => e.sku.id);
+
   const duplicate = async (sku: SKU) => {
     const newId = `${sku.id}-copy-${Date.now().toString(36).slice(-4)}`;
     const copy = cloneSku(sku, newId, `${sku.name} (копия)`);
     await saveModel(copy);
+    const reserved = (entries ?? []).map((e) => e.sku.id);
     await load();
-    onEdit(copy);
+    onEdit(copy, reserved);
   };
 
   const onDelete = async (id: string) => {
@@ -121,7 +125,7 @@ export function SkuList({
               {source === "model" ? (
                 <>
                   <button
-                    onClick={() => onEdit(sku)}
+                    onClick={() => onEdit(sku, reservedFor(sku.id))}
                     className="rounded bg-neutral-700 px-2.5 py-1 text-xs text-neutral-100 hover:bg-neutral-600"
                   >
                     Редактировать
