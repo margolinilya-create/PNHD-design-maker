@@ -339,6 +339,11 @@ export function SkuEditor({
                     <span className="text-xs text-gray-400">
                       · {v.print_areas.length} зон.
                     </span>
+                    {!v.flat_svg && (
+                      <span className="ml-1 inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-0.5 text-[10px] text-amber-700">
+                        <TriangleAlert size={10} strokeWidth={2} /> нет флэта
+                      </span>
+                    )}
                   </button>
                   {sku.views.length > 1 && (
                     <button
