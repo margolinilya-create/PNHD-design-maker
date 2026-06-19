@@ -225,7 +225,7 @@ export function processPiece(
   const d = "M " + N.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
   let svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w.toFixed(0)} ${h.toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}">` +
-    `<path id="garment" d="${d}" fill="#1b1f24" stroke="#5b6470" stroke-width="3" stroke-linejoin="round"/>` +
+    `<path id="garment" d="${d}" fill="#ffffff" stroke="#5b6470" stroke-width="3" stroke-linejoin="round"/>` +
     `<line id="center-axis" x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${h.toFixed(0)}" stroke="#3b4350" stroke-width="1.5" stroke-dasharray="6 8"/>`;
   if (sleeve)
     svg += `<line id="sleeve-bottom" x1="0" y1="${h.toFixed(0)}" x2="${w.toFixed(0)}" y2="${h.toFixed(0)}" stroke="#ff5a5f" stroke-width="3"/>`;
