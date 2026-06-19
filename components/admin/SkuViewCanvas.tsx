@@ -181,7 +181,7 @@ export function SkuViewCanvas({
                   y={t.py(r.y)}
                   width={t.s(r.w)}
                   height={t.s(r.h)}
-                  stroke={sel ? "#4f8cff" : "#7aa2ff99"}
+                  stroke={sel ? "#2563eb" : "#7aa2ff99"}
                   strokeWidth={sel ? 1.8 : 1}
                   dash={[8, 6]}
                   fill={sel ? "rgba(79,140,255,0.10)" : "rgba(79,140,255,0.04)"}
@@ -239,7 +239,7 @@ export function SkuViewCanvas({
                   t.px(a.center_axis_x ?? 0),
                   t.py(flatMm.h),
                 ]}
-                stroke="#39d98a"
+                stroke="#16a34a"
                 strokeWidth={1}
                 dash={[5, 6]}
                 listening={false}
@@ -247,7 +247,7 @@ export function SkuViewCanvas({
               <Handle
                 x={t.px(a.center_axis_x ?? 0)}
                 y={t.py(Math.max(10, (a.neckline_point?.y ?? 30) - 40))}
-                color="#39d98a"
+                color="#16a34a"
                 label="ось"
                 draggable={!measure}
                 onMove={(px) =>
@@ -257,7 +257,7 @@ export function SkuViewCanvas({
               <Handle
                 x={t.px(a.neckline_point?.x ?? 0)}
                 y={t.py(a.neckline_point?.y ?? 0)}
-                color="#ff5a5f"
+                color="#e11d48"
                 label="горловина"
                 draggable={!measure}
                 onMove={(px) =>
@@ -280,7 +280,7 @@ export function SkuViewCanvas({
                   t.px(flatMm.w),
                   t.py(a.sleeve_bottom_y ?? 0),
                 ]}
-                stroke="#ff5a5f"
+                stroke="#e11d48"
                 strokeWidth={1}
                 dash={[5, 6]}
                 listening={false}
@@ -288,7 +288,7 @@ export function SkuViewCanvas({
               <Handle
                 x={t.px(a.sleeve_center_x ?? 0)}
                 y={t.py(a.sleeve_bottom_y ?? 0)}
-                color="#ff5a5f"
+                color="#e11d48"
                 label="низ/центр рукава"
                 draggable={!measure}
                 onMove={(px) =>
@@ -392,7 +392,7 @@ function Handle({
       draggable={draggable}
       onDragMove={(e) => onMove({ x: e.target.x(), y: e.target.y() })}
     >
-      <Circle radius={6} fill={color} stroke="#0b0d10" strokeWidth={1.5} />
+      <Circle radius={6} fill={color} stroke="#ffffff" strokeWidth={1.5} />
       <Text x={9} y={-6} text={label} fontSize={11} fill={color} />
     </Group>
   );

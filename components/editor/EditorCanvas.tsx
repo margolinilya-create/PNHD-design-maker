@@ -700,17 +700,17 @@ function ZoneShapes({
             <Line
               points={pts}
               closed
-              stroke="#4f8cff"
+              stroke="#2563eb"
               strokeWidth={1.5}
               dash={[8, 6]}
-              fill="rgba(79,140,255,0.06)"
+              fill="rgba(37,140,235,0.05)"
             />
             <Rect
               x={t.px(minX + inset)}
               y={t.py(minY + inset)}
               width={t.s(maxX - minX - 2 * inset)}
               height={t.s(maxY - minY - 2 * inset)}
-              stroke="#39d98a"
+              stroke="#16a34a"
               strokeWidth={1}
               dash={[4, 4]}
             />
@@ -799,7 +799,7 @@ function PlacementNode({
           scaleX={p.flip_h ? -1 : 1}
           scaleY={p.flip_v ? -1 : 1}
           draggable={interactive}
-          stroke={selected ? "#4f8cff" : undefined}
+          stroke={selected ? "#2563eb" : undefined}
           strokeWidth={selected ? 1.5 : 0}
           onMouseDown={interactive ? onSelect : undefined}
           onTap={interactive ? onSelect : undefined}
@@ -815,7 +815,7 @@ function PlacementNode({
           y={t.py(zone.zy)}
           width={t.s(zone.zw)}
           height={t.s(zone.zh)}
-          stroke="#ff5a5f"
+          stroke="#e11d48"
           strokeWidth={2}
           dash={[6, 4]}
           listening={false}
@@ -868,7 +868,7 @@ function MeasureOverlay({
                     width={w}
                     height={15}
                     cornerRadius={3}
-                    fill="rgba(15,18,24,0.8)"
+                    fill="rgba(255,255,255,0.85)"
                   />
                   <Text
                     x={mx - w / 2}
@@ -962,7 +962,7 @@ function VerificationOverlay({
       {!isSleeve && a.center_axis_x != null && (
         <Line
           points={[t.px(a.center_axis_x), t.py(0), t.px(a.center_axis_x), t.py(flatMm.h)]}
-          stroke="#4f8cff"
+          stroke="#2563eb"
           strokeWidth={1}
           dash={[4, 5]}
           opacity={0.8}
@@ -974,14 +974,14 @@ function VerificationOverlay({
             x={t.px(a.neckline_point.x)}
             y={t.py(a.neckline_point.y)}
             radius={4}
-            fill="#ff5a5f"
+            fill="#e11d48"
           />
           <Text
             x={t.px(a.neckline_point.x) + 6}
             y={t.py(a.neckline_point.y) - 5}
             text="горловина"
             fontSize={9}
-            fill="#ff8a8d"
+            fill="#fb7185"
           />
         </>
       )}
@@ -989,7 +989,7 @@ function VerificationOverlay({
         <>
           <Line
             points={[t.px(0), t.py(a.sleeve_bottom_y), t.px(flatMm.w), t.py(a.sleeve_bottom_y)]}
-            stroke="#ff5a5f"
+            stroke="#e11d48"
             strokeWidth={1}
             dash={[4, 4]}
           />
@@ -998,14 +998,14 @@ function VerificationOverlay({
             y={t.py(a.sleeve_bottom_y) + 2}
             text="низ рукава"
             fontSize={9}
-            fill="#ff8a8d"
+            fill="#fb7185"
           />
         </>
       )}
       {isSleeve && a.sleeve_center_x != null && (
         <Line
           points={[t.px(a.sleeve_center_x), t.py(0), t.px(a.sleeve_center_x), t.py(flatMm.h)]}
-          stroke="#4f8cff"
+          stroke="#2563eb"
           strokeWidth={1}
           dash={[4, 5]}
           opacity={0.8}
@@ -1036,15 +1036,15 @@ function DimensionOverlay({
   const { aabb, zone, dimensions: d, anchor } = info;
   const midX = aabb.x + aabb.w / 2;
   const midY = aabb.y + aabb.h / 2;
-  const color = "#cbd2da";
+  const color = "#94a3b8";
 
-  // Числовая подпись с тёмной полупрозрачной подложкой (halo) —
-  // читаемость на светлом макете.
+  // Числовая подпись с белой полупрозрачной подложкой (halo) —
+  // читаемость на светлом холсте/макете.
   const label = (
     x: number,
     y: number,
     text: string,
-    fill = color,
+    fill = "#475569",
   ) => {
     const w = 48;
     const cx = t.px(x);
@@ -1058,7 +1058,7 @@ function DimensionOverlay({
           width={haloW}
           height={16}
           cornerRadius={3}
-          fill="rgba(15,18,24,0.6)"
+          fill="rgba(255,255,255,0.85)"
         />
         <Text
           x={cx - w / 2}
@@ -1110,34 +1110,34 @@ function DimensionOverlay({
         (zone.zx + aabb.x) / 2,
         midY,
         `${Math.round(d.left)}`,
-        d.left < 0 ? "#ff5a5f" : color,
+        d.left < 0 ? "#e11d48" : color,
       )}
       {arrow(aabb.x + aabb.w, midY, zone.zx + zone.zw, midY)}
       {label(
         (aabb.x + aabb.w + zone.zx + zone.zw) / 2,
         midY,
         `${Math.round(d.right)}`,
-        d.right < 0 ? "#ff5a5f" : color,
+        d.right < 0 ? "#e11d48" : color,
       )}
       {arrow(midX, zone.zy, midX, aabb.y)}
       {label(
         midX,
         (zone.zy + aabb.y) / 2,
         `${Math.round(d.top)}`,
-        d.top < 0 ? "#ff5a5f" : color,
+        d.top < 0 ? "#e11d48" : color,
       )}
       {arrow(midX, aabb.y + aabb.h, midX, zone.zy + zone.zh)}
       {label(
         midX,
         (aabb.y + aabb.h + zone.zy + zone.zh) / 2,
         `${Math.round(d.bottom)}`,
-        d.bottom < 0 ? "#ff5a5f" : color,
+        d.bottom < 0 ? "#e11d48" : color,
       )}
 
       {/* Вертикаль от горловины/низа рукава (отступ по вертикали) */}
       <Line
         points={[t.px(centerX), t.py(anchorY), t.px(centerX), t.py(midY)]}
-        stroke="#ff5a5f"
+        stroke="#e11d48"
         strokeWidth={1}
         dash={[5, 4]}
       />
@@ -1145,7 +1145,7 @@ function DimensionOverlay({
         centerX,
         (anchorY + midY) / 2,
         `${Math.round(Math.abs(anchor.vertical))}`,
-        "#ff8a8d",
+        "#fb7185",
       )}
 
       {/* Ось изделия «от центра»: пунктирная вертикаль по center_axis_x
@@ -1157,7 +1157,7 @@ function DimensionOverlay({
           t.px(centerX),
           t.py(zone.zy + zone.zh),
         ]}
-        stroke="#4f8cff"
+        stroke="#2563eb"
         strokeWidth={1}
         dash={[3, 5]}
         opacity={0.7}
@@ -1168,7 +1168,7 @@ function DimensionOverlay({
         (centerX + midX) / 2,
         midY,
         `${Math.round(anchor.horizontal)}`,
-        "#9ec1ff",
+        "#2563eb",
       )}
 
       {/* Размер печати Ш×В — с тёмной подложкой для читаемости */}
@@ -1178,7 +1178,7 @@ function DimensionOverlay({
         width={84}
         height={18}
         cornerRadius={4}
-        fill="rgba(15,18,24,0.65)"
+        fill="#2563eb"
       />
       <Text
         x={t.px(midX) - 40}

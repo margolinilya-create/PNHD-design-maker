@@ -107,7 +107,7 @@ export function MockupZoneCanvas({
             y={screen.y}
             width={screen.w}
             height={screen.h}
-            stroke="#4f8cff"
+            stroke="#2563eb"
             strokeWidth={1.5}
             dash={[6, 4]}
             fill="rgba(79,140,255,0.12)"
