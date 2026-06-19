@@ -12,8 +12,8 @@ import { saveModel } from "@/lib/persistence/models";
 import { parseDxf, processPiece, type PieceRef } from "@/lib/import/dxf";
 import { buildSkuFromDxf } from "@/lib/import/dxfSku";
 import { svgToDataUrl } from "@/lib/export/flatMarkup";
-import { ChevronLeft, FileUp, Upload, TriangleAlert } from "lucide-react";
-import type { GarmentType, ViewKind, BaseSize } from "@/types";
+import { ChevronLeft, FileUp, Upload, TriangleAlert, ArrowRight } from "lucide-react";
+import type { GarmentType, ViewKind, BaseSize, SKU } from "@/types";
 
 const FlatEditorCanvas = dynamic(
   () => import("@/components/admin/FlatEditorCanvas").then((m) => m.FlatEditorCanvas),
@@ -66,7 +66,14 @@ function draftFromPiece(ref: PieceRef, r: ReturnType<typeof processPiece>): Flat
   };
 }
 
-export function FlatCreator({ onBack }: { onBack: () => void }) {
+export function FlatCreator({
+  onBack,
+  onContinue,
+}: {
+  onBack: () => void;
+  /** Передать собранный SKU в полный редактор (мультивид/per-size/этикетка). */
+  onContinue?: (sku: SKU) => void;
+}) {
   const [draft, setDraft] = useState<FlatDraft | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -112,8 +119,20 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
     if (!dxf) return;
     const id = `dxf-${Date.now().toString(36)}`;
     const sku = buildSkuFromDxf(dxf, { skuId: id, skuName: "Модель из DXF" });
+    // Открыть в полном редакторе для выверки зон/якорей; если редактор недоступен
+    // — сохранить сразу в каталог.
+    if (onContinue) {
+      onContinue(sku);
+      return;
+    }
     await saveModel(sku);
     setSaved(sku.id);
+  };
+
+  // Одиночный флэт → продолжить в полном редакторе (добавить виды/размеры/зоны).
+  const continueFromDraft = () => {
+    if (!draft || errors.length || !onContinue) return;
+    onContinue(buildSkuFromDraft(draft));
   };
 
   const json = useMemo(
@@ -202,8 +221,8 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
           <button onClick={createFromDxf} className="rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink hover:bg-gray-200">
             Черновик из детали
           </button>
-          <button onClick={createFullSku} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700" title="Все виды + ростовки сразу в каталог">
-            Собрать полный SKU
+          <button onClick={createFullSku} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700" title="Все виды + ростовки → открыть в редакторе для выверки зон">
+            Собрать SKU <ArrowRight size={14} strokeWidth={1.75} /> редактор
           </button>
           {saved && <span className="text-xs text-emerald-600">«{saved}» в каталоге</span>}
         </div>
@@ -275,8 +294,18 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
                 <button onClick={download} className="flex-1 rounded bg-raised px-2 py-1.5 text-xs hover:bg-gray-200">Скачать JSON</button>
                 <button onClick={() => navigator.clipboard?.writeText(json)} className="flex-1 rounded bg-raised px-2 py-1.5 text-xs hover:bg-gray-200">Копировать</button>
               </div>
-              <button onClick={addToCatalog} disabled={errors.length > 0} className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-                Добавить в каталог
+              {onContinue && (
+                <button
+                  onClick={continueFromDraft}
+                  disabled={errors.length > 0}
+                  title="Открыть в полном редакторе: добавить спину/рукав/этикетку, ростовку и per-size"
+                  className="mb-2 inline-flex w-full items-center justify-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Продолжить в редакторе <ArrowRight size={15} strokeWidth={1.75} />
+                </button>
+              )}
+              <button onClick={addToCatalog} disabled={errors.length > 0} className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-semibold text-ink hover:bg-gray-200 disabled:opacity-50">
+                Добавить в каталог (только этот вид)
               </button>
               {saved && <p className="mt-2 text-xs text-emerald-600">«{saved}» в каталоге.</p>}
               <textarea readOnly value={json} className="mt-2 h-32 w-full rounded border border-line bg-shell p-2 font-mono text-[10px]" />
