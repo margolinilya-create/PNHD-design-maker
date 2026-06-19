@@ -120,6 +120,8 @@ export function SidePanel() {
   const [preflightIssues, setPreflightIssues] = useState<
     PreflightIssue[] | null
   >(null);
+  // Действие экспорта, ожидающее подтверждения чеклиста (B2).
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   // Проверка ростовки (P1 #12): свод по всем размерам.
   const [showReview, setShowReview] = useState(false);
   // Batch-PDF по размерам (P1 #20).
@@ -166,7 +168,17 @@ export function SidePanel() {
       let mockup;
       if (view.mockup) {
         const ph = await loadPhoto(view.mockup.photo);
-        mockup = { dataUrl: ph.dataUrl, imgW: ph.w, imgH: ph.h, print: view.mockup.print };
+        // Маска ткани для перекраски под цвет (если задана).
+        const maskDataUrl = view.mockup.mask
+          ? (await loadPhoto(view.mockup.mask)).dataUrl
+          : undefined;
+        mockup = {
+          dataUrl: ph.dataUrl,
+          imgW: ph.w,
+          imgH: ph.h,
+          print: view.mockup.print,
+          maskDataUrl,
+        };
       }
       const svg = buildPreviewSvg({
         view,
@@ -252,7 +264,9 @@ export function SidePanel() {
   };
 
   // Гейт перед экспортом: прогоняем чеклист, при проблемах — модалка.
-  const onExport = () => {
+  // Общий гейт: прогон preflight перед любым экспортом; при проблемах — модалка,
+  // действие запускается по подтверждению (B2 — батч и production тоже через чеклист).
+  const gateExport = (action: () => void) => {
     if (!sku) return;
     const issues = preflight({
       views: sku.views,
@@ -261,11 +275,14 @@ export function SidePanel() {
       size: size ?? undefined,
     });
     if (issues.length > 0) {
+      setPendingAction(() => action);
       setPreflightIssues(issues);
       return;
     }
-    void runExport();
+    action();
   };
+
+  const onExport = () => gateExport(() => void runExport("full"));
 
   const runExport = async (variant: "full" | "production" = "full") => {
     if (!sku) return;
@@ -637,7 +654,7 @@ export function SidePanel() {
           {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
         </button>
         <button
-          onClick={() => void runExport("production")}
+          onClick={() => gateExport(() => void runExport("production"))}
           disabled={busy || viewLayers.length === 0}
           className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
         >
@@ -656,11 +673,20 @@ export function SidePanel() {
       {preflightIssues && (
         <PreflightModal
           issues={preflightIssues}
-          onCancel={() => setPreflightIssues(null)}
-          onProceed={() => void runExport()}
+          onCancel={() => {
+            setPreflightIssues(null);
+            setPendingAction(null);
+          }}
+          onProceed={() => {
+            const act = pendingAction;
+            setPreflightIssues(null);
+            setPendingAction(null);
+            act?.();
+          }}
           onSelect={(pid) => {
             selectPlacement(pid);
             setPreflightIssues(null);
+            setPendingAction(null);
           }}
         />
       )}
@@ -684,7 +710,10 @@ export function SidePanel() {
           sizes={sku.sizes}
           baseSize={size ?? sku.base_size}
           onClose={() => setShowBatch(false)}
-          onBuild={(sel) => void onExportBatch(sel)}
+          onBuild={(sel) => {
+            setShowBatch(false);
+            gateExport(() => void onExportBatch(sel));
+          }}
         />
       )}
     </div>

@@ -270,6 +270,39 @@ export function updateSizeZoneRect(
   return setSizeZones(sku, viewId, size, baseSize, next);
 }
 
+function dropKey<T>(
+  rec: Record<string, T> | undefined,
+  key: string,
+): Record<string, T> | undefined {
+  if (!rec || !(key in rec)) return rec;
+  const next = { ...rec };
+  delete next[key];
+  return Object.keys(next).length ? next : undefined;
+}
+
+/** Сбросить per-size якоря размера (вернуть к базовым). */
+export function clearSizeAnchors(sku: SKU, viewId: string, size: string): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  return updateView(sku, viewId, { size_anchors: dropKey(v.size_anchors, size) });
+}
+
+/** Сбросить per-size зоны размера. */
+export function clearSizeZones(sku: SKU, viewId: string, size: string): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  return updateView(sku, viewId, {
+    size_print_areas: dropKey(v.size_print_areas, size),
+  });
+}
+
+/** Сбросить per-size флэт размера. */
+export function clearSizeFlat(sku: SKU, viewId: string, size: string): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  return updateView(sku, viewId, { size_flats: dropKey(v.size_flats, size) });
+}
+
 /** Сбросить per-size override вида (вернуть к базовым на этом размере). */
 export function clearSizeOverride(sku: SKU, viewId: string, size: string): SKU {
   const v = findView(sku, viewId);

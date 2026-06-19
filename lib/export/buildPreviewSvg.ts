@@ -19,13 +19,15 @@ export interface PreviewInput {
     imgW: number;
     imgH: number;
     print: { x: number; y: number; w: number };
+    /** Маска ткани (data URL, white=ткань) для перекраски под цвет изделия. */
+    maskDataUrl?: string;
   };
 }
 
 /** Превью на фото изделия: фото-подложка + макет в печатной зоне (multiply). */
 function buildMockupSvg(input: PreviewInput): string {
-  const { view, placements, assets, size, mockup } = input;
-  const { dataUrl, imgW, imgH, print } = mockup!;
+  const { view, placements, assets, size, mockup, garmentColor } = input;
+  const { dataUrl, imgW, imgH, print, maskDataUrl } = mockup!;
 
   const placementSvg = placements
     .map((p, i) => {
@@ -57,9 +59,23 @@ function buildMockupSvg(input: PreviewInput): string {
     .filter(Boolean) as { clip: string; body: string }[];
 
   const bgHref = escAttr(dataUrl);
+
+  // Перекраска ткани под цвет изделия: цвет multiply в пределах маски ткани
+  // (white=ткань). Сохраняет тени/складки. Без маски/цвета — фото как есть.
+  const recolor =
+    garmentColor && maskDataUrl
+      ? {
+          mask: `<mask id="garment-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${imgW}" height="${imgH}">
+            <image href="${escAttr(maskDataUrl)}" xlink:href="${escAttr(maskDataUrl)}" x="0" y="0" width="${imgW}" height="${imgH}"/>
+          </mask>`,
+          rect: `<rect x="0" y="0" width="${imgW}" height="${imgH}" fill="${escAttr(garmentColor)}" mask="url(#garment-mask)" style="mix-blend-mode:multiply"/>`,
+        }
+      : null;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${imgW}" height="${imgH}" viewBox="0 0 ${imgW} ${imgH}">
-  <defs>${placementSvg.map((x) => x.clip).join("")}</defs>
+  <defs>${recolor?.mask ?? ""}${placementSvg.map((x) => x.clip).join("")}</defs>
   <image href="${bgHref}" xlink:href="${bgHref}" x="0" y="0" width="${imgW}" height="${imgH}"/>
+  ${recolor?.rect ?? ""}
   ${placementSvg.map((x) => x.body).join("")}
 </svg>`;
 }

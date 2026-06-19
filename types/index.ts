@@ -92,6 +92,12 @@ export interface View {
   mockup?: {
     photo: string;
     print: { x: number; y: number; w: number };
+    /**
+     * Маска ткани (white=ткань) для перекраски фото под цвет изделия:
+     * цвет накладывается multiply в пределах маски (сохраняет тени/складки).
+     * Без маски фото не перекрашивается.
+     */
+    mask?: string;
   };
 }
 
