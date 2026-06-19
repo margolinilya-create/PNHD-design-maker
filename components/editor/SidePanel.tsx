@@ -15,6 +15,7 @@ import {
   placementInfo,
   printAreasForSize,
   presetPosition,
+  fitToZone,
   flatForSize,
   type PositionPreset,
 } from "@/lib/geometry/view";
@@ -1149,6 +1150,18 @@ function PlacementInspector({
     );
     onChange(pos);
   };
+  const applyFit = (mode: "fit" | "fill") => {
+    if (!view) return;
+    onChange(
+      fitToZone(
+        view,
+        { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+        mode,
+        garmentSize ?? undefined,
+        p.print_area_id,
+      ),
+    );
+  };
   const isFrontBack =
     view?.kind === "front" || view?.kind === "back";
   const presets: { key: PositionPreset; label: string }[] = [
@@ -1177,6 +1190,20 @@ function PlacementInspector({
             {pr.label}
           </button>
         ))}
+        <button
+          onClick={() => applyFit("fit")}
+          title="Вписать в зону (по safe-зоне)"
+          className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+        >
+          Вписать
+        </button>
+        <button
+          onClick={() => applyFit("fill")}
+          title="Заполнить зону (излишек обрежется)"
+          className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+        >
+          Заполнить
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <MmField
