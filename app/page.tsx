@@ -16,7 +16,7 @@ export default function HomePage() {
           href="/admin"
           className="shrink-0 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:border-blue-500 hover:bg-neutral-900"
         >
-          + Редактор лекал
+          Админка SKU
         </Link>
       </header>
       <SkuPicker />
