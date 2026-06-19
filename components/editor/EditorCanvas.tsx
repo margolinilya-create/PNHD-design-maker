@@ -331,6 +331,8 @@ export function EditorCanvas() {
   // Клавиатура: Delete/Backspace — удалить, Esc — снять выбор,
   // стрелки — сдвиг выбранного на 1 мм (Shift — 10 мм).
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Режим «только просмотр» — никаких правок с клавиатуры (B1).
+    if (readOnly) return;
     // Undo / redo (Ctrl/Cmd+Z, Shift для redo; Ctrl/Cmd+Y).
     if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
       e.preventDefault();

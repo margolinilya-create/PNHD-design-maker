@@ -23,6 +23,7 @@ function CanvasLoading() {
 function UndoRedo() {
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
+  const readOnly = useProjectStore((s) => s.readOnly);
   const canUndo = useProjectStore((s) => s.past.length > 0);
   const canRedo = useProjectStore((s) => s.future.length > 0);
   const btn = "rounded px-2 py-1 text-sm disabled:opacity-30";
@@ -30,7 +31,7 @@ function UndoRedo() {
     <div className="flex items-center gap-1">
       <button
         onClick={undo}
-        disabled={!canUndo}
+        disabled={!canUndo || readOnly}
         title="Отменить (Ctrl+Z)"
         className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}
       >
@@ -38,7 +39,7 @@ function UndoRedo() {
       </button>
       <button
         onClick={redo}
-        disabled={!canRedo}
+        disabled={!canRedo || readOnly}
         title="Повторить (Ctrl+Shift+Z)"
         className={`${btn} bg-neutral-800 text-neutral-200 hover:bg-neutral-700`}
       >

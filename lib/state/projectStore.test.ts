@@ -69,11 +69,27 @@ describe("projectStore undo/redo", () => {
     expect(useProjectStore.getState().comments).toHaveLength(2);
   });
 
-  it("режим только просмотр переключается", () => {
+  it("режим только просмотр переключается и снимает выбор", () => {
+    const s = useProjectStore.getState();
+    const id = s.addPlacement(sample);
+    useProjectStore.getState().selectPlacement(id);
     useProjectStore.getState().setReadOnly(true);
     expect(useProjectStore.getState().readOnly).toBe(true);
+    expect(useProjectStore.getState().selectedPlacementId).toBeNull();
     useProjectStore.getState().setReadOnly(false);
     expect(useProjectStore.getState().readOnly).toBe(false);
+  });
+
+  it("readOnly блокирует правки нанесений (B1)", () => {
+    const s = useProjectStore.getState();
+    const id = s.addPlacement(sample);
+    useProjectStore.getState().setReadOnly(true);
+    useProjectStore.getState().updatePlacement(id, { x_mm: 999 });
+    expect(useProjectStore.getState().placements[0].x_mm).toBe(0); // не изменилось
+    useProjectStore.getState().removePlacement(id);
+    expect(useProjectStore.getState().placements).toHaveLength(1); // не удалено
+    useProjectStore.getState().duplicatePlacement(id);
+    expect(useProjectStore.getState().placements).toHaveLength(1); // не продублировано
   });
 
   it("duplicateToAllZones копирует во все зоны всех видов, кроме исходной", () => {
