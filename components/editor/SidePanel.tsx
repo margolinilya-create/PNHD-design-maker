@@ -35,6 +35,7 @@ import {
   type PreflightIssue,
 } from "@/lib/export/preflight";
 import { reviewGrading } from "@/lib/geometry/gradingReview";
+import { regradePlacementsToSize } from "@/lib/geometry/regradeBatch";
 import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
@@ -113,6 +114,8 @@ export function SidePanel() {
   >(null);
   // Проверка ростовки (P1 #12): свод по всем размерам.
   const [showReview, setShowReview] = useState(false);
+  // Batch-PDF по размерам (P1 #20).
+  const [showBatch, setShowBatch] = useState(false);
 
   // Целевая зона для загрузки (мультизонные виды).
   const areas = useMemo(
@@ -176,6 +179,65 @@ export function SidePanel() {
       setMsg(mockup ? "Фото-мокап готов" : "PNG-превью готов");
     } catch (e) {
       setMsg(`Ошибка превью: ${e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Batch-PDF: тех-листы по выбранным размерам в один файл (P1 #20).
+  const onExportBatch = async (sizesSel: string[]) => {
+    if (!sku || sizesSel.length === 0) return;
+    setShowBatch(false);
+    setBusy(true);
+    setMsg(null);
+    try {
+      const fromSize = size ?? sku.base_size;
+      const scenes: string[] = [];
+      for (const tSize of sizesSel) {
+        const pls = regradePlacementsToSize(
+          sku.views,
+          placements,
+          fromSize,
+          tSize,
+        );
+        const viewsWith = sku.views.filter((v) =>
+          pls.some((p) => v.print_areas.some((a) => a.id === p.print_area_id)),
+        );
+        for (const v of viewsWith) {
+          const markup = await resolveFlatMarkup(flatForSize(v, tSize));
+          const raw = svgSizeMm(markup);
+          const s = v.scale_mm_per_unit ?? 1;
+          const vp = pls.filter((p) =>
+            v.print_areas.some((a) => a.id === p.print_area_id),
+          );
+          scenes.push(
+            buildSceneSvg({
+              sku,
+              view: v,
+              flatSvgMarkup: markup,
+              flatMm: { w: raw.w * s, h: raw.h * s },
+              scaleMmPerUnit: s,
+              garmentColor,
+              placements: vp,
+              assets,
+              meta: {
+                client,
+                orderRef,
+                size: tSize,
+                date: new Date().toLocaleDateString("ru-RU"),
+              },
+            }),
+          );
+        }
+      }
+      if (!scenes.length) {
+        setMsg("Нет нанесений для batch");
+        return;
+      }
+      await exportScenesPdf(scenes, `${sku.id}-batch-${orderRef || "draft"}.pdf`);
+      setMsg(`Batch PDF готов (${sizesSel.length} разм.)`);
+    } catch (e) {
+      setMsg(`Ошибка batch: ${e}`);
     } finally {
       setBusy(false);
     }
@@ -507,6 +569,13 @@ export function SidePanel() {
         >
           {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
         </button>
+        <button
+          onClick={() => setShowBatch(true)}
+          disabled={busy || viewLayers.length === 0}
+          className="w-full rounded-lg bg-emerald-900/70 px-3 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-800/70 disabled:opacity-50"
+        >
+          Batch PDF (по размерам)
+        </button>
         {msg && <p className="mt-2 text-xs text-neutral-400">{msg}</p>}
       </section>
 
@@ -535,6 +604,95 @@ export function SidePanel() {
           }}
         />
       )}
+
+      {showBatch && (
+        <BatchModal
+          sizes={sku.sizes}
+          baseSize={size ?? sku.base_size}
+          onClose={() => setShowBatch(false)}
+          onBuild={(sel) => void onExportBatch(sel)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Модалка выбора размеров для batch-PDF (P1 #20). */
+function BatchModal({
+  sizes,
+  baseSize,
+  onClose,
+  onBuild,
+}: {
+  sizes: string[];
+  baseSize: string;
+  onClose: () => void;
+  onBuild: (selected: string[]) => void;
+}) {
+  const [sel, setSel] = useState<Set<string>>(() => new Set(sizes));
+  const toggle = (sz: string) =>
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(sz)) next.delete(sz);
+      else next.add(sz);
+      return next;
+    });
+  const ordered = sizes.filter((s) => sel.has(s));
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 font-semibold text-neutral-100">
+          Batch PDF по размерам
+        </h3>
+        <p className="mb-3 text-xs text-neutral-500">
+          Один файл с тех-листами по выбранным ростовкам (позиции пересчитаны от{" "}
+          {baseSize}).
+        </p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {sizes.map((sz) => (
+            <button
+              key={sz}
+              onClick={() => toggle(sz)}
+              className={`rounded px-2.5 py-1 text-xs ${
+                sel.has(sz)
+                  ? "bg-blue-600 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              {sz}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-between gap-2">
+          <button
+            onClick={() => setSel(new Set(sizes))}
+            className="rounded bg-neutral-800 px-2.5 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700"
+          >
+            Все
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={() => onBuild(ordered)}
+              disabled={ordered.length === 0}
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              Собрать ({ordered.length})
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
