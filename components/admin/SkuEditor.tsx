@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { loadAsset } from "@/lib/catalog/loadAsset";
 import {
   validateSku,
+  idError,
   addSize,
   removeSize,
   addView,
@@ -17,7 +18,7 @@ import {
   rectZone,
   setGradeRule,
 } from "@/lib/admin/skuEdit";
-import { saveModel } from "@/lib/persistence/models";
+import { saveModel, deleteModel } from "@/lib/persistence/models";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
 import type {
   BaseSize,
@@ -54,10 +55,12 @@ const VIEW_KINDS: { value: ViewKind; label: string }[] = [
 
 export function SkuEditor({
   initial,
+  reservedIds = [],
   onBack,
   onSaved,
 }: {
   initial: SKU;
+  reservedIds?: string[];
   onBack: () => void;
   onSaved: (id: string) => void;
 }) {
@@ -86,11 +89,17 @@ export function SkuEditor({
   };
 
   const errors = useMemo(() => validateSku(sku), [sku]);
+  const idErr = useMemo(
+    () => idError(sku.id, reservedIds),
+    [sku.id, reservedIds],
+  );
   const view = sku.views.find((v) => v.id === activeViewId) ?? sku.views[0];
 
   const save = async () => {
-    if (errors.length) return;
+    if (errors.length || idErr) return;
     await saveModel(sku);
+    // Переименование id: убрать старую запись модели, чтобы не плодить дубли.
+    if (sku.id !== initial.id) await deleteModel(initial.id);
     setMsg("Сохранено");
     onSaved(sku.id);
   };
@@ -106,12 +115,20 @@ export function SkuEditor({
           ← К списку
         </button>
         <span className="text-sm font-semibold">Редактирование SKU</span>
-        <span className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">
-          {sku.id}
-        </span>
+        <label className="flex items-center gap-1 text-xs text-neutral-500">
+          id:
+          <input
+            value={sku.id}
+            onChange={(e) => setSku({ ...sku, id: e.target.value.trim() })}
+            className={`w-44 rounded border bg-neutral-950 px-2 py-1 text-xs ${
+              idErr ? "border-red-600 text-red-300" : "border-neutral-700 text-neutral-200"
+            }`}
+          />
+        </label>
+        {idErr && <span className="text-xs text-red-400">{idErr}</span>}
         <button
           onClick={save}
-          disabled={errors.length > 0}
+          disabled={errors.length > 0 || !!idErr}
           className="ml-auto rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           Сохранить в каталог

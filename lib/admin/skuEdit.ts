@@ -29,6 +29,18 @@ export function validateSku(sku: SKU): string[] {
   return res.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
 }
 
+/**
+ * Проверка id модели: формат + отсутствие коллизии (seed-id или другая модель).
+ * `reserved` — занятые id (seed + прочие модели, кроме текущей). null = ок.
+ */
+export function idError(id: string, reserved: string[]): string | null {
+  if (!id.trim()) return "id пустой";
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id))
+    return "id: только латиница в нижнем регистре, цифры и дефис";
+  if (reserved.includes(id)) return "id уже занят (seed или другая модель)";
+  return null;
+}
+
 /** Прямоугольная зона печати → PrintArea с polygon_mm. */
 export function rectZone(
   id: string,

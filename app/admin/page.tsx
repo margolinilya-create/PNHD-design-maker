@@ -10,7 +10,7 @@ import type { SKU } from "@/types";
 type Mode =
   | { kind: "list" }
   | { kind: "create" }
-  | { kind: "edit"; sku: SKU };
+  | { kind: "edit"; sku: SKU; reservedIds: string[] };
 
 export default function AdminPage() {
   const [mode, setMode] = useState<Mode>({ kind: "list" });
@@ -34,7 +34,9 @@ export default function AdminPage() {
 
       {mode.kind === "list" && (
         <SkuList
-          onEdit={(sku) => setMode({ kind: "edit", sku })}
+          onEdit={(sku, reservedIds) =>
+            setMode({ kind: "edit", sku, reservedIds })
+          }
           onCreate={() => setMode({ kind: "create" })}
         />
       )}
@@ -46,6 +48,7 @@ export default function AdminPage() {
       {mode.kind === "edit" && (
         <SkuEditor
           initial={mode.sku}
+          reservedIds={mode.reservedIds}
           onBack={() => setMode({ kind: "list" })}
           onSaved={() => setMode({ kind: "list" })}
         />

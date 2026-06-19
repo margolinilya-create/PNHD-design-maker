@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   cloneSku,
   validateSku,
+  idError,
   addSize,
   removeSize,
   addView,
@@ -86,5 +87,12 @@ describe("skuEdit", () => {
 
   it("emptySku валиден по схеме", () => {
     expect(validateSku(emptySku("new", "Новая", "tshirt"))).toEqual([]);
+  });
+
+  it("idError — формат и коллизии", () => {
+    expect(idError("tee-1", ["seed-a"])).toBeNull();
+    expect(idError("", [])).toBeTruthy();
+    expect(idError("Tee 1", [])).toBeTruthy(); // пробел/регистр
+    expect(idError("tshirt-classic", ["tshirt-classic"])).toBeTruthy(); // занят
   });
 });
