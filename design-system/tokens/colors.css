@@ -1,0 +1,119 @@
+/* ============================================================
+   PINHEAD — Color tokens · "Студия" (light)
+   Clean light product UI: a soft gray app shell, white panels with
+   soft shadows, one blue accent for interaction, emerald for confirm.
+   A light hint of the metric "blueprint" identity survives in the
+   canvas palette (blue dimension/zone language).
+   ============================================================ */
+
+:root {
+  /* --- Gray scale (slate-tinted) — the structural backbone --- */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-150: #eef0f3; /* raised fill, inactive tabs */
+  --gray-200: #e4e7ec; /* hairline borders */
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af; /* hint text, swatch borders */
+  --gray-500: #6b7280; /* labels */
+  --gray-600: #4b5563; /* body text */
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827; /* headings, ink */
+
+  /* App shell */
+  --shell: #f6f7f9; /* the gray studio backdrop */
+  --paper: #ffffff; /* panels & cards */
+
+  /* --- Blue · primary / interactive --- */
+  --blue-700: #1d4ed8; /* pressed / hover-dark */
+  --blue-600: #2563eb; /* primary action, active tab, axis, zone */
+  --blue-500: #3b82f6;
+  --blue-100: #dbeafe;
+  --blue-50: #eff4ff;  /* soft selected fill */
+
+  /* --- Emerald · confirm / approved --- */
+  --emerald-700: #047857;
+  --emerald-600: #059669; /* export CTA */
+  --emerald-500: #10b981;
+  --emerald-100: #d1fae5;
+  --emerald-50: #ecfdf5;
+
+  /* --- Amber · measure / soft warning --- */
+  --amber-700: #b45309;
+  --amber-600: #d97706; /* measure / ruler on light */
+  --amber-100: #fde68a;
+  --amber-50: #fffbeb;
+
+  /* --- Red · error / out-of-zone / destructive --- */
+  --red-700: #b91c1c;
+  --red-600: #dc2626;
+  --rose-600: #e11d48; /* anchor / out-of-zone marker */
+  --red-100: #fee2e2;
+  --red-50: #fef2f2;
+
+  /* --- Approved status --- */
+  --green-600: #16a34a;
+  --green-50: #f0fdf4;
+
+  /* ============================================================
+     Semantic aliases — author UI against THESE.
+     ============================================================ */
+
+  /* Surfaces */
+  --surface-page: var(--shell);
+  --surface-panel: var(--paper);
+  --surface-rail: var(--paper);
+  --surface-raised: var(--gray-150);   /* hover / inactive fill */
+  --surface-sunken: var(--gray-50);    /* input wells, table zebra */
+  --surface-canvas: var(--shell);      /* editor canvas backdrop */
+  --surface-overlay: rgba(17, 24, 39, 0.45); /* modal scrim */
+
+  /* Text */
+  --text-heading: var(--gray-900);
+  --text-body: var(--gray-600);
+  --text-label: var(--gray-500);
+  --text-hint: var(--gray-400);
+  --text-link: var(--blue-600);
+  --text-on-accent: #ffffff;
+
+  /* Borders & strokes */
+  --border-base: var(--gray-200);
+  --border-subtle: var(--gray-150);
+  --border-strong: var(--gray-300);
+  --border-selected: var(--blue-600);
+  --focus-ring: var(--blue-500);
+
+  /* Interactive intents */
+  --intent-primary: var(--blue-600);
+  --intent-primary-hover: var(--blue-700);
+  --intent-confirm: var(--emerald-600);
+  --intent-confirm-hover: var(--emerald-700);
+  --intent-warning: var(--amber-600);
+  --intent-danger: var(--red-600);
+  --intent-approved: var(--green-600);
+
+  /* ============================================================
+     Canvas / technical-drawing palette (on a light field)
+     The "light hint of brand": blue zone + dimension language,
+     white halos behind numbers so they read on a light garment.
+     ============================================================ */
+  --canvas-zone: #2563eb;                       /* print-area boundary (dashed) */
+  --canvas-zone-fill: rgba(37, 140, 235, 0.05);
+  --canvas-safezone: #16a34a;                   /* safe-zone inset (dashed) */
+  --canvas-grid: rgba(37, 99, 235, 0.08);       /* faint mm grid */
+  --canvas-dimension: #94a3b8;                  /* dimension arrows */
+  --canvas-dimension-text: #475569;             /* dimension numbers */
+  --canvas-measure: #d97706;                    /* ruler tool */
+  --canvas-axis: #2563eb;                        /* garment center axis */
+  --canvas-anchor: #e11d48;                      /* neckline / sleeve-bottom anchor */
+  --canvas-out-of-zone: #e11d48;                 /* placement past the zone */
+  --canvas-label-halo: rgba(255, 255, 255, 0.82); /* number readability bg */
+
+  /* Garment swatch presets offered in the editor */
+  --garment-white: #ffffff;
+  --garment-black: #1b1f24;
+  --garment-navy: #3b4a6b;
+  --garment-maroon: #7a2230;
+  --garment-forest: #2f5233;
+  --garment-sand: #c9c4b8;
+}

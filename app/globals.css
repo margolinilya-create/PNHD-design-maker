@@ -2,9 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   PINHEAD — дизайн-система «Студия» (light). Токены из
+   design-system/tokens/*. Светлый серый шелл, белые панели,
+   синий акцент, мягкие тени. Источник правды — design-system/.
+   ============================================================ */
 :root {
-  --background: #0b0d10;
-  --foreground: #e7eaee;
+  /* Gray scale (slate-tinted) */
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-150: #eef0f3;
+  --gray-200: #e4e7ec;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+
+  /* App shell */
+  --shell: #f6f7f9;
+  --paper: #ffffff;
+
+  /* Accents (совпадают с дефолтами Tailwind) */
+  --blue-700: #1d4ed8;
+  --blue-600: #2563eb;
+  --blue-50: #eff4ff;
+  --emerald-600: #059669;
+  --green-600: #16a34a;
+  --amber-600: #d97706;
+  --red-600: #dc2626;
+  --rose-600: #e11d48;
+
+  /* Semantic */
+  --surface-page: var(--shell);
+  --surface-panel: var(--paper);
+  --surface-raised: var(--gray-150);
+  --surface-sunken: var(--gray-50);
+  --border-base: var(--gray-200);
+  --border-subtle: var(--gray-150);
+  --text-heading: var(--gray-900);
+  --text-body: var(--gray-600);
+  --text-label: var(--gray-500);
+  --text-hint: var(--gray-400);
+  --surface-overlay: rgba(17, 24, 39, 0.45);
+
+  /* Canvas / технический чертёж на светлом поле */
+  --canvas-zone: #2563eb;
+  --canvas-zone-fill: rgba(37, 140, 235, 0.05);
+  --canvas-safezone: #16a34a;
+  --canvas-grid: rgba(37, 99, 235, 0.08);
+  --canvas-dimension: #94a3b8;
+  --canvas-dimension-text: #475569;
+  --canvas-measure: #d97706;
+  --canvas-axis: #2563eb;
+  --canvas-anchor: #e11d48;
+  --canvas-out-of-zone: #e11d48;
+  --canvas-label-halo: rgba(255, 255, 255, 0.82);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 4px 12px rgba(16, 24, 40, 0.1), 0 2px 4px rgba(16, 24, 40, 0.06);
+  --shadow-xl: 0 12px 32px rgba(16, 24, 40, 0.14), 0 4px 8px rgba(16, 24, 40, 0.06);
+
+  /* Layout */
+  --sidepanel-width: 294px;
+  --rail-width: 52px;
 }
 
 html,
@@ -14,8 +79,8 @@ body {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--shell);
+  color: var(--gray-600);
   font-family:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
@@ -23,4 +88,9 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+/* Табличные цифры для метрических читаут (мм/DPI). */
+.pnhd-tabular {
+  font-variant-numeric: tabular-nums;
 }
