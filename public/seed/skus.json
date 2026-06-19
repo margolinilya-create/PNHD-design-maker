@@ -363,7 +363,8 @@
               "x": 0.37,
               "y": 0.25,
               "w": 0.26
-            }
+            },
+            "mask": "/seed/mockups/freefit-front-mask.png"
           }
         },
         {
@@ -942,7 +943,8 @@
               "x": 0.35,
               "y": 0.225,
               "w": 0.3
-            }
+            },
+            "mask": "/seed/mockups/freefit-back-mask.png"
           }
         },
         {
