@@ -93,6 +93,29 @@ export function preflight(input: PreflightInput): PreflightIssue[] {
       });
     }
 
+    // Границы размера печати зоны (P2 #5).
+    const area = view.print_areas.find((a) => a.id === p.print_area_id);
+    const mx = area?.max_print_mm;
+    if (mx && (p.width_mm > mx.width || p.height_mm > mx.height)) {
+      issues.push({
+        level: "warn",
+        placementId: p.id,
+        message: `«${label}»: размер ${Math.round(p.width_mm)}×${Math.round(
+          p.height_mm,
+        )} превышает максимум зоны ${mx.width}×${mx.height} мм.`,
+      });
+    }
+    const mn = area?.min_print_mm;
+    if (mn && (p.width_mm < mn.width || p.height_mm < mn.height)) {
+      issues.push({
+        level: "warn",
+        placementId: p.id,
+        message: `«${label}»: размер ${Math.round(p.width_mm)}×${Math.round(
+          p.height_mm,
+        )} меньше минимума зоны ${mn.width}×${mn.height} мм.`,
+      });
+    }
+
     // Выход за печатную зону.
     const out = placementInfo(
       view,

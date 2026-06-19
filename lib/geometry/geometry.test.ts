@@ -20,6 +20,7 @@ import {
   viewZone,
   findPrintArea,
   presetPosition,
+  fitToZone,
 } from "./view";
 
 // Эталон из seed: перед tshirt-classic.
@@ -341,6 +342,21 @@ describe("мультизона + пресеты позиции", () => {
     const r = presetPosition(v, { x: 0, y: 0, w: 80, h: 80 }, "left-chest", undefined, "chest");
     expect(r.x_mm).toBe(349); // ось 300 + 89 − 80/2
     expect(r.y_mm).toBe(152); // горловина 92 + 60
+  });
+
+  it("fit вписывает в зону с safe-inset, сохраняя пропорции", () => {
+    // зона 300×400, safe 15 → доступно 270×370. Квадрат (aspect 1) → 270×270.
+    const r = fitToZone(v, { x: 0, y: 0, w: 50, h: 50 }, "fit", undefined, "chest");
+    expect(r.width_mm).toBe(270);
+    expect(r.height_mm).toBe(270);
+    expect(r.x_mm).toBe(165); // 150 + (300−270)/2
+  });
+
+  it("fill покрывает зону (по большей стороне)", () => {
+    // доступно 270×370, квадрат → max(270, 370)=370×370.
+    const r = fitToZone(v, { x: 0, y: 0, w: 50, h: 50 }, "fill", undefined, "chest");
+    expect(r.width_mm).toBe(370);
+    expect(r.height_mm).toBe(370);
   });
 });
 

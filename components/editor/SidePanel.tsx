@@ -15,6 +15,7 @@ import {
   placementInfo,
   printAreasForSize,
   presetPosition,
+  fitToZone,
   flatForSize,
   type PositionPreset,
 } from "@/lib/geometry/view";
@@ -24,6 +25,7 @@ import {
   printMethodProfile,
   resolveMethod,
 } from "@/lib/catalog/printMethod";
+import { PANTONE_SWATCHES } from "@/lib/catalog/pantone";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
@@ -59,6 +61,7 @@ export function SidePanel() {
   const snapshot = useProjectStore((s) => s.snapshot);
   const restore = useProjectStore((s) => s.restore);
   const duplicatePlacement = useProjectStore((s) => s.duplicatePlacement);
+  const duplicateToAllZones = useProjectStore((s) => s.duplicateToAllZones);
   const reorderPlacement = useProjectStore((s) => s.reorderPlacement);
   const copyPlacementToView = useProjectStore((s) => s.copyPlacementToView);
   const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
@@ -264,7 +267,7 @@ export function SidePanel() {
     void runExport();
   };
 
-  const runExport = async () => {
+  const runExport = async (variant: "full" | "production" = "full") => {
     if (!sku) return;
     setPreflightIssues(null);
     setBusy(true);
@@ -306,14 +309,16 @@ export function SidePanel() {
               size: size ?? sku.base_size,
               date: new Date().toLocaleDateString("ru-RU"),
             },
+            variant,
           }),
         );
       }
+      const suffix = variant === "production" ? "-цех" : "";
       await exportScenesPdf(
         scenes,
-        `${sku.id}-${orderRef || "draft"}.pdf`,
+        `${sku.id}-${orderRef || "draft"}${suffix}.pdf`,
       );
-      setMsg("PDF готов");
+      setMsg(variant === "production" ? "PDF для цеха готов" : "PDF готов");
     } catch (e) {
       setMsg(`Ошибка экспорта: ${e}`);
     } finally {
@@ -484,6 +489,7 @@ export function SidePanel() {
           asset={assets[selectedPlacement.asset_id]}
           onChange={(patch) => updatePlacement(selectedPlacement.id, patch)}
           onDuplicate={() => duplicatePlacement(selectedPlacement.id)}
+          onDuplicateAll={() => duplicateToAllZones(selectedPlacement.id)}
           onCopyToView={(vid) => copyPlacementToView(selectedPlacement.id, vid)}
           onMirror={() => mirrorPlacement(selectedPlacement.id)}
         />
@@ -629,6 +635,13 @@ export function SidePanel() {
           className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
+        </button>
+        <button
+          onClick={() => void runExport("production")}
+          disabled={busy || viewLayers.length === 0}
+          className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
+        >
+          PDF для цеха (без обвязки)
         </button>
         <button
           onClick={() => setShowBatch(true)}
@@ -931,6 +944,48 @@ function PreflightModal({
   );
 }
 
+/** Выбор spot-цветов Pantone для нанесения (P2 #6). */
+function PantonePicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (codes: string[]) => void;
+}) {
+  const toggle = (code: string) =>
+    onChange(
+      selected.includes(code)
+        ? selected.filter((c) => c !== code)
+        : [...selected, code],
+    );
+  return (
+    <div className="mt-2">
+      <span className="mb-1 block text-[11px] text-neutral-500">
+        Pantone (spot) {selected.length > 0 && `· ${selected.length}`}
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {PANTONE_SWATCHES.map((sw) => {
+          const on = selected.includes(sw.code);
+          return (
+            <button
+              key={sw.code}
+              onClick={() => toggle(sw.code)}
+              title={sw.code}
+              className={`h-5 w-5 rounded-full border ${
+                on ? "border-blue-400 ring-1 ring-blue-400" : "border-neutral-600"
+              }`}
+              style={{ background: sw.hex }}
+            />
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <p className="mt-1 text-[10px] text-neutral-400">{selected.join(", ")}</p>
+      )}
+    </div>
+  );
+}
+
 /** Форма добавления комментария согласования (P1 #24). */
 function CommentBox({
   onAdd,
@@ -1118,6 +1173,7 @@ function PlacementInspector({
   asset,
   onChange,
   onDuplicate,
+  onDuplicateAll,
   onCopyToView,
   onMirror,
 }: {
@@ -1128,6 +1184,7 @@ function PlacementInspector({
   asset: Asset | undefined;
   onChange: (patch: Partial<Placement>) => void;
   onDuplicate: () => void;
+  onDuplicateAll: () => void;
   onCopyToView: (viewId: string) => void;
   onMirror: () => void;
 }) {
@@ -1148,6 +1205,18 @@ function PlacementInspector({
       p.print_area_id,
     );
     onChange(pos);
+  };
+  const applyFit = (mode: "fit" | "fill") => {
+    if (!view) return;
+    onChange(
+      fitToZone(
+        view,
+        { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+        mode,
+        garmentSize ?? undefined,
+        p.print_area_id,
+      ),
+    );
   };
   const isFrontBack =
     view?.kind === "front" || view?.kind === "back";
@@ -1177,6 +1246,20 @@ function PlacementInspector({
             {pr.label}
           </button>
         ))}
+        <button
+          onClick={() => applyFit("fit")}
+          title="Вписать в зону (по safe-зоне)"
+          className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+        >
+          Вписать
+        </button>
+        <button
+          onClick={() => applyFit("fill")}
+          title="Заполнить зону (излишек обрежется)"
+          className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+        >
+          Заполнить
+        </button>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <MmField
@@ -1218,6 +1301,7 @@ function PlacementInspector({
       {/* Действия: дубль / копия на вид / зеркало рукава */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <button onClick={onDuplicate} className={tbtn(false)}>Дублировать</button>
+        <button onClick={onDuplicateAll} className={tbtn(false)} title="Копия в каждую печатную зону всех видов">На все зоны</button>
         {isSleeve && <button onClick={onMirror} className={tbtn(false)}>Зеркало рукава</button>}
         {otherViews.length > 0 && (
           <select
@@ -1260,6 +1344,14 @@ function PlacementInspector({
             </button>
           ))}
         </div>
+        {profile.colorMode === "spot" && (
+          <PantonePicker
+            selected={p.pantone ?? []}
+            onChange={(codes) =>
+              onChange({ pantone: codes.length ? codes : undefined })
+            }
+          />
+        )}
       </div>
 
       {/* Спецификация для цеха: допуск ± и «как мерить» (P1 #13) */}

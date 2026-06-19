@@ -26,6 +26,12 @@ export interface SceneInput {
   placements: Placement[];
   assets: Record<string, Asset>;
   meta: { client: string; orderRef: string; size: string; date: string };
+  /**
+   * Вариант листа (P2 #4):
+   * - "full" (по умолчанию) — флэт + нанесения + размерная обвязка + легенда;
+   * - "production" — флэт + чистое нанесение без обвязки/легенды (для цеха).
+   */
+  variant?: "full" | "production";
 }
 
 const esc = (s: string) =>
@@ -88,9 +94,25 @@ function calibrationBar(x: number, y: number): string {
   </g>`;
 }
 
+/**
+ * Легенда обозначений тех-чертежа (P2 #16) — чтобы вывод читался как
+ * привычный фабрике чертёж. Компактный блок у нижней рамки.
+ */
+function legend(x: number, y: number): string {
+  const row = (dy: number, sample: string, text: string) =>
+    `<text x="${x}" y="${y + dy}" font-size="7" fill="#666">${sample}  ${esc(text)}</text>`;
+  return `<g data-legend="1">
+    ${row(0, "├──┤", "отступ до края зоны, мм")}
+    ${row(9, "┄┄ ↕", "ось/отступ от горловины")}
+    ${row(18, "Ш×В", "реальный размер печати")}
+    ${row(27, "±N", "допуск; HTM — как мерить")}
+  </g>`;
+}
+
 /** Собрать SVG сцены. Размеры страницы — в мм (1 unit = 1 мм). */
 export function buildSceneSvg(input: SceneInput): string {
   const { view, flatMm, placements, assets, sku, meta } = input;
+  const isProd = input.variant === "production";
   const FRAME_H = 60; // рамка проекта снизу, мм
   const W = Math.max(flatMm.w, 240);
   const H = flatMm.h + FRAME_H;
@@ -121,7 +143,10 @@ export function buildSceneSvg(input: SceneInput): string {
     })
     .join("\n");
 
-  const dimsSvg = placements
+  // Production-лист (#4): без размерной обвязки.
+  const dimsSvg = isProd
+    ? ""
+    : placements
     .map((p) => {
       // S2.1: обвязка как структурный объект — единый источник линий и чисел.
       const scene = buildDimensionLines(
@@ -157,7 +182,12 @@ export function buildSceneSvg(input: SceneInput): string {
       const whHalfW = wh.length * 3.5 + 2;
       // Подпись метода печати под Ш×В (режим цвета — для цеха).
       const profile = placementMethod(view, p);
-      const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}`;
+      // Для spot-методов добавляем выбранные коды Pantone (P2 #6).
+      const pantone =
+        profile.colorMode === "spot" && p.pantone?.length
+          ? ` · ${p.pantone.join(", ")}`
+          : "";
+      const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}${pantone}`;
       const mtHalfW = methodText.length * 2.8 + 2;
       // Допуск ± на ключевую меру (отступ от горловины) и HTM-заметка (P1 #13).
       const tol =
@@ -200,8 +230,9 @@ export function buildSceneSvg(input: SceneInput): string {
     <line x1="0" y1="${flatMm.h}" x2="${W}" y2="${flatMm.h}" stroke="#ccc" stroke-width="0.5"/>
     <text x="4" y="${frameY + 10}" font-size="12" font-weight="bold" fill="#111">${esc(sku.name)} · размер ${esc(meta.size)}</text>
     <text x="4" y="${frameY + 26}" font-size="11" fill="#333">Клиент: ${esc(meta.client || "—")}   Заказ: ${esc(meta.orderRef || "—")}</text>
-    <text x="4" y="${frameY + 42}" font-size="11" fill="#333">Вид: ${esc(view.kind)}   Дата: ${esc(meta.date)}   Масштаб 1:1 (мм)</text>
-    ${methodsSummary ? `<text x="4" y="${frameY + 56}" font-size="10" fill="#555">Метод печати: ${esc(methodsSummary)}</text>` : ""}`;
+    <text x="4" y="${frameY + 42}" font-size="11" fill="#333">Вид: ${esc(view.kind)}   Дата: ${esc(meta.date)}   Масштаб 1:1 (мм)${isProd ? "   · ЛИСТ ДЛЯ ЦЕХА (без обвязки)" : ""}</text>
+    ${methodsSummary ? `<text x="4" y="${frameY + 56}" font-size="10" fill="#555">Метод печати: ${esc(methodsSummary)}</text>` : ""}
+    ${isProd ? "" : legend(Math.max(160, W * 0.45), frameY + 6)}`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">
   <defs>

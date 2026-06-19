@@ -162,6 +162,35 @@ export function presetPosition(
   }
 }
 
+/**
+ * Вписать (fit) или заполнить (fill) нанесение по печатной зоне с учётом
+ * safe-inset, сохраняя пропорции текущего bbox. Возвращает полный bbox (мм).
+ * fit — целиком внутри зоны; fill — покрывает зону (излишек обрежется маской).
+ */
+export function fitToZone(
+  view: View,
+  bbox: Bbox,
+  mode: "fit" | "fill",
+  size?: string,
+  areaId?: string,
+): { x_mm: number; y_mm: number; width_mm: number; height_mm: number } {
+  const { zone, safeInsetMm } = viewZone(view, size, areaId);
+  const availW = Math.max(1, zone.zw - 2 * safeInsetMm);
+  const availH = Math.max(1, zone.zh - 2 * safeInsetMm);
+  const aspect = bbox.h / bbox.w || 1; // h = w * aspect
+  // Масштаб по ширине/высоте; fit — min (внутри), fill — max (покрытие).
+  const sByW = availW;
+  const sByH = availH / aspect;
+  const w = mode === "fit" ? Math.min(sByW, sByH) : Math.max(sByW, sByH);
+  const h = w * aspect;
+  return {
+    width_mm: w,
+    height_mm: h,
+    x_mm: zone.zx + (zone.zw - w) / 2,
+    y_mm: zone.zy + (zone.zh - h) / 2,
+  };
+}
+
 /** Флэт вида для размера (фоллбэк на базовый `flat_svg`). */
 export function flatForSize(view: View, size?: string): string {
   return (size && view.size_flats?.[size]) || view.flat_svg;

@@ -109,6 +109,41 @@ describe("preflight", () => {
     );
   });
 
+  it("превышение max_print_mm зоны → warn", () => {
+    const viewMax: View = {
+      ...view,
+      print_areas: [
+        { ...view.print_areas[0], max_print_mm: { width: 200, height: 200 } },
+      ],
+    };
+    const issues = preflight({
+      views: [viewMax],
+      // ширина 250 > max 200
+      placements: [basePlacement({ method: "dtf", width_mm: 250 })],
+      assets: { a1: goodPng },
+    });
+    expect(issues.some((i) => i.message.includes("превышает максимум"))).toBe(
+      true,
+    );
+  });
+
+  it("меньше min_print_mm зоны → warn", () => {
+    const viewMin: View = {
+      ...view,
+      print_areas: [
+        { ...view.print_areas[0], min_print_mm: { width: 50, height: 50 } },
+      ],
+    };
+    const issues = preflight({
+      views: [viewMin],
+      placements: [
+        basePlacement({ method: "dtf", width_mm: 30, height_mm: 30 }),
+      ],
+      assets: { a1: goodPng },
+    });
+    expect(issues.some((i) => i.message.includes("меньше минимума"))).toBe(true);
+  });
+
   it("оценочный размер → warn", () => {
     const estPng: Asset = { ...goodPng, size_estimated: true };
     const issues = preflight({
