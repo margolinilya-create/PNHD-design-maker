@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shirt } from "lucide-react";
+import { Shirt, Palette } from "lucide-react";
 import { SkuPicker } from "@/components/catalog/SkuPicker";
 
 export default function HomePage() {
@@ -13,13 +13,22 @@ export default function HomePage() {
             открыть редактор.
           </p>
         </div>
-        <Link
-          href="/admin"
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-blue-500 hover:bg-white"
-        >
-          <Shirt size={16} strokeWidth={1.75} />
-          Админка SKU
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/styleguide"
+            className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-blue-500 hover:bg-white"
+          >
+            <Palette size={16} strokeWidth={1.75} />
+            Дизайн-система
+          </Link>
+          <Link
+            href="/admin"
+            className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-blue-500 hover:bg-white"
+          >
+            <Shirt size={16} strokeWidth={1.75} />
+            Админка SKU
+          </Link>
+        </div>
       </header>
       <SkuPicker />
     </main>
