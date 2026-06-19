@@ -126,7 +126,11 @@ export function MockupZoneCanvas({
             y={screen.y + 3}
             text="зона печати"
             fontSize={11}
-            fill="#bcd0ff"
+            fontStyle="bold"
+            fill="#1d4ed8"
+            stroke="#ffffff"
+            strokeWidth={2}
+            fillAfterStrokeEnabled
             listening={false}
           />
           <Transformer

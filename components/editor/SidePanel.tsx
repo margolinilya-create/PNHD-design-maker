@@ -271,6 +271,7 @@ export function SidePanel() {
                 orderRef,
                 size: tSize,
                 date: new Date().toLocaleDateString("ru-RU"),
+                status,
               },
             }),
           );
@@ -351,6 +352,7 @@ export function SidePanel() {
               orderRef,
               size: size ?? sku.base_size,
               date: new Date().toLocaleDateString("ru-RU"),
+                status,
             },
             variant,
           }),
@@ -671,7 +673,7 @@ export function SidePanel() {
         <button
           onClick={onExportPng}
           disabled={busy}
-          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-white hover:bg-gray-200 disabled:opacity-50"
+          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-ink hover:bg-gray-200 disabled:opacity-50"
         >
           Превью для клиента (PNG)
         </button>
@@ -685,14 +687,14 @@ export function SidePanel() {
         <button
           onClick={() => gateExport(() => void runExport("production"))}
           disabled={busy || viewLayers.length === 0}
-          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-white hover:bg-gray-200 disabled:opacity-50"
+          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-ink hover:bg-gray-200 disabled:opacity-50"
         >
           PDF для цеха (без обвязки)
         </button>
         <button
           onClick={() => setShowBatch(true)}
           disabled={busy || viewLayers.length === 0}
-          className="w-full rounded-lg bg-emerald-900/70 px-3 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-800/70 disabled:opacity-50"
+          className="w-full rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
         >
           Batch PDF (по размерам)
         </button>
@@ -749,6 +751,56 @@ export function SidePanel() {
   );
 }
 
+/**
+ * Общая обёртка модалки в стиле DS «Студия»: scrim + белая карточка с шапкой
+ * (заголовок + ×, нижняя линия), прокручиваемым телом и sunken-футером.
+ */
+function Modal({
+  title,
+  onClose,
+  footer,
+  maxW = "max-w-md",
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  footer?: React.ReactNode;
+  maxW?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`flex max-h-[80vh] w-full ${maxW} flex-col overflow-hidden rounded-xl border border-line bg-white shadow-xl`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between gap-3 border-b border-line-soft px-3.5 py-3">
+          <h3 className="text-sm font-semibold text-ink">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-raised hover:text-ink"
+          >
+            <X size={16} strokeWidth={1.75} />
+          </button>
+        </header>
+        <div className="overflow-y-auto px-3.5 py-3 text-sm text-gray-700">
+          {children}
+        </div>
+        {footer && (
+          <footer className="flex justify-end gap-2 border-t border-line-soft bg-sunken px-3.5 py-3">
+            {footer}
+          </footer>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Модалка выбора размеров для batch-PDF (P1 #20). */
 function BatchModal({
   sizes,
@@ -771,61 +823,54 @@ function BatchModal({
     });
   const ordered = sizes.filter((s) => sel.has(s));
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-xl border border-line bg-white p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-1 font-semibold text-ink">
-          Batch PDF по размерам
-        </h3>
-        <p className="mb-3 text-xs text-gray-400">
-          Один файл с тех-листами по выбранным ростовкам (позиции пересчитаны от{" "}
-          {baseSize}).
-        </p>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {sizes.map((sz) => (
-            <button
-              key={sz}
-              onClick={() => toggle(sz)}
-              className={`rounded px-2.5 py-1 text-xs ${
-                sel.has(sz)
-                  ? "bg-blue-600 text-white"
-                  : "bg-raised text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {sz}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-between gap-2">
+    <Modal
+      title="Batch PDF по размерам"
+      onClose={onClose}
+      maxW="max-w-sm"
+      footer={
+        <>
           <button
-            onClick={() => setSel(new Set(sizes))}
-            className="rounded bg-raised px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-200"
+            onClick={onClose}
+            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
           >
-            Все
+            Отмена
           </button>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
-            >
-              Отмена
-            </button>
-            <button
-              onClick={() => onBuild(ordered)}
-              disabled={ordered.length === 0}
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              Собрать ({ordered.length})
-            </button>
-          </div>
-        </div>
+          <button
+            onClick={() => onBuild(ordered)}
+            disabled={ordered.length === 0}
+            className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            Собрать ({ordered.length})
+          </button>
+        </>
+      }
+    >
+      <p className="mb-3 text-xs text-gray-500">
+        Один файл с тех-листами по выбранным ростовкам (позиции пересчитаны от{" "}
+        {baseSize}).
+      </p>
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {sizes.map((sz) => (
+          <button
+            key={sz}
+            onClick={() => toggle(sz)}
+            className={`rounded px-2.5 py-1 text-xs ${
+              sel.has(sz)
+                ? "bg-blue-600 text-white"
+                : "bg-raised text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            {sz}
+          </button>
+        ))}
       </div>
-    </div>
+      <button
+        onClick={() => setSel(new Set(sizes))}
+        className="rounded bg-raised px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200"
+      >
+        Выбрать все
+      </button>
+    </Modal>
   );
 }
 
@@ -851,25 +896,27 @@ function GradingReviewModal({
   );
   const names = rows[0]?.items.map((i) => i.name) ?? [];
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
-      onClick={onClose}
+    <Modal
+      title={`Проверка ростовки · ${view.kind}`}
+      onClose={onClose}
+      maxW="max-w-lg"
+      footer={
+        <button
+          onClick={onClose}
+          className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
+        >
+          Закрыть
+        </button>
+      }
     >
-      <div
-        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-1 font-semibold text-ink">
-          Проверка ростовки · {view.kind}
-        </h3>
-        <p className="mb-3 text-xs text-gray-400">
-          Позиции пересчитаны от размера {fromSize} (константа отступа от
-          горловины). Красное — выход за зону; число — мин. отступ, мм.
-        </p>
-        {names.length === 0 ? (
-          <p className="text-xs text-gray-400">Нет нанесений на этом виде.</p>
-        ) : (
-          <table className="w-full border-collapse text-xs">
+      <p className="mb-3 text-xs text-gray-500">
+        Позиции пересчитаны от размера {fromSize} (константа отступа от
+        горловины). Красное — выход за зону; число — мин. отступ, мм.
+      </p>
+      {names.length === 0 ? (
+        <p className="text-xs text-gray-500">Нет нанесений на этом виде.</p>
+      ) : (
+        <table className="w-full border-collapse text-xs">
             <thead>
               <tr className="text-gray-500">
                 <th className="py-1 pr-2 text-left font-medium">Размер</th>
@@ -915,19 +962,10 @@ function GradingReviewModal({
                   ))}
                 </tr>
               ))}
-            </tbody>
-          </table>
-        )}
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={onClose}
-            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
-          >
-            Закрыть
-          </button>
-        </div>
-      </div>
-    </div>
+          </tbody>
+        </table>
+      )}
+    </Modal>
   );
 }
 
@@ -945,23 +983,35 @@ function PreflightModal({
 }) {
   const blocking = hasBlockingErrors(issues);
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
-      onClick={onCancel}
+    <Modal
+      title="Проверка перед экспортом"
+      onClose={onCancel}
+      maxW="max-w-md"
+      footer={
+        <>
+          <button
+            onClick={onCancel}
+            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
+          >
+            {blocking ? "Закрыть" : "Отмена"}
+          </button>
+          {!blocking && (
+            <button
+              onClick={onProceed}
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Экспортировать всё равно
+            </button>
+          )}
+        </>
+      }
     >
-      <div
-        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-1 font-semibold text-ink">
-          Проверка перед экспортом
-        </h3>
-        <p className="mb-3 text-xs text-gray-400">
-          {blocking
-            ? "Есть блокирующая проблема — экспорт невозможен."
-            : "Найдены предупреждения. Можно исправить или продолжить."}
-        </p>
-        <ul className="flex flex-col gap-1.5">
+      <p className="mb-3 text-xs text-gray-500">
+        {blocking
+          ? "Есть блокирующая проблема — экспорт невозможен."
+          : "Найдены предупреждения. Можно исправить или продолжить."}
+      </p>
+      <ul className="flex flex-col gap-1.5">
           {issues.map((it, i) => {
             const clickable = !!it.placementId;
             return (
@@ -990,25 +1040,8 @@ function PreflightModal({
               </li>
             );
           })}
-        </ul>
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
-          >
-            {blocking ? "Закрыть" : "Отмена"}
-          </button>
-          {!blocking && (
-            <button
-              onClick={onProceed}
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-            >
-              Экспортировать всё равно
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+      </ul>
+    </Modal>
   );
 }
 
