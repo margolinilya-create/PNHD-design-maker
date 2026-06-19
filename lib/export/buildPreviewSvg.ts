@@ -60,22 +60,38 @@ function buildMockupSvg(input: PreviewInput): string {
 
   const bgHref = escAttr(dataUrl);
 
-  // Перекраска ткани под цвет изделия: цвет multiply в пределах маски ткани
-  // (white=ткань). Сохраняет тени/складки. Без маски/цвета — фото как есть.
+  // Перекраска ткани под цвет изделия в пределах маски (white=ткань).
+  // Ткань нормализуется в светло-серый (feColorMatrix saturate 0 +
+  // feComponentTransfer поднимает уровни), сохраняя складки/тени, и красится
+  // multiply под выбранный цвет — поэтому работает и на ТЁМНОЙ базе (иначе
+  // multiply поверх тёмного фото просто затемнял бы). isolation:isolate —
+  // чтобы multiply смешивался только с нормализованной тканью, не с фоном.
+  // Без маски/цвета — фото как есть.
   const recolor =
     garmentColor && maskDataUrl
       ? {
-          mask: `<mask id="garment-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${imgW}" height="${imgH}">
+          defs: `<mask id="garment-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${imgW}" height="${imgH}">
             <image href="${escAttr(maskDataUrl)}" xlink:href="${escAttr(maskDataUrl)}" x="0" y="0" width="${imgW}" height="${imgH}"/>
-          </mask>`,
-          rect: `<rect x="0" y="0" width="${imgW}" height="${imgH}" fill="${escAttr(garmentColor)}" mask="url(#garment-mask)" style="mix-blend-mode:multiply"/>`,
+          </mask>
+          <filter id="garment-normalize" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+            <feColorMatrix type="saturate" values="0"/>
+            <feComponentTransfer>
+              <feFuncR type="linear" slope="2" intercept="0.32"/>
+              <feFuncG type="linear" slope="2" intercept="0.32"/>
+              <feFuncB type="linear" slope="2" intercept="0.32"/>
+            </feComponentTransfer>
+          </filter>`,
+          body: `<g mask="url(#garment-mask)" style="isolation:isolate">
+            <image href="${bgHref}" xlink:href="${bgHref}" x="0" y="0" width="${imgW}" height="${imgH}" filter="url(#garment-normalize)"/>
+            <rect x="0" y="0" width="${imgW}" height="${imgH}" fill="${escAttr(garmentColor)}" style="mix-blend-mode:multiply"/>
+          </g>`,
         }
       : null;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${imgW}" height="${imgH}" viewBox="0 0 ${imgW} ${imgH}">
-  <defs>${recolor?.mask ?? ""}${placementSvg.map((x) => x.clip).join("")}</defs>
+  <defs>${recolor?.defs ?? ""}${placementSvg.map((x) => x.clip).join("")}</defs>
   <image href="${bgHref}" xlink:href="${bgHref}" x="0" y="0" width="${imgW}" height="${imgH}"/>
-  ${recolor?.rect ?? ""}
+  ${recolor?.body ?? ""}
   ${placementSvg.map((x) => x.body).join("")}
 </svg>`;
 }
