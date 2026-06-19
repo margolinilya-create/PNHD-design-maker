@@ -72,6 +72,12 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
     expect(svg).toMatch(/height="660mm"/);
   });
 
+  it("содержит легенду обозначений тех-чертежа", () => {
+    const svg = scene();
+    expect(svg).toContain('data-legend="1"');
+    expect(svg).toContain("реальный размер печати");
+  });
+
   it("разделяет слои: garment / production-artwork / markup", () => {
     const svg = scene();
     expect(svg).toContain('data-layer="garment"');

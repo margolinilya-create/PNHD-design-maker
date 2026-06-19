@@ -88,6 +88,21 @@ function calibrationBar(x: number, y: number): string {
   </g>`;
 }
 
+/**
+ * Легенда обозначений тех-чертежа (P2 #16) — чтобы вывод читался как
+ * привычный фабрике чертёж. Компактный блок у нижней рамки.
+ */
+function legend(x: number, y: number): string {
+  const row = (dy: number, sample: string, text: string) =>
+    `<text x="${x}" y="${y + dy}" font-size="7" fill="#666">${sample}  ${esc(text)}</text>`;
+  return `<g data-legend="1">
+    ${row(0, "├──┤", "отступ до края зоны, мм")}
+    ${row(9, "┄┄ ↕", "ось/отступ от горловины")}
+    ${row(18, "Ш×В", "реальный размер печати")}
+    ${row(27, "±N", "допуск; HTM — как мерить")}
+  </g>`;
+}
+
 /** Собрать SVG сцены. Размеры страницы — в мм (1 unit = 1 мм). */
 export function buildSceneSvg(input: SceneInput): string {
   const { view, flatMm, placements, assets, sku, meta } = input;
@@ -201,7 +216,8 @@ export function buildSceneSvg(input: SceneInput): string {
     <text x="4" y="${frameY + 10}" font-size="12" font-weight="bold" fill="#111">${esc(sku.name)} · размер ${esc(meta.size)}</text>
     <text x="4" y="${frameY + 26}" font-size="11" fill="#333">Клиент: ${esc(meta.client || "—")}   Заказ: ${esc(meta.orderRef || "—")}</text>
     <text x="4" y="${frameY + 42}" font-size="11" fill="#333">Вид: ${esc(view.kind)}   Дата: ${esc(meta.date)}   Масштаб 1:1 (мм)</text>
-    ${methodsSummary ? `<text x="4" y="${frameY + 56}" font-size="10" fill="#555">Метод печати: ${esc(methodsSummary)}</text>` : ""}`;
+    ${methodsSummary ? `<text x="4" y="${frameY + 56}" font-size="10" fill="#555">Метод печати: ${esc(methodsSummary)}</text>` : ""}
+    ${legend(Math.max(160, W * 0.45), frameY + 6)}`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">
   <defs>
