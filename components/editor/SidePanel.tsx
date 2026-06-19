@@ -60,6 +60,7 @@ export function SidePanel() {
   const snapshot = useProjectStore((s) => s.snapshot);
   const restore = useProjectStore((s) => s.restore);
   const duplicatePlacement = useProjectStore((s) => s.duplicatePlacement);
+  const duplicateToAllZones = useProjectStore((s) => s.duplicateToAllZones);
   const reorderPlacement = useProjectStore((s) => s.reorderPlacement);
   const copyPlacementToView = useProjectStore((s) => s.copyPlacementToView);
   const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
@@ -485,6 +486,7 @@ export function SidePanel() {
           asset={assets[selectedPlacement.asset_id]}
           onChange={(patch) => updatePlacement(selectedPlacement.id, patch)}
           onDuplicate={() => duplicatePlacement(selectedPlacement.id)}
+          onDuplicateAll={() => duplicateToAllZones(selectedPlacement.id)}
           onCopyToView={(vid) => copyPlacementToView(selectedPlacement.id, vid)}
           onMirror={() => mirrorPlacement(selectedPlacement.id)}
         />
@@ -1119,6 +1121,7 @@ function PlacementInspector({
   asset,
   onChange,
   onDuplicate,
+  onDuplicateAll,
   onCopyToView,
   onMirror,
 }: {
@@ -1129,6 +1132,7 @@ function PlacementInspector({
   asset: Asset | undefined;
   onChange: (patch: Partial<Placement>) => void;
   onDuplicate: () => void;
+  onDuplicateAll: () => void;
   onCopyToView: (viewId: string) => void;
   onMirror: () => void;
 }) {
@@ -1245,6 +1249,7 @@ function PlacementInspector({
       {/* Действия: дубль / копия на вид / зеркало рукава */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <button onClick={onDuplicate} className={tbtn(false)}>Дублировать</button>
+        <button onClick={onDuplicateAll} className={tbtn(false)} title="Копия в каждую печатную зону всех видов">На все зоны</button>
         {isSleeve && <button onClick={onMirror} className={tbtn(false)}>Зеркало рукава</button>}
         {otherViews.length > 0 && (
           <select

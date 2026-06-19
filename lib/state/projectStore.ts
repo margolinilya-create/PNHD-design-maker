@@ -13,6 +13,7 @@ import type {
   View,
 } from "@/types";
 import { regradePosition } from "@/lib/geometry/view";
+import { polygonToZone } from "@/lib/geometry/coords";
 import type { ProjectSnapshot } from "@/lib/persistence/projects";
 
 const HISTORY_LIMIT = 50;
@@ -82,6 +83,7 @@ interface ProjectState {
 
   // операции со слоями
   duplicatePlacement: (id: string) => void;
+  duplicateToAllZones: (id: string) => void;
   reorderPlacement: (id: string, dir: -1 | 1) => void;
   copyPlacementToView: (id: string, viewId: string) => void;
   mirrorPlacement: (id: string) => void;
@@ -263,6 +265,33 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const arr = [...st.placements];
     arr.splice(idx + 1, 0, copy);
     set({ placements: arr, selectedPlacementId: nid });
+  },
+
+  duplicateToAllZones: (id) => {
+    const st = get();
+    const src = st.placements.find((p) => p.id === id);
+    const sku = st.currentSku();
+    if (!src || !sku) return;
+    // Все зоны всех видов, кроме исходной.
+    const targets: { areaId: string; zone: ReturnType<typeof polygonToZone> }[] =
+      [];
+    for (const v of sku.views) {
+      for (const a of v.print_areas) {
+        if (a.id === src.print_area_id) continue;
+        targets.push({ areaId: a.id, zone: polygonToZone(a.polygon_mm) });
+      }
+    }
+    if (!targets.length) return;
+    get().pushHistory();
+    const copies: Placement[] = targets.map((t) => ({
+      ...src,
+      id: nextId("placement"),
+      print_area_id: t.areaId,
+      // Центрируем в целевой зоне, сохраняя размер печати.
+      x_mm: t.zone.zx + (t.zone.zw - src.width_mm) / 2,
+      y_mm: t.zone.zy + (t.zone.zh - src.height_mm) / 2,
+    }));
+    set((s) => ({ placements: [...s.placements, ...copies] }));
   },
 
   reorderPlacement: (id, dir) => {
