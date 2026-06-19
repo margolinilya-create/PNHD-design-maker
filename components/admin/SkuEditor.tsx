@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { loadAsset } from "@/lib/catalog/loadAsset";
 import {
@@ -82,10 +82,12 @@ export function SkuEditor({
   // Размер, под который правим геометрию (per-size override; базовый = общий).
   const [editSize, setEditSize] = useState<string>(initial.base_size);
 
-  // editSize всегда должен быть среди размеров.
-  if (!sku.sizes.includes(editSize) && sku.sizes.length) {
-    setEditSize(sku.base_size);
-  }
+  // editSize всегда должен быть среди размеров (напр. после удаления размера).
+  useEffect(() => {
+    if (!sku.sizes.includes(editSize) && sku.sizes.length) {
+      setEditSize(sku.base_size);
+    }
+  }, [sku.sizes, sku.base_size, editSize]);
 
   const replaceFlat = async (file: File, viewId: string) => {
     const loaded = await loadAsset(file);
