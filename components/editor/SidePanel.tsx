@@ -39,6 +39,31 @@ import {
 import { reviewGrading } from "@/lib/geometry/gradingReview";
 import { regradePlacementsToSize } from "@/lib/geometry/regradeBatch";
 import type { Asset, Placement, View } from "@/types";
+import {
+  ChevronUp,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Lock,
+  LockOpen,
+  Copy,
+  X,
+  TriangleAlert,
+  Ban,
+  Check,
+  FlipVertical2,
+  FlipHorizontal2,
+  RotateCcw,
+  RotateCw,
+  Cloud,
+  HardDrive,
+  Upload,
+  FileDown,
+  Image as ImageIcon,
+  Ruler,
+  Layers,
+  Edit3,
+} from "lucide-react";
 
 export function SidePanel() {
   const sku = useProjectStore((s) => s.currentSku());
@@ -352,16 +377,17 @@ export function SidePanel() {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 text-sm">
-      <div className="flex items-center justify-between rounded-lg bg-neutral-800/60 px-3 py-2">
-        <span className="text-xs text-neutral-300">
-          {readOnly ? "👁 Просмотр (правки заблокированы)" : "✏ Редактирование"}
+      <div className="flex items-center justify-between rounded-lg bg-raised px-3 py-2">
+        <span className="flex items-center gap-1.5 text-xs text-gray-700">
+          {readOnly ? <Eye size={14} strokeWidth={1.75} /> : <Edit3 size={14} strokeWidth={1.75} />}
+          {readOnly ? "Просмотр (правки заблокированы)" : "Редактирование"}
         </span>
         <button
           onClick={() => setReadOnly(!readOnly)}
           className={`rounded px-2.5 py-1 text-xs ${
             readOnly
               ? "bg-blue-600 text-white"
-              : "bg-neutral-700 text-neutral-200 hover:bg-neutral-600"
+              : "bg-raised text-ink hover:bg-gray-200"
           }`}
         >
           {readOnly ? "Включить правки" : "Только просмотр"}
@@ -370,7 +396,7 @@ export function SidePanel() {
 
       {!readOnly && (
       <section>
-        <h3 className="mb-2 font-semibold text-neutral-200">Макет</h3>
+        <h3 className="mb-2 font-semibold text-ink">Макет</h3>
         <input
           ref={fileRef}
           type="file"
@@ -384,7 +410,7 @@ export function SidePanel() {
         />
         {areas.length > 1 && (
           <div className="mb-2">
-            <label className="mb-1 block text-xs text-neutral-400">Зона</label>
+            <label className="mb-1 block text-xs text-gray-500">Зона</label>
             <div className="flex flex-wrap gap-1.5">
               {areas.map((a) => (
                 <button
@@ -393,7 +419,7 @@ export function SidePanel() {
                   className={`rounded px-2.5 py-1 text-xs ${
                     a.id === activeAreaId
                       ? "bg-blue-600 text-white"
-                      : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                      : "bg-raised text-gray-700 hover:bg-line-soft"
                   }`}
                 >
                   {a.name}
@@ -404,11 +430,12 @@ export function SidePanel() {
         )}
         <button
           onClick={() => fileRef.current?.click()}
-          className="w-full rounded-lg bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-500"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-700"
         >
+          <Upload size={16} strokeWidth={1.75} />
           Загрузить SVG / PNG
         </button>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-xs text-gray-400">
           Добавится в зону «
           {areas.find((a) => a.id === activeAreaId)?.name ??
             view.print_areas[0].name}
@@ -418,7 +445,7 @@ export function SidePanel() {
       )}
 
       <section>
-        <h3 className="mb-2 font-semibold text-neutral-200">Размер (эталон)</h3>
+        <h3 className="mb-2 font-semibold text-ink">Размер (эталон)</h3>
         <div className="flex flex-wrap gap-1.5">
           {sku.sizes.map((sz) => (
             <button
@@ -427,21 +454,21 @@ export function SidePanel() {
               className={`rounded px-2.5 py-1 ${
                 sz === size
                   ? "bg-blue-600 text-white"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                  : "bg-raised text-gray-700 hover:bg-line-soft"
               }`}
             >
               {sz}
             </button>
           ))}
         </div>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p className="mt-1 text-xs text-gray-400">
           Отступ от горловины — константа на всех размерах (регрейдинг по
           per-size якорям).
         </p>
       </section>
 
       <section>
-        <h3 className="mb-2 font-semibold text-neutral-200">Цвет изделия</h3>
+        <h3 className="mb-2 font-semibold text-ink">Цвет изделия</h3>
         <div className="flex items-center gap-1.5">
           {["", "#ffffff", "#1b1f24", "#3b4a6b", "#7a2230", "#2f5233", "#c9c4b8"].map(
             (c) => (
@@ -450,8 +477,8 @@ export function SidePanel() {
                 onClick={() => setGarmentColor(c)}
                 title={c || "без цвета (как на лекале)"}
                 className={`h-6 w-6 rounded-full border ${
-                  garmentColor === c ? "border-blue-500 ring-1 ring-blue-500" : "border-neutral-600"
-                } ${!c ? "bg-neutral-900 text-[9px] text-neutral-500" : ""}`}
+                  garmentColor === c ? "border-blue-500 ring-1 ring-blue-500" : "border-gray-300"
+                } ${!c ? "bg-white text-[9px] text-gray-400" : ""}`}
                 style={c ? { background: c } : undefined}
               >
                 {!c ? "—" : ""}
@@ -463,16 +490,16 @@ export function SidePanel() {
             value={garmentColor || "#1b1f24"}
             onChange={(e) => setGarmentColor(e.target.value)}
             title="Свой цвет"
-            className="h-6 w-8 cursor-pointer rounded border border-neutral-600 bg-transparent"
+            className="h-6 w-8 cursor-pointer rounded border border-gray-300 bg-transparent"
           />
         </div>
       </section>
 
       <section>
-        <h3 className="mb-2 font-semibold text-neutral-200">Слои (этот вид)</h3>
+        <h3 className="mb-2 font-semibold text-ink">Слои (этот вид)</h3>
         <div className="flex flex-col gap-1.5">
           {viewLayers.length === 0 && (
-            <p className="text-xs text-neutral-500">Пока пусто.</p>
+            <p className="text-xs text-gray-400">Пока пусто.</p>
           )}
           {/* Сверху — верхний слой (конец массива = выше по z-order). */}
           {[...viewLayers].reverse().map((p) => (
@@ -513,21 +540,21 @@ export function SidePanel() {
       )}
 
       <section>
-        <h3 className="mb-2 font-semibold text-neutral-200">Проект</h3>
-        <label className="mb-1 block text-xs text-neutral-400">Клиент</label>
+        <h3 className="mb-2 font-semibold text-ink">Проект</h3>
+        <label className="mb-1 block text-xs text-gray-500">Клиент</label>
         <input
           value={client}
           onChange={(e) => setMeta({ client: e.target.value })}
-          className="mb-2 w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+          className="mb-2 w-full rounded border border-line bg-white px-2 py-1.5 text-gray-900"
         />
-        <label className="mb-1 block text-xs text-neutral-400">Заказ №</label>
+        <label className="mb-1 block text-xs text-gray-500">Заказ №</label>
         <input
           value={orderRef}
           onChange={(e) => setMeta({ orderRef: e.target.value })}
-          className="mb-2 w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+          className="mb-2 w-full rounded border border-line bg-white px-2 py-1.5 text-gray-900"
         />
         <div className="flex items-center gap-2">
-          <span className="text-xs text-neutral-400">Статус:</span>
+          <span className="text-xs text-gray-500">Статус:</span>
           <button
             onClick={() =>
               setStatus(status === "draft" ? "approved" : "draft")
@@ -535,7 +562,7 @@ export function SidePanel() {
             className={`rounded px-2.5 py-1 text-xs ${
               status === "approved"
                 ? "bg-green-600 text-white"
-                : "bg-neutral-700 text-neutral-200"
+                : "bg-raised text-ink"
             }`}
           >
             {status === "approved" ? "Согласовано" : "Черновик"}
@@ -543,8 +570,8 @@ export function SidePanel() {
         </div>
 
         {/* Комментарии согласования (P1 #24) */}
-        <div className="mt-3 border-t border-neutral-800 pt-3">
-          <span className="mb-1 block text-xs text-neutral-400">
+        <div className="mt-3 border-t border-line pt-3">
+          <span className="mb-1 block text-xs text-gray-500">
             Согласование ({comments.length})
           </span>
           <CommentBox onAdd={(role, text) => addComment({ role, text })} />
@@ -553,26 +580,26 @@ export function SidePanel() {
               {comments.map((c) => (
                 <div
                   key={c.id}
-                  className="rounded bg-neutral-800/60 px-2 py-1.5 text-xs"
+                  className="rounded bg-raised px-2 py-1.5 text-xs"
                 >
                   <div className="mb-0.5 flex items-center justify-between">
                     <span
                       className={`rounded px-1 text-[10px] ${
                         c.role === "client"
-                          ? "bg-blue-950 text-blue-300"
-                          : "bg-emerald-950 text-emerald-300"
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-emerald-50 text-emerald-700"
                       }`}
                     >
                       {c.role === "client" ? "Клиент" : "Цех"}
                     </span>
                     <button
                       onClick={() => removeComment(c.id)}
-                      className="text-neutral-600 hover:text-red-400"
+                      className="text-gray-400 hover:text-red-500"
                     >
-                      ✕
+                      <X size={14} strokeWidth={1.75} />
                     </button>
                   </div>
-                  <p className="whitespace-pre-wrap text-neutral-200">{c.text}</p>
+                  <p className="whitespace-pre-wrap text-ink">{c.text}</p>
                 </div>
               ))}
             </div>
@@ -580,11 +607,12 @@ export function SidePanel() {
         </div>
 
         {/* Сохранение проекта */}
-        <div className="mt-3 border-t border-neutral-800 pt-3">
+        <div className="mt-3 border-t border-line pt-3">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs text-neutral-400">Проекты</span>
-            <span className="text-[10px] text-neutral-600">
-              {isCloud() ? "☁ облако" : "💾 локально"}
+            <span className="text-xs text-gray-500">Проекты</span>
+            <span className="flex items-center gap-1 text-[10px] text-gray-400">
+              {isCloud() ? <Cloud size={12} strokeWidth={1.75} /> : <HardDrive size={12} strokeWidth={1.75} />}
+              {isCloud() ? "облако" : "локально"}
             </span>
           </div>
           <div className="mb-2 flex gap-2">
@@ -592,11 +620,11 @@ export function SidePanel() {
               value={projName}
               onChange={(e) => setProjName(e.target.value)}
               placeholder="Название проекта"
-              className="flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+              className="flex-1 rounded border border-line bg-white px-2 py-1.5 text-gray-900"
             />
             <button
               onClick={onSaveProject}
-              className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+              className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
               {projId ? "Сохранить" : "Сохранить"}
             </button>
@@ -607,27 +635,27 @@ export function SidePanel() {
                 <div
                   key={p.id}
                   className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
-                    p.id === projId ? "bg-neutral-800" : "hover:bg-neutral-800/60"
+                    p.id === projId ? "bg-raised" : "hover:bg-line-soft"
                   }`}
                 >
                   <button
                     onClick={() => onOpenProject(p.id)}
-                    className="min-w-0 flex-1 truncate text-left text-neutral-200"
+                    className="min-w-0 flex-1 truncate text-left text-ink"
                     title={p.name}
                   >
                     {p.name || "(без названия)"}
                   </button>
                   <button
                     onClick={() => onDeleteProject(p.id)}
-                    className="ml-2 shrink-0 text-neutral-500 hover:text-red-400"
+                    className="ml-2 shrink-0 text-gray-400 hover:text-red-500"
                   >
-                    ✕
+                    <X size={14} strokeWidth={1.75} />
                   </button>
                 </div>
               ))}
             </div>
           )}
-          {pmsg && <p className="mt-1 text-[11px] text-neutral-500">{pmsg}</p>}
+          {pmsg && <p className="mt-1 text-[11px] text-gray-400">{pmsg}</p>}
         </div>
       </section>
 
@@ -635,28 +663,28 @@ export function SidePanel() {
         <button
           onClick={() => setShowReview(true)}
           disabled={viewLayers.length === 0}
-          className="w-full rounded-lg bg-neutral-800 px-3 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-50"
+          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-ink hover:bg-gray-200 disabled:opacity-50"
         >
           Проверка ростовки
         </button>
         <button
           onClick={onExportPng}
           disabled={busy}
-          className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
+          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-white hover:bg-gray-200 disabled:opacity-50"
         >
           Превью для клиента (PNG)
         </button>
         <button
           onClick={onExport}
           disabled={busy}
-          className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
         </button>
         <button
           onClick={() => gateExport(() => void runExport("production"))}
           disabled={busy || viewLayers.length === 0}
-          className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
+          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-white hover:bg-gray-200 disabled:opacity-50"
         >
           PDF для цеха (без обвязки)
         </button>
@@ -667,7 +695,7 @@ export function SidePanel() {
         >
           Batch PDF (по размерам)
         </button>
-        {msg && <p className="mt-2 text-xs text-neutral-400">{msg}</p>}
+        {msg && <p className="mt-2 text-xs text-gray-500">{msg}</p>}
       </section>
 
       {preflightIssues && (
@@ -743,17 +771,17 @@ function BatchModal({
   const ordered = sizes.filter((s) => sel.has(s));
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-line bg-white p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 font-semibold text-neutral-100">
+        <h3 className="mb-1 font-semibold text-ink">
           Batch PDF по размерам
         </h3>
-        <p className="mb-3 text-xs text-neutral-500">
+        <p className="mb-3 text-xs text-gray-400">
           Один файл с тех-листами по выбранным ростовкам (позиции пересчитаны от{" "}
           {baseSize}).
         </p>
@@ -765,7 +793,7 @@ function BatchModal({
               className={`rounded px-2.5 py-1 text-xs ${
                 sel.has(sz)
                   ? "bg-blue-600 text-white"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                  : "bg-raised text-gray-700 hover:bg-gray-200"
               }`}
             >
               {sz}
@@ -775,21 +803,21 @@ function BatchModal({
         <div className="flex justify-between gap-2">
           <button
             onClick={() => setSel(new Set(sizes))}
-            className="rounded bg-neutral-800 px-2.5 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700"
+            className="rounded bg-raised px-2.5 py-1.5 text-xs text-gray-700 hover:bg-gray-200"
           >
             Все
           </button>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+              className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
             >
               Отмена
             </button>
             <button
               onClick={() => onBuild(ordered)}
               disabled={ordered.length === 0}
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
             >
               Собрать ({ordered.length})
             </button>
@@ -823,26 +851,26 @@ function GradingReviewModal({
   const names = rows[0]?.items.map((i) => i.name) ?? [];
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
       onClick={onClose}
     >
       <div
-        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 font-semibold text-neutral-100">
+        <h3 className="mb-1 font-semibold text-ink">
           Проверка ростовки · {view.kind}
         </h3>
-        <p className="mb-3 text-xs text-neutral-500">
+        <p className="mb-3 text-xs text-gray-400">
           Позиции пересчитаны от размера {fromSize} (константа отступа от
           горловины). Красное — выход за зону; число — мин. отступ, мм.
         </p>
         {names.length === 0 ? (
-          <p className="text-xs text-neutral-500">Нет нанесений на этом виде.</p>
+          <p className="text-xs text-gray-400">Нет нанесений на этом виде.</p>
         ) : (
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="text-neutral-400">
+              <tr className="text-gray-500">
                 <th className="py-1 pr-2 text-left font-medium">Размер</th>
                 {names.map((n, i) => (
                   <th key={i} className="px-2 py-1 text-left font-medium">
@@ -857,14 +885,14 @@ function GradingReviewModal({
                   key={r.size}
                   onClick={() => onPickSize(r.size)}
                   title="Открыть этот размер"
-                  className={`cursor-pointer border-t border-neutral-800 hover:bg-neutral-800/50 ${
-                    r.anyOut ? "bg-red-950/30" : ""
+                  className={`cursor-pointer border-t border-line hover:bg-line-soft/50 ${
+                    r.anyOut ? "bg-red-50" : ""
                   }`}
                 >
-                  <td className="py-1.5 pr-2 font-medium text-neutral-200">
+                  <td className="py-1.5 pr-2 font-medium text-ink">
                     {r.size}
                     {r.size === fromSize && (
-                      <span className="ml-1 text-[10px] text-neutral-500">
+                      <span className="ml-1 text-[10px] text-gray-400">
                         эталон
                       </span>
                     )}
@@ -873,10 +901,14 @@ function GradingReviewModal({
                     <td
                       key={it.placementId}
                       className={`px-2 py-1.5 tabular-nums ${
-                        it.outOfZone ? "text-red-300" : "text-emerald-300"
+                        it.outOfZone ? "text-red-700" : "text-emerald-700"
                       }`}
                     >
-                      {it.outOfZone ? "⚠ " : "✓ "}
+                      {it.outOfZone ? (
+                        <TriangleAlert size={12} strokeWidth={1.75} className="mr-1 inline align-middle" />
+                      ) : (
+                        <Check size={12} strokeWidth={2} className="mr-1 inline align-middle" />
+                      )}
                       {Math.round(it.minMargin)}
                     </td>
                   ))}
@@ -888,7 +920,7 @@ function GradingReviewModal({
         <div className="mt-4 flex justify-end">
           <button
             onClick={onClose}
-            className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
           >
             Закрыть
           </button>
@@ -913,17 +945,17 @@ function PreflightModal({
   const blocking = hasBlockingErrors(issues);
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(17,24,39,0.45)] p-4"
       onClick={onCancel}
     >
       <div
-        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-line bg-white p-4 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 font-semibold text-neutral-100">
+        <h3 className="mb-1 font-semibold text-ink">
           Проверка перед экспортом
         </h3>
-        <p className="mb-3 text-xs text-neutral-500">
+        <p className="mb-3 text-xs text-gray-400">
           {blocking
             ? "Есть блокирующая проблема — экспорт невозможен."
             : "Найдены предупреждения. Можно исправить или продолжить."}
@@ -942,12 +974,18 @@ function PreflightModal({
                   clickable ? "cursor-pointer hover:brightness-125" : ""
                 } ${
                   it.level === "error"
-                    ? "bg-red-950/70 text-red-300"
-                    : "bg-amber-950/50 text-amber-200"
+                    ? "bg-red-50 text-red-700"
+                    : "bg-amber-50 text-amber-700"
                 }`}
               >
-                {it.level === "error" ? "⛔ " : "⚠ "}
-                {it.message}
+                <span className="inline-flex items-start gap-1">
+                  {it.level === "error" ? (
+                    <Ban size={13} strokeWidth={1.75} className="mt-px shrink-0" />
+                  ) : (
+                    <TriangleAlert size={13} strokeWidth={1.75} className="mt-px shrink-0" />
+                  )}
+                  {it.message}
+                </span>
               </li>
             );
           })}
@@ -955,14 +993,14 @@ function PreflightModal({
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
           >
             {blocking ? "Закрыть" : "Отмена"}
           </button>
           {!blocking && (
             <button
               onClick={onProceed}
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
             >
               Экспортировать всё равно
             </button>
@@ -989,7 +1027,7 @@ function PantonePicker({
     );
   return (
     <div className="mt-2">
-      <span className="mb-1 block text-[11px] text-neutral-500">
+      <span className="mb-1 block text-[11px] text-gray-400">
         Pantone (spot) {selected.length > 0 && `· ${selected.length}`}
       </span>
       <div className="flex flex-wrap gap-1">
@@ -1001,7 +1039,7 @@ function PantonePicker({
               onClick={() => toggle(sw.code)}
               title={sw.code}
               className={`h-5 w-5 rounded-full border ${
-                on ? "border-blue-400 ring-1 ring-blue-400" : "border-neutral-600"
+                on ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-300"
               }`}
               style={{ background: sw.hex }}
             />
@@ -1009,7 +1047,7 @@ function PantonePicker({
         })}
       </div>
       {selected.length > 0 && (
-        <p className="mt-1 text-[10px] text-neutral-400">{selected.join(", ")}</p>
+        <p className="mt-1 text-[10px] text-gray-500">{selected.join(", ")}</p>
       )}
     </div>
   );
@@ -1039,7 +1077,7 @@ function CommentBox({
             className={`rounded px-2 py-0.5 text-[11px] ${
               role === r
                 ? "bg-blue-600 text-white"
-                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                : "bg-raised text-gray-700 hover:bg-gray-200"
             }`}
           >
             {r === "client" ? "Клиент" : "Цех"}
@@ -1054,11 +1092,11 @@ function CommentBox({
             if (e.key === "Enter") submit();
           }}
           placeholder="Комментарий…"
-          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs"
+          className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-xs"
         />
         <button
           onClick={submit}
-          className="shrink-0 rounded bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+          className="shrink-0 rounded bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
         >
           +
         </button>
@@ -1131,7 +1169,7 @@ function LayerRow({
   const profile = printMethodProfile(method);
   const { quality, dpi } = printQuality(asset, p.width_mm, method);
   const dpiColor =
-    quality === "low" ? "text-red-400" : quality === "mid" ? "text-amber-400" : "text-neutral-500";
+    quality === "low" ? "text-red-600" : quality === "mid" ? "text-amber-600" : "text-gray-400";
   const qualityLabel =
     quality === "vector"
       ? "вектор"
@@ -1141,12 +1179,12 @@ function LayerRow({
           ? `${Math.round(dpi)}dpi`
           : "";
 
-  const icon = "rounded px-1.5 py-0.5 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200";
+  const icon = "rounded px-1.5 py-0.5 text-gray-500 hover:bg-gray-200 hover:text-ink";
   return (
     <div
       onClick={onSelect}
       className={`cursor-pointer rounded-lg border p-2 transition ${
-        selected ? "border-blue-500 bg-neutral-800" : "border-neutral-700 bg-neutral-900 hover:border-neutral-600"
+        selected ? "border-blue-500 bg-raised" : "border-line bg-white hover:border-gray-300"
       } ${p.hidden ? "opacity-50" : ""}`}
     >
       <div className="flex items-center gap-2">
@@ -1154,17 +1192,17 @@ function LayerRow({
         <img
           src={asset?.data_url}
           alt=""
-          className="h-8 w-8 shrink-0 rounded bg-neutral-950 object-contain"
+          className="h-8 w-8 shrink-0 rounded bg-shell object-contain"
         />
         <input
           value={findViewForPlacementName(view, p)}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onRename(e.target.value)}
           readOnly={readOnly}
-          className="min-w-0 flex-1 bg-transparent text-sm text-neutral-200 outline-none focus:rounded focus:bg-neutral-950 focus:px-1"
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none focus:rounded focus:bg-white focus:px-1"
         />
         <span
-          className="shrink-0 rounded bg-neutral-800 px-1 text-[9px] text-neutral-400"
+          className="shrink-0 rounded bg-raised px-1 text-[9px] text-gray-500"
           title={profile.label}
         >
           {profile.short}
@@ -1176,15 +1214,15 @@ function LayerRow({
       <div className="mt-1.5 flex items-center gap-0.5 text-xs">
         {!readOnly && (
           <>
-            <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}>▲</button>
-            <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}>▼</button>
-            <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? "🙈" : "👁"}</button>
-            <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? "🔒" : "🔓"}</button>
-            <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}>⎘</button>
-            <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-400`}>✕</button>
+            <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}><ChevronUp size={14} strokeWidth={1.75} /></button>
+            <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}><ChevronDown size={14} strokeWidth={1.75} /></button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? <EyeOff size={14} strokeWidth={1.75} /> : <Eye size={14} strokeWidth={1.75} />}</button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? <Lock size={14} strokeWidth={1.75} /> : <LockOpen size={14} strokeWidth={1.75} />}</button>
+            <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}><Copy size={14} strokeWidth={1.75} /></button>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-600`}><X size={14} strokeWidth={1.75} /></button>
           </>
         )}
-        {out && <span className="ml-auto rounded bg-red-950 px-1 text-[10px] text-red-300">за зоной</span>}
+        {out && <span className="ml-auto rounded bg-red-50 px-1 text-[10px] text-red-700">за зоной</span>}
       </div>
     </div>
   );
@@ -1264,13 +1302,13 @@ function PlacementInspector({
   ];
   return (
     <section>
-      <h3 className="mb-2 font-semibold text-neutral-200">Позиция (мм)</h3>
+      <h3 className="mb-2 font-semibold text-ink">Позиция (мм)</h3>
       <div className="mb-2 flex flex-wrap gap-1.5">
         {presets.map((pr) => (
           <button
             key={pr.key}
             onClick={() => applyPreset(pr.key)}
-            className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+            className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
           >
             {pr.label}
           </button>
@@ -1278,14 +1316,14 @@ function PlacementInspector({
         <button
           onClick={() => applyFit("fit")}
           title="Вписать в зону (по safe-зоне)"
-          className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+          className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
         >
           Вписать
         </button>
         <button
           onClick={() => applyFit("fill")}
           title="Заполнить зону (излишек обрежется)"
-          className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-700"
+          className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
         >
           Заполнить
         </button>
@@ -1321,10 +1359,10 @@ function PlacementInspector({
       </div>
       {/* Трансформ: флип / поворот на 90° */}
       <div className="mt-2 flex flex-wrap gap-1.5">
-        <button onClick={() => onChange({ flip_h: !p.flip_h })} className={tbtn(p.flip_h)}>Флип ↔</button>
-        <button onClick={() => onChange({ flip_v: !p.flip_v })} className={tbtn(p.flip_v)}>Флип ↕</button>
-        <button onClick={() => onChange({ rotation_deg: (p.rotation_deg - 90 + 360) % 360 })} className={tbtn(false)}>⟲ 90°</button>
-        <button onClick={() => onChange({ rotation_deg: (p.rotation_deg + 90) % 360 })} className={tbtn(false)}>⟳ 90°</button>
+        <button onClick={() => onChange({ flip_h: !p.flip_h })} className={`${tbtn(p.flip_h)} inline-flex items-center gap-1`}><FlipHorizontal2 size={13} strokeWidth={1.75} /> Флип</button>
+        <button onClick={() => onChange({ flip_v: !p.flip_v })} className={`${tbtn(p.flip_v)} inline-flex items-center gap-1`}><FlipVertical2 size={13} strokeWidth={1.75} /> Флип</button>
+        <button onClick={() => onChange({ rotation_deg: (p.rotation_deg - 90 + 360) % 360 })} className={`${tbtn(false)} inline-flex items-center gap-1`}><RotateCcw size={13} strokeWidth={1.75} /> 90°</button>
+        <button onClick={() => onChange({ rotation_deg: (p.rotation_deg + 90) % 360 })} className={`${tbtn(false)} inline-flex items-center gap-1`}><RotateCw size={13} strokeWidth={1.75} /> 90°</button>
       </div>
 
       {/* Действия: дубль / копия на вид / зеркало рукава */}
@@ -1339,7 +1377,7 @@ function PlacementInspector({
               if (e.target.value) onCopyToView(e.target.value);
               e.target.value = "";
             }}
-            className="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-200"
+            className="rounded border border-line bg-white px-2 py-1 text-xs text-ink"
           >
             <option value="">Копировать на вид…</option>
             {otherViews.map((v) => (
@@ -1350,10 +1388,10 @@ function PlacementInspector({
       </div>
 
       {/* Метод печати — задаёт профиль качества и production-вывод */}
-      <div className="mt-3 border-t border-neutral-800 pt-3">
+      <div className="mt-3 border-t border-line pt-3">
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-xs text-neutral-400">Метод печати</span>
-          <span className="text-[10px] text-neutral-500">
+          <span className="text-xs text-gray-500">Метод печати</span>
+          <span className="text-[10px] text-gray-400">
             {profile.colorMode === "spot" ? "spot / Pantone" : "CMYK"}
           </span>
         </div>
@@ -1366,7 +1404,7 @@ function PlacementInspector({
               className={`rounded px-2.5 py-1 text-xs ${
                 m.id === method
                   ? "bg-blue-600 text-white"
-                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                  : "bg-raised text-gray-700 hover:bg-gray-200"
               }`}
             >
               {m.label}
@@ -1384,8 +1422,8 @@ function PlacementInspector({
       </div>
 
       {/* Спецификация для цеха: допуск ± и «как мерить» (P1 #13) */}
-      <div className="mt-3 border-t border-neutral-800 pt-3">
-        <span className="mb-1 block text-xs text-neutral-400">
+      <div className="mt-3 border-t border-line pt-3">
+        <span className="mb-1 block text-xs text-gray-500">
           Спецификация (печатается в обвязке)
         </span>
         <div className="mb-2 grid grid-cols-2 gap-2">
@@ -1396,19 +1434,19 @@ function PlacementInspector({
             onCommit={(v) => onChange({ tolerance_mm: v > 0 ? v : undefined })}
           />
         </div>
-        <label className="mb-1 block text-xs text-neutral-400">
+        <label className="mb-1 block text-xs text-gray-500">
           Как мерить (HTM)
         </label>
         <input
           value={p.htm ?? ""}
           onChange={(e) => onChange({ htm: e.target.value || undefined })}
           placeholder="напр. от шва горловины до верха принта"
-          className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs"
+          className="w-full rounded border border-line bg-white px-2 py-1.5 text-xs"
         />
       </div>
 
       {asset?.size_estimated && (
-        <p className="mt-2 rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
+        <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700">
           размер оценочно — уточните Ш×В
         </p>
       )}
@@ -1418,7 +1456,7 @@ function PlacementInspector({
 }
 
 const tbtn = (active?: boolean) =>
-  `rounded px-2 py-1 text-xs ${active ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-200 hover:bg-neutral-700"}`;
+  `rounded px-2 py-1 text-xs ${active ? "bg-blue-600 text-white" : "bg-raised text-ink hover:bg-gray-200"}`;
 
 /** Индикатор качества печати на текущем размере макета (с учётом метода). */
 function DpiBadge({
@@ -1436,7 +1474,7 @@ function DpiBadge({
   if (quality === "embroidery") {
     const d = profile.detail!;
     return (
-      <p className="mt-2 rounded bg-sky-950/60 px-2 py-1 text-xs text-sky-300">
+      <p className="mt-2 rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">
         вышивка — проверьте мин. деталь: линия ≥ {d.minLineMm} мм, текст ≥{" "}
         {d.minTextMm} мм (диджитайз вне инструмента)
       </p>
@@ -1445,19 +1483,19 @@ function DpiBadge({
   const good = profile.dpi?.good ?? 300;
   const map: Record<string, { cls: string; text: string }> = {
     vector: {
-      cls: "bg-emerald-950/60 text-emerald-300",
+      cls: "bg-emerald-50 text-emerald-700",
       text: "вектор — без потери качества",
     },
     good: {
-      cls: "bg-emerald-950/60 text-emerald-300",
+      cls: "bg-emerald-50 text-emerald-700",
       text: `${Math.round(dpi ?? 0)} DPI — отличное качество`,
     },
     mid: {
-      cls: "bg-amber-950/60 text-amber-300",
+      cls: "bg-amber-50 text-amber-700",
       text: `${Math.round(dpi ?? 0)} DPI — приемлемо (уменьшите макет для ${good}+)`,
     },
     low: {
-      cls: "bg-red-950/70 text-red-300",
+      cls: "bg-red-50 text-red-700",
       text: `${Math.round(dpi ?? 0)} DPI — низкое качество, печать размыта`,
     },
   };
@@ -1501,7 +1539,7 @@ function MmField({
 
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs text-neutral-400">{label}</span>
+      <span className="text-xs text-gray-500">{label}</span>
       <input
         type="number"
         step={1}
@@ -1512,7 +1550,7 @@ function MmField({
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
         }}
-        className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 tabular-nums"
+        className="w-full rounded border border-line bg-white px-2 py-1.5 tabular-nums"
       />
     </label>
   );

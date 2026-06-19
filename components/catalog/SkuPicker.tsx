@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Cloud, HardDrive, X } from "lucide-react";
 import { loadCatalog } from "@/lib/catalog/loadCatalog";
 import { listModels, deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
@@ -49,9 +50,9 @@ export function SkuPicker() {
   };
 
   if (error)
-    return <p className="text-red-400">Ошибка загрузки каталога: {error}</p>;
+    return <p className="text-red-600">Ошибка загрузки каталога: {error}</p>;
   if (!catalog)
-    return <p className="text-neutral-400">Загрузка каталога…</p>;
+    return <p className="text-gray-500">Загрузка каталога…</p>;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -60,28 +61,33 @@ export function SkuPicker() {
         return (
           <div
             key={sku.id}
-            className="group relative rounded-xl border border-neutral-700 bg-neutral-900 p-5 transition hover:border-blue-500 hover:bg-neutral-800"
+            className="group relative rounded-xl border border-line bg-white p-5 shadow-sm transition hover:border-blue-500 hover:bg-raised"
           >
             <button onClick={() => open(sku.id)} className="block w-full text-left">
               <div className="flex items-center gap-2 text-lg font-semibold">
                 {sku.name}
                 {custom && (
-                  <span className="rounded bg-blue-900/60 px-1.5 py-0.5 text-[10px] font-normal text-blue-300">
-                    {isCloud() ? "☁ моя" : "💾 моя"}
+                  <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-normal text-blue-700">
+                    {isCloud() ? (
+                      <Cloud size={12} strokeWidth={1.75} />
+                    ) : (
+                      <HardDrive size={12} strokeWidth={1.75} />
+                    )}
+                    моя
                   </span>
                 )}
               </div>
-              <div className="mt-1 text-sm text-neutral-400">
+              <div className="mt-1 text-sm text-gray-500">
                 {sku.type} · эталон {sku.base_size}
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {sku.views.map((v) => (
-                  <span key={v.id} className="rounded bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300">
+                  <span key={v.id} className="rounded bg-raised px-2 py-0.5 text-xs text-gray-700">
                     {v.kind}
                   </span>
                 ))}
               </div>
-              <div className="mt-2 text-xs text-neutral-500">
+              <div className="mt-2 text-xs text-gray-400">
                 Размеры: {sku.sizes.join(", ")}
               </div>
             </button>
@@ -89,9 +95,9 @@ export function SkuPicker() {
               <button
                 onClick={() => onDelete(sku.id)}
                 title="Удалить модель"
-                className="absolute right-2 top-2 hidden rounded px-1.5 py-0.5 text-xs text-neutral-500 hover:text-red-400 group-hover:block"
+                className="absolute right-2 top-2 hidden rounded px-1.5 py-0.5 text-gray-400 hover:text-red-600 group-hover:block"
               >
-                ✕
+                <X size={16} strokeWidth={1.75} />
               </button>
             )}
           </div>

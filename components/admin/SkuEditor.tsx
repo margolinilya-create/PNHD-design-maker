@@ -32,6 +32,7 @@ import {
 } from "@/lib/admin/skuEdit";
 import { saveModel, deleteModel } from "@/lib/persistence/models";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
+import { ChevronLeft, X, TriangleAlert, Check } from "lucide-react";
 import type {
   BaseSize,
   GarmentType,
@@ -42,16 +43,16 @@ import type {
   ViewKind,
 } from "@/types";
 
-const inp = "w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm";
+const inp = "w-full rounded border border-line bg-shell px-2 py-1.5 text-sm";
 const resetBtn =
-  "rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-700";
+  "rounded bg-raised px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200";
 
 const SkuViewCanvas = dynamic(
   () => import("@/components/admin/SkuViewCanvas").then((m) => m.SkuViewCanvas),
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full items-center justify-center text-neutral-500">
+      <div className="flex h-full items-center justify-center text-gray-400">
         Загрузка холста…
       </div>
     ),
@@ -61,7 +62,7 @@ const SkuViewCanvas = dynamic(
 const MockupZoneCanvas = dynamic(
   () =>
     import("@/components/admin/MockupZoneCanvas").then((m) => m.MockupZoneCanvas),
-  { ssr: false, loading: () => <div className="h-56 w-full rounded bg-neutral-950" /> },
+  { ssr: false, loading: () => <div className="h-56 w-full rounded bg-shell" /> },
 );
 
 const VIEW_KINDS: { value: ViewKind; label: string }[] = [
@@ -201,43 +202,48 @@ export function SkuEditor({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b border-neutral-800 px-4 py-2.5">
-        <button onClick={onBack} className="text-sm text-neutral-400 hover:text-white">
-          ← К списку
+      <header className="flex flex-wrap items-center gap-3 border-b border-line bg-white px-4 py-2.5">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-ink"
+        >
+          <ChevronLeft size={16} strokeWidth={1.75} /> К списку
         </button>
         <span className="text-sm font-semibold">Редактирование SKU</span>
-        <label className="flex items-center gap-1 text-xs text-neutral-500">
+        <label className="flex items-center gap-1 text-xs text-gray-400">
           id:
           <input
             value={sku.id}
             onChange={(e) => setSku({ ...sku, id: e.target.value.trim() })}
-            className={`w-44 rounded border bg-neutral-950 px-2 py-1 text-xs ${
-              idErr ? "border-red-600 text-red-300" : "border-neutral-700 text-neutral-200"
+            className={`w-44 rounded border bg-shell px-2 py-1 text-xs ${
+              idErr ? "border-red-600 text-red-700" : "border-line text-ink"
             }`}
           />
         </label>
-        {idErr && <span className="text-xs text-red-400">{idErr}</span>}
+        {idErr && <span className="text-xs text-red-600">{idErr}</span>}
         <button
           onClick={save}
           disabled={errors.length > 0 || !!idErr}
-          className="ml-auto rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="ml-auto rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           Сохранить в каталог
         </button>
-        {msg && <span className="text-xs text-emerald-400">{msg}</span>}
+        {msg && <span className="text-xs text-emerald-600">{msg}</span>}
       </header>
 
       {errors.length > 0 && (
-        <div className="border-b border-red-900/50 bg-red-950/40 px-4 py-2 text-xs text-red-300">
+        <div className="border-b border-red-900/50 bg-red-50 px-4 py-2 text-xs text-red-700">
           {errors.slice(0, 6).map((e, i) => (
-            <div key={i}>⚠ {e}</div>
+            <div key={i} className="flex items-center gap-1">
+              <TriangleAlert size={13} strokeWidth={1.75} /> {e}
+            </div>
           ))}
         </div>
       )}
 
       <div className="flex min-h-0 flex-1">
         {/* Форма-сайдбар */}
-        <aside className="w-96 shrink-0 space-y-4 overflow-y-auto border-r border-neutral-800 p-4">
+        <aside className="w-96 shrink-0 space-y-4 overflow-y-auto border-r border-line p-4">
           <Section title="Модель">
             <Field label="Название">
               <input
@@ -282,15 +288,15 @@ export function SkuEditor({
                 {sku.sizes.map((s) => (
                   <span
                     key={s}
-                    className="flex items-center gap-1 rounded bg-neutral-800 px-2 py-1 text-xs"
+                    className="flex items-center gap-1 rounded bg-raised px-2 py-1 text-xs"
                   >
                     {s}
                     {s !== sku.base_size && (
                       <button
                         onClick={() => setSku(removeSize(sku, s))}
-                        className="text-neutral-500 hover:text-red-400"
+                        className="text-gray-400 hover:text-red-600"
                       >
-                        ✕
+                        <X size={14} strokeWidth={1.75} />
                       </button>
                     )}
                   </span>
@@ -305,7 +311,7 @@ export function SkuEditor({
                     }
                   }}
                   placeholder="+ размер"
-                  className="w-20 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-xs"
+                  className="w-20 rounded border border-line bg-shell px-2 py-1 text-xs"
                 />
               </div>
             </Field>
@@ -318,8 +324,8 @@ export function SkuEditor({
                   key={v.id}
                   className={`flex items-center justify-between rounded border px-2 py-1.5 text-sm ${
                     v.id === activeViewId
-                      ? "border-blue-500 bg-neutral-800"
-                      : "border-neutral-700 bg-neutral-900"
+                      ? "border-blue-500 bg-raised"
+                      : "border-line bg-white"
                   }`}
                 >
                   <button
@@ -330,7 +336,7 @@ export function SkuEditor({
                     className="flex-1 text-left"
                   >
                     {v.kind}{" "}
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-gray-400">
                       · {v.print_areas.length} зон.
                     </span>
                   </button>
@@ -346,9 +352,9 @@ export function SkuEditor({
                           );
                         }
                       }}
-                      className="text-neutral-500 hover:text-red-400"
+                      className="text-gray-400 hover:text-red-600"
                     >
-                      ✕
+                      <X size={14} strokeWidth={1.75} />
                     </button>
                   )}
                 </div>
@@ -379,11 +385,14 @@ export function SkuEditor({
                       className={`rounded px-2.5 py-1 text-xs ${
                         sz === editSize
                           ? "bg-blue-600 text-white"
-                          : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                          : "bg-raised text-gray-700 hover:bg-gray-200"
                       }`}
                     >
                       {sz}
-                      {sz === base ? " (база)" : overridden ? " ●" : ""}
+                      {sz === base ? " (база)" : ""}
+                      {overridden && (
+                        <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-blue-600 align-middle" />
+                      )}
                     </button>
                   );
                 })}
@@ -393,7 +402,7 @@ export function SkuEditor({
                   view.size_anchors?.[editSize] ||
                   view.size_print_areas?.[editSize]) && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-neutral-500">Сбросить:</span>
+                    <span className="text-[11px] text-gray-400">Сбросить:</span>
                     {view.size_flats?.[editSize] && (
                       <button
                         onClick={() => setSku(clearSizeFlat(sku, view.id, editSize))}
@@ -427,12 +436,15 @@ export function SkuEditor({
                   </div>
                 )}
               {perSize && view.grade_rule && view.size_anchors?.[editSize] && (
-                <p className="rounded bg-amber-950/40 px-2 py-1 text-[11px] text-amber-300">
-                  ⚠ На размере {editSize} заданы явные якоря — они имеют приоритет
-                  над grade-rule (правило для этого размера не применится).
+                <p className="flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                  <TriangleAlert size={13} strokeWidth={1.75} className="mt-px shrink-0" />
+                  <span>
+                    На размере {editSize} заданы явные якоря — они имеют приоритет
+                    над grade-rule (правило для этого размера не применится).
+                  </span>
                 </p>
               )}
-              <p className="text-[11px] text-neutral-500">
+              <p className="text-[11px] text-gray-400">
                 {perSize
                   ? `Правка флэта, якорей и прямоугольников зон — только для ${editSize}. Состав зон, метод, размеры и grade-rule — общие.`
                   : "Базовый размер: правки идут в основную геометрию вида."}
@@ -477,7 +489,7 @@ export function SkuEditor({
                 </Field>
               </div>
 
-              <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-blue-500">
+              <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-line px-2 py-1.5 text-xs text-gray-500 hover:border-blue-500">
                 {(effView.flat_svg ? "Заменить флэт" : "Загрузить флэт") +
                   (perSize ? ` (${editSize})` : "") +
                   " · SVG/PNG"}
@@ -581,7 +593,7 @@ export function SkuEditor({
               {!perSize && (
                 <button
                   onClick={() => setSku(addZone(sku, view.id))}
-                  className="mt-1 w-full rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-500"
+                  className="mt-1 w-full rounded border border-dashed border-line px-2 py-1.5 text-xs text-gray-500 hover:border-gray-400"
                 >
                   + зона
                 </button>
@@ -595,7 +607,7 @@ export function SkuEditor({
                   isSleeve={!!isSleeve}
                   onChange={(r) => setSku(setGradeRule(sku, view.id, r))}
                 />
-                <p className="text-[11px] text-neutral-500">
+                <p className="text-[11px] text-gray-400">
                   Правило раскладывает якоря по ростовке от базового размера. Если
                   на размере заданы явные якоря (вкладка размера) — они перекрывают
                   правило для этого размера.
@@ -605,7 +617,7 @@ export function SkuEditor({
 
             <Section title="Фото-мокап (превью для клиента)">
               {!view.mockup ? (
-                <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-blue-500">
+                <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-line px-2 py-1.5 text-xs text-gray-500 hover:border-blue-500">
                   Добавить фото изделия (для превью клиенту)
                   <input
                     type="file"
@@ -632,12 +644,12 @@ export function SkuEditor({
                       <img
                         src={view.mockup.mask}
                         alt="маска"
-                        className="h-16 w-16 rounded bg-neutral-800 object-contain"
+                        className="h-16 w-16 rounded bg-raised object-contain"
                         title="маска ткани"
                       />
                     )}
                     <div className="flex flex-col gap-1">
-                      <label className="cursor-pointer rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-700">
+                      <label className="cursor-pointer rounded bg-raised px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-200">
                         Заменить фото
                         <input
                           type="file"
@@ -654,7 +666,7 @@ export function SkuEditor({
                         onClick={() =>
                           setSku(updateView(sku, view.id, { mockup: undefined }))
                         }
-                        className="rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-700"
+                        className="rounded bg-raised px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200"
                       >
                         Убрать мокап
                       </button>
@@ -671,7 +683,7 @@ export function SkuEditor({
                     })()}
                     onChange={(print) => patchMockup({ print })}
                   />
-                  <p className="text-[10px] text-neutral-500">
+                  <p className="text-[10px] text-gray-400">
                     Двигай/масштабируй синюю рамку на фото — или правь числами ниже.
                   </p>
 
@@ -700,25 +712,30 @@ export function SkuEditor({
                   </div>
 
                   {/* Маска ткани для перекраски под цвет */}
-                  <div className="rounded border border-neutral-800 p-2">
+                  <div className="rounded border border-line p-2">
                     <div className="mb-1 flex items-center justify-between">
-                      <span className="text-[11px] text-neutral-400">
-                        Маска ткани {view.mockup.mask ? "✓" : "— нет"}
+                      <span className="text-[11px] text-gray-500">
+                        Маска ткани{" "}
+                        {view.mockup.mask ? (
+                          <Check size={12} strokeWidth={2} className="inline" />
+                        ) : (
+                          "— нет"
+                        )}
                       </span>
                       {view.mockup.mask && (
                         <button
                           onClick={() => patchMockup({ mask: undefined })}
-                          className="text-[11px] text-neutral-500 hover:text-red-400"
+                          className="text-[11px] text-gray-400 hover:text-red-600"
                         >
                           убрать
                         </button>
                       )}
                     </div>
-                    <p className="mb-1.5 text-[10px] text-neutral-500">
+                    <p className="mb-1.5 text-[10px] text-gray-400">
                       Нужна для перекраски фото под цвет изделия (multiply по ткани).
                     </p>
                     <div className="flex items-center gap-2">
-                      <label className="text-[10px] text-neutral-500">
+                      <label className="text-[10px] text-gray-400">
                         порог {maskThreshold}
                       </label>
                       <input
@@ -729,7 +746,7 @@ export function SkuEditor({
                         onChange={(e) => setMaskThreshold(Number(e.target.value))}
                         className="flex-1"
                       />
-                      <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                      <label className="flex items-center gap-1 text-[10px] text-gray-400">
                         <input
                           type="checkbox"
                           checked={maskInvert}
@@ -742,11 +759,11 @@ export function SkuEditor({
                       <button
                         onClick={autoMask}
                         disabled={maskBusy}
-                        className="flex-1 rounded bg-neutral-700 px-2 py-1 text-[11px] text-neutral-100 hover:bg-neutral-600 disabled:opacity-50"
+                        className="flex-1 rounded bg-raised px-2 py-1 text-[11px] text-ink hover:bg-gray-200 disabled:opacity-50"
                       >
                         {maskBusy ? "…" : "Авто-маска по яркости"}
                       </button>
-                      <label className="flex-1 cursor-pointer rounded bg-neutral-800 px-2 py-1 text-center text-[11px] text-neutral-300 hover:bg-neutral-700">
+                      <label className="flex-1 cursor-pointer rounded bg-raised px-2 py-1 text-center text-[11px] text-gray-700 hover:bg-gray-200">
                         Загрузить маску
                         <input
                           type="file"
@@ -769,7 +786,7 @@ export function SkuEditor({
         </aside>
 
         {/* Холст активного вида */}
-        <main className="relative min-w-0 flex-1 bg-neutral-950">
+        <main className="relative min-w-0 flex-1 bg-shell">
           {effView && (
             <SkuViewCanvas
               key={`${effView.id}-${editSize}`}
@@ -810,8 +827,8 @@ function ZoneEditor({
   return (
     <div
       onClick={onSelect}
-      className={`rounded border bg-neutral-900 p-2 ${
-        selected ? "border-blue-500" : "border-neutral-700"
+      className={`rounded border bg-white p-2 ${
+        selected ? "border-blue-500" : "border-line"
       }`}
     >
       <div className="mb-2 flex items-center gap-2">
@@ -819,11 +836,11 @@ function ZoneEditor({
           value={area.name}
           onChange={(e) => onMeta({ name: e.target.value })}
           disabled={perSize}
-          className="flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1 text-sm disabled:opacity-60"
+          className="flex-1 rounded border border-line bg-shell px-2 py-1 text-sm disabled:opacity-60"
         />
         {canRemove && (
-          <button onClick={onRemove} className="text-neutral-500 hover:text-red-400">
-            ✕
+          <button onClick={onRemove} className="text-gray-400 hover:text-red-600">
+            <X size={14} strokeWidth={1.75} />
           </button>
         )}
       </div>
@@ -841,7 +858,7 @@ function ZoneEditor({
             onChange={(n) => onMeta({ safe_inset_mm: Math.max(0, n) })}
           />
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] text-neutral-500">метод по умолч.</span>
+            <span className="text-[10px] text-gray-400">метод по умолч.</span>
             <select
               value={area.default_method ?? ""}
               onChange={(e) =>
@@ -850,7 +867,7 @@ function ZoneEditor({
                     | PrintArea["default_method"],
                 })
               }
-              className="rounded border border-neutral-700 bg-neutral-950 px-1.5 py-1 text-xs"
+              className="rounded border border-line bg-shell px-1.5 py-1 text-xs"
             >
               <option value="">— нет —</option>
               {PRINT_METHOD_LIST.map((m) => (
@@ -931,7 +948,7 @@ function AddViewSelect({ onAdd }: { onAdd: (k: ViewKind) => void }) {
         if (e.target.value) onAdd(e.target.value as ViewKind);
         e.target.value = "";
       }}
-      className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm"
+      className="rounded border border-line bg-shell px-2 py-1.5 text-sm"
     >
       <option value="">+ добавить вид…</option>
       {VIEW_KINDS.map((k) => (
@@ -954,12 +971,12 @@ function NumField({
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] text-neutral-500">{label}</span>
+      <span className="text-[10px] text-gray-400">{label}</span>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded border border-neutral-700 bg-neutral-950 px-1.5 py-1 text-xs tabular-nums"
+        className="rounded border border-line bg-shell px-1.5 py-1 text-xs tabular-nums"
       />
     </label>
   );
@@ -968,7 +985,7 @@ function NumField({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-2 font-semibold text-neutral-200">{title}</h3>
+      <h3 className="mb-2 font-semibold text-ink">{title}</h3>
       <div className="flex flex-col gap-2">{children}</div>
     </section>
   );
@@ -977,7 +994,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs text-neutral-400">{label}</span>
+      <span className="text-xs text-gray-500">{label}</span>
       {children}
     </label>
   );

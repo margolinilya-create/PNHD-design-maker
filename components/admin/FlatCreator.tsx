@@ -12,11 +12,12 @@ import { saveModel } from "@/lib/persistence/models";
 import { parseDxf, processPiece, type PieceRef } from "@/lib/import/dxf";
 import { buildSkuFromDxf } from "@/lib/import/dxfSku";
 import { svgToDataUrl } from "@/lib/export/flatMarkup";
+import { ChevronLeft, FileUp, Upload, TriangleAlert } from "lucide-react";
 import type { GarmentType, ViewKind, BaseSize } from "@/types";
 
 const FlatEditorCanvas = dynamic(
   () => import("@/components/admin/FlatEditorCanvas").then((m) => m.FlatEditorCanvas),
-  { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-neutral-500">Загрузка холста…</div> },
+  { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-gray-400">Загрузка холста…</div> },
 );
 
 function defaultDraft(dataUrl: string, wMm: number, hMm: number): FlatDraft {
@@ -140,9 +141,9 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center gap-4 border-b border-neutral-800 px-4 py-2.5">
-        <button onClick={onBack} className="text-sm text-neutral-400 hover:text-white">
-          ← К списку
+      <header className="flex items-center gap-4 border-b border-line px-4 py-2.5">
+        <button onClick={onBack} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-ink">
+          <ChevronLeft size={16} strokeWidth={1.75} /> К списку
         </button>
         <span className="text-sm font-semibold">Создание из флэта / DXF</span>
         <input
@@ -169,23 +170,23 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
         />
         <button
           onClick={() => dxfRef.current?.click()}
-          className="ml-auto rounded-lg border border-neutral-700 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-blue-500 hover:bg-neutral-900"
+          className="ml-auto inline-flex items-center gap-1 rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:border-blue-500 hover:bg-line-soft"
         >
-          Импорт DXF
+          <FileUp size={14} strokeWidth={1.75} /> Импорт DXF
         </button>
         <button
           onClick={() => fileRef.current?.click()}
-          className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+          className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
         >
-          Загрузить флэт (SVG/PNG)
+          <Upload size={14} strokeWidth={1.75} /> Загрузить флэт (SVG/PNG)
         </button>
       </header>
 
       {dxf && (
-        <div className="flex flex-wrap items-end gap-2 border-b border-neutral-800 bg-neutral-900/60 px-4 py-2 text-sm">
-          <span className="text-xs text-neutral-400">DXF: {dxf.pieces.length} деталей</span>
+        <div className="flex flex-wrap items-end gap-2 border-b border-line bg-raised px-4 py-2 text-sm">
+          <span className="text-xs text-gray-500">DXF: {dxf.pieces.length} деталей</span>
           <label className="flex flex-col gap-0.5">
-            <span className="text-xs text-neutral-500">Деталь</span>
+            <span className="text-xs text-gray-400">Деталь</span>
             <select value={pieceSel} onChange={(e) => setPieceSel(e.target.value)} className={inp}>
               {dxfPieces.map((p) => (
                 <option key={p} value={p}>{p.replace(/^.*Futbolka_/, "")}</option>
@@ -193,31 +194,31 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
             </select>
           </label>
           <label className="flex flex-col gap-0.5">
-            <span className="text-xs text-neutral-500">Размер</span>
+            <span className="text-xs text-gray-400">Размер</span>
             <select value={sizeSel} onChange={(e) => setSizeSel(e.target.value)} className={inp}>
               {dxfSizes.map((s) => (<option key={s} value={s}>{s}</option>))}
             </select>
           </label>
-          <button onClick={createFromDxf} className="rounded-lg bg-neutral-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-600">
+          <button onClick={createFromDxf} className="rounded-lg bg-raised px-3 py-1.5 text-sm font-medium text-ink hover:bg-gray-200">
             Черновик из детали
           </button>
-          <button onClick={createFullSku} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500" title="Все виды + ростовки сразу в каталог">
+          <button onClick={createFullSku} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700" title="Все виды + ростовки сразу в каталог">
             Собрать полный SKU
           </button>
-          {saved && <span className="text-xs text-emerald-400">«{saved}» в каталоге</span>}
+          {saved && <span className="text-xs text-emerald-600">«{saved}» в каталоге</span>}
         </div>
       )}
 
       {!draft ? (
-        <div className="flex flex-1 items-center justify-center text-neutral-500">
+        <div className="flex flex-1 items-center justify-center text-gray-400">
           Загрузите векторный/растровый флэт изделия, чтобы начать разметку.
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
-          <main className="relative min-w-0 flex-1 bg-neutral-950">
+          <main className="relative min-w-0 flex-1 bg-shell">
             <FlatEditorCanvas draft={draft} onChange={patch} />
           </main>
-          <aside className="w-80 shrink-0 overflow-y-auto border-l border-neutral-800 bg-neutral-900 p-4 text-sm">
+          <aside className="w-80 shrink-0 overflow-y-auto border-l border-line bg-white p-4 text-sm">
             <Section title="Модель">
               <Field label="ID (латиницей)">
                 <input value={draft.skuId} onChange={(e) => patch({ skuId: e.target.value })} className={inp} />
@@ -260,25 +261,25 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
               <Field label="safe-inset, мм">
                 <input type="number" value={draft.zone.safe_inset_mm} onChange={(e) => patch({ zone: { ...draft.zone, safe_inset_mm: Number(e.target.value) } })} className={inp} />
               </Field>
-              <p className="text-xs text-neutral-500">Двигай/растягивай синий прямоугольник на холсте. Якоря — перетаскивай ручки.</p>
+              <p className="text-xs text-gray-400">Двигай/растягивай синий прямоугольник на холсте. Якоря — перетаскивай ручки.</p>
             </Section>
 
             {errors.length > 0 && (
-              <div className="mb-3 rounded bg-red-950/70 p-2 text-xs text-red-300">
-                {errors.map((e, i) => (<div key={i}>⚠ {e}</div>))}
+              <div className="mb-3 rounded bg-red-50 p-2 text-xs text-red-700">
+                {errors.map((e, i) => (<div key={i} className="flex items-center gap-1"><TriangleAlert size={13} strokeWidth={1.75} /> {e}</div>))}
               </div>
             )}
 
             <Section title="Экспорт">
               <div className="mb-2 flex gap-2">
-                <button onClick={download} className="flex-1 rounded bg-neutral-700 px-2 py-1.5 text-xs hover:bg-neutral-600">Скачать JSON</button>
-                <button onClick={() => navigator.clipboard?.writeText(json)} className="flex-1 rounded bg-neutral-700 px-2 py-1.5 text-xs hover:bg-neutral-600">Копировать</button>
+                <button onClick={download} className="flex-1 rounded bg-raised px-2 py-1.5 text-xs hover:bg-gray-200">Скачать JSON</button>
+                <button onClick={() => navigator.clipboard?.writeText(json)} className="flex-1 rounded bg-raised px-2 py-1.5 text-xs hover:bg-gray-200">Копировать</button>
               </div>
-              <button onClick={addToCatalog} disabled={errors.length > 0} className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
+              <button onClick={addToCatalog} disabled={errors.length > 0} className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
                 Добавить в каталог
               </button>
-              {saved && <p className="mt-2 text-xs text-emerald-400">«{saved}» в каталоге.</p>}
-              <textarea readOnly value={json} className="mt-2 h-32 w-full rounded border border-neutral-700 bg-neutral-950 p-2 font-mono text-[10px]" />
+              {saved && <p className="mt-2 text-xs text-emerald-600">«{saved}» в каталоге.</p>}
+              <textarea readOnly value={json} className="mt-2 h-32 w-full rounded border border-line bg-shell p-2 font-mono text-[10px]" />
             </Section>
           </aside>
         </div>
@@ -287,12 +288,12 @@ export function FlatCreator({ onBack }: { onBack: () => void }) {
   );
 }
 
-const inp = "w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5";
+const inp = "w-full rounded border border-line bg-shell px-2 py-1.5";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mb-4">
-      <h3 className="mb-2 font-semibold text-neutral-200">{title}</h3>
+      <h3 className="mb-2 font-semibold text-ink">{title}</h3>
       <div className="flex flex-col gap-2">{children}</div>
     </section>
   );
@@ -301,7 +302,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs text-neutral-400">{label}</span>
+      <span className="text-xs text-gray-500">{label}</span>
       {children}
     </label>
   );

@@ -152,7 +152,7 @@ export function EditorCanvas() {
 
   if (!view) {
     return (
-      <div className="flex h-full items-center justify-center text-neutral-500">
+      <div className="flex h-full items-center justify-center text-gray-500">
         Выберите вид изделия
       </div>
     );
@@ -490,7 +490,7 @@ export function EditorCanvas() {
           {guides?.x !== undefined && (
             <Line
               points={[t.px(guides.x), t.py(0), t.px(guides.x), t.py(flatMm.h)]}
-              stroke="#f59e0b"
+              stroke="#d97706"
               strokeWidth={1}
               dash={[4, 4]}
             />
@@ -498,7 +498,7 @@ export function EditorCanvas() {
           {guides?.y !== undefined && (
             <Line
               points={[t.px(0), t.py(guides.y), t.px(flatMm.w), t.py(guides.y)]}
-              stroke="#f59e0b"
+              stroke="#d97706"
               strokeWidth={1}
               dash={[4, 4]}
             />
@@ -534,7 +534,7 @@ export function EditorCanvas() {
           className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
             showCheck
               ? "bg-blue-600 text-white"
-              : "bg-neutral-800/90 text-neutral-300 hover:bg-neutral-700"
+              : "bg-white/90 text-gray-700 shadow hover:bg-white"
           }`}
           title="Показать якоря, оси и краевые линейки лекала"
         >
@@ -549,7 +549,7 @@ export function EditorCanvas() {
           className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
             mode === "measure"
               ? "bg-amber-500 text-black"
-              : "bg-neutral-800/90 text-neutral-300 hover:bg-neutral-700"
+              : "bg-white/90 text-gray-700 shadow hover:bg-white"
           }`}
           title="Линейка: кликните две точки на лекале, чтобы измерить в мм"
         >
@@ -559,15 +559,15 @@ export function EditorCanvas() {
 
       {/* Калибровка масштаба: измеренный отрезок → реальная длина → scale_mm_per_unit */}
       {mode === "measure" && measureDistMm != null && (
-        <div className="absolute left-3 top-12 w-56 rounded-md border border-neutral-700 bg-neutral-900/95 p-2.5 text-xs shadow-lg">
-          <div className="mb-1 text-neutral-400">
+        <div className="absolute left-3 top-12 w-56 rounded-md border border-line bg-white/95 p-2.5 text-xs shadow-lg">
+          <div className="mb-1 text-gray-500">
             Измерено:{" "}
-            <span className="font-medium text-neutral-200">
+            <span className="font-medium text-gray-700">
               {measureDistMm.toFixed(1)} мм
             </span>{" "}
             (при текущем масштабе)
           </div>
-          <label className="mb-1 block text-neutral-400">
+          <label className="mb-1 block text-gray-500">
             Реальная длина, мм
           </label>
           <input
@@ -575,13 +575,13 @@ export function EditorCanvas() {
             value={realLen}
             onChange={(e) => setRealLen(e.target.value)}
             placeholder="напр. 100"
-            className="mb-2 w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1 tabular-nums"
+            className="mb-2 w-full rounded border border-line bg-white px-2 py-1 tabular-nums"
           />
           {(() => {
             const real = parseFloat(realLen.replace(",", "."));
             if (!Number.isFinite(real) || real <= 0 || measureDistMm <= 0) {
               return (
-                <p className="text-neutral-500">
+                <p className="text-gray-500">
                   Введите реальный размер этого отрезка по лекалу.
                 </p>
               );
@@ -591,13 +591,13 @@ export function EditorCanvas() {
             const off = Math.abs(real - measureDistMm);
             return (
               <div>
-                <div className="text-neutral-300">
+                <div className="text-gray-600">
                   scale_mm_per_unit ≈{" "}
-                  <span className="font-semibold text-emerald-400 tabular-nums">
+                  <span className="font-semibold text-emerald-600 tabular-nums">
                     {suggested.toFixed(4)}
                   </span>
                 </div>
-                <div className="mt-0.5 text-neutral-500">
+                <div className="mt-0.5 text-gray-500">
                   {off < 0.5
                     ? "масштаб совпадает (1:1)"
                     : `расхождение ${off.toFixed(1)} мм — впишите значение в skus.json для этого вида`}
@@ -620,16 +620,16 @@ export function EditorCanvas() {
       {/* Пустое состояние — мягкая подсказка поверх холста */}
       {isEmpty && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="rounded-xl border border-dashed border-neutral-700 bg-neutral-900/70 px-5 py-4 text-center text-sm text-neutral-400 shadow-sm backdrop-blur-sm">
-            <div className="mb-0.5 font-medium text-neutral-300">
+          <div className="rounded-xl border border-dashed border-line bg-white/70 px-5 py-4 text-center text-sm text-gray-500 shadow-sm backdrop-blur-sm">
+            <div className="mb-0.5 font-medium text-gray-700">
               Загрузите макет
             </div>
-            <div className="text-xs text-neutral-500">панель справа</div>
+            <div className="text-xs text-gray-500">панель справа</div>
           </div>
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-black/50 px-2 py-1 text-xs text-neutral-300">
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-white/85 px-2 py-1 text-xs text-gray-600">
         зона {Math.round(zone.zw)}×{Math.round(zone.zh)} мм · safe{" "}
         {safeInsetMm} мм · {t.pxPerMM.toFixed(2)} px/мм · zoom{" "}
         {Math.round(stageScale * 100)}%

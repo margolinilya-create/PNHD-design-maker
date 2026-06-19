@@ -335,14 +335,14 @@ export function SkuViewCanvas({
           className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
             measure
               ? "bg-amber-500 text-black"
-              : "bg-neutral-800/90 text-neutral-300 hover:bg-neutral-700"
+              : "bg-raised text-gray-700 hover:bg-gray-200"
           }`}
         >
           Калибровка{measureDist != null ? ` · ${measureDist.toFixed(1)} мм` : ""}
         </button>
         {measure && measureDist != null && (
-          <div className="w-56 rounded-md border border-neutral-700 bg-neutral-900/95 p-2.5 text-xs">
-            <div className="mb-1 text-neutral-400">
+          <div className="w-56 rounded-md border border-line bg-white p-2.5 text-xs">
+            <div className="mb-1 text-gray-500">
               Измерено {measureDist.toFixed(1)} мм (текущий масштаб)
             </div>
             <input
@@ -350,11 +350,11 @@ export function SkuViewCanvas({
               value={realLen}
               onChange={(e) => setRealLen(e.target.value)}
               placeholder="реальная длина, мм"
-              className="mb-2 w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1"
+              className="mb-2 w-full rounded border border-line bg-shell px-2 py-1"
             />
             <button
               onClick={applyCalibration}
-              className="w-full rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500"
+              className="w-full rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-700"
             >
               Применить масштаб
             </button>
@@ -362,7 +362,7 @@ export function SkuViewCanvas({
         )}
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-black/50 px-2 py-1 text-xs text-neutral-300">
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-[rgba(17,24,39,0.45)] px-2 py-1 text-xs text-gray-700">
         флэт {Math.round(flatMm.w)}×{Math.round(flatMm.h)} мм · scale{" "}
         {sc.toFixed(3)} мм/ед · {t.pxPerMM.toFixed(2)} px/мм
       </div>

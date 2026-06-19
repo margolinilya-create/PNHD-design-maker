@@ -33,12 +33,12 @@ export function ViewTabs() {
             className={`rounded-lg px-3 py-1.5 text-sm transition ${
               active
                 ? "bg-blue-600 text-white"
-                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                : "bg-raised text-gray-700 hover:bg-gray-200"
             }`}
           >
             {KIND_LABEL[v.kind] ?? v.kind}
             {count > 0 && (
-              <span className="ml-1.5 rounded-full bg-black/30 px-1.5 text-xs">
+              <span className="ml-1.5 rounded-full bg-black/10 px-1.5 text-xs">
                 {count}
               </span>
             )}
