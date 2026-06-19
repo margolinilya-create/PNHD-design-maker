@@ -36,6 +36,41 @@ describe("buildPreviewSvg — фото-мокап", () => {
     expect(svg).toContain('clip-path="url(#mk-0)"'); // клип по зоне
   });
 
+  it("перекраска фото: цвет multiply по маске ткани (только при цвете+маске)", () => {
+    const base = {
+      view,
+      flatSvgMarkup: "",
+      flatMm: { w: 0, h: 0 },
+      placements: [placement],
+      assets,
+    };
+    const mk = {
+      dataUrl: "data:image/jpeg;base64,BBBB",
+      imgW: 1000,
+      imgH: 1000,
+      print: { x: 0.3, y: 0.25, w: 0.3 },
+      maskDataUrl: "data:image/png;base64,MMMM",
+    };
+    // цвет + маска → тинт multiply по маске
+    const tinted = buildPreviewSvg({ ...base, garmentColor: "#3b4a6b", mockup: mk });
+    expect(tinted).toContain("mix-blend-mode:multiply");
+    expect(tinted).toContain('fill="#3b4a6b"');
+    expect(tinted).toContain('mask="url(#garment-mask)"');
+    expect(tinted).toMatch(/<mask id="garment-mask"/);
+
+    // нет цвета → нет тинта
+    const noColor = buildPreviewSvg({ ...base, garmentColor: "", mockup: mk });
+    expect(noColor).not.toContain("mix-blend-mode");
+
+    // есть цвет, но нет маски → нет тинта (без маски не перекрашиваем)
+    const noMask = buildPreviewSvg({
+      ...base,
+      garmentColor: "#3b4a6b",
+      mockup: { ...mk, maskDataUrl: undefined },
+    });
+    expect(noMask).not.toContain("mix-blend-mode");
+  });
+
   it("без мокапа — чистый флэт-превью (виден силуэт, нет фото)", () => {
     const svg = buildPreviewSvg({
       view, flatSvgMarkup: '<svg viewBox="0 0 600 760" width="600" height="760"><path id="garment" d="M0 0" fill="#111"/></svg>',

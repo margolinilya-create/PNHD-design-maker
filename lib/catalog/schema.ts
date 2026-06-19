@@ -62,6 +62,7 @@ export const viewSchema = z.object({
     .object({
       photo: z.string(),
       print: z.object({ x: z.number(), y: z.number(), w: z.number() }),
+      mask: z.string().optional(),
     })
     .optional(),
 });

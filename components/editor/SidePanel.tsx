@@ -168,7 +168,17 @@ export function SidePanel() {
       let mockup;
       if (view.mockup) {
         const ph = await loadPhoto(view.mockup.photo);
-        mockup = { dataUrl: ph.dataUrl, imgW: ph.w, imgH: ph.h, print: view.mockup.print };
+        // Маска ткани для перекраски под цвет (если задана).
+        const maskDataUrl = view.mockup.mask
+          ? (await loadPhoto(view.mockup.mask)).dataUrl
+          : undefined;
+        mockup = {
+          dataUrl: ph.dataUrl,
+          imgW: ph.w,
+          imgH: ph.h,
+          print: view.mockup.print,
+          maskDataUrl,
+        };
       }
       const svg = buildPreviewSvg({
         view,
