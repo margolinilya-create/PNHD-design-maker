@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { SkuList } from "@/components/admin/SkuList";
 import { SkuEditor } from "@/components/admin/SkuEditor";
 import { FlatCreator } from "@/components/admin/FlatCreator";
@@ -17,15 +18,18 @@ export default function AdminPage() {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-4 border-b border-neutral-800 px-4 py-2.5">
-        <Link href="/" className="text-sm text-neutral-400 hover:text-white">
-          ← PINHEAD
+      <header className="flex items-center gap-4 border-b border-line bg-white px-4 py-2.5">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-ink"
+        >
+          <ChevronLeft size={16} strokeWidth={1.75} /> PINHEAD
         </Link>
-        <span className="text-sm font-semibold">Админка · SKU</span>
+        <span className="text-sm font-semibold text-ink">Админка · SKU</span>
         {mode.kind !== "list" && (
           <button
             onClick={() => setMode({ kind: "list" })}
-            className="text-xs text-neutral-500 hover:text-neutral-300"
+            className="text-xs text-gray-400 hover:text-gray-700"
           >
             список
           </button>

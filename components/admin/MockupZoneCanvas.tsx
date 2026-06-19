@@ -87,7 +87,7 @@ export function MockupZoneCanvas({
   };
 
   return (
-    <div ref={containerRef} className="relative h-56 w-full rounded bg-neutral-950">
+    <div ref={containerRef} className="relative h-56 w-full rounded bg-shell">
       <Stage width={size.width} height={size.height}>
         <Layer listening={false}>
           {img && (
@@ -107,7 +107,7 @@ export function MockupZoneCanvas({
             y={screen.y}
             width={screen.w}
             height={screen.h}
-            stroke="#4f8cff"
+            stroke="#2563eb"
             strokeWidth={1.5}
             dash={[6, 4]}
             fill="rgba(79,140,255,0.12)"
@@ -139,7 +139,7 @@ export function MockupZoneCanvas({
         </Layer>
       </Stage>
       {!img && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-neutral-500">
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-gray-400">
           загрузка фото…
         </span>
       )}

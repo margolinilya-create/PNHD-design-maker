@@ -1,0 +1,49 @@
+/* ============================================================
+   PINHEAD — Spacing, radii, shadows, motion
+   Tailwind-derived scale (the source app is built on Tailwind).
+   Tight rhythm: gap-1.5 (6px) between chips, p-4 (16px) panels.
+   ============================================================ */
+
+:root {
+  /* Spacing scale (px) — Tailwind steps the app actually uses */
+  --space-0_5: 2px;
+  --space-1: 4px;
+  --space-1_5: 6px;  /* the workhorse: gap between chips/buttons */
+  --space-2: 8px;
+  --space-2_5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;   /* panel padding */
+  --space-5: 20px;   /* section gap, SKU card padding */
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Radii — crisp, engineering-leaning. Pill only for swatches. */
+  --radius-xs: 2px;   /* tiny number-label halos */
+  --radius-sm: 3px;   /* chips, inputs, badges */
+  --radius-md: 4px;   /* toolbar buttons */
+  --radius-lg: 5px;   /* buttons, layer rows */
+  --radius-xl: 6px;   /* modals, cards, SKU tiles */
+  --radius-full: 9999px; /* color swatches only */
+
+  /* Borders */
+  --border-width: 1px;
+  --border-width-strong: 2px; /* selected transformer, out-of-zone */
+
+  /* Shadows — soft, Linear/Vercel-grade. The white paper floats over
+     the gray shell on gentle, low-contrast shadows. */
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 1px 3px rgba(16, 24, 40, 0.10), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 4px 12px rgba(16, 24, 40, 0.10), 0 2px 4px rgba(16, 24, 40, 0.06); /* cards, popovers */
+  --shadow-xl: 0 12px 32px rgba(16, 24, 40, 0.14), 0 4px 8px rgba(16, 24, 40, 0.06); /* modals */
+
+  /* Layout primitives from the real app */
+  --sidepanel-width: 294px; /* editor side panel */
+  --rail-width: 52px;       /* left tool rail */
+  --canvas-pad: 48px;       /* flat padding inside the stage */
+
+  /* Motion — quiet. Default Tailwind `transition` ≈ 150ms ease */
+  --motion-fast: 120ms; /* @kind other */
+  --motion-base: 150ms; /* @kind other */
+  --motion-slow: 250ms; /* @kind other */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+}

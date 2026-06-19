@@ -140,7 +140,7 @@ export function FlatEditorCanvas({
             y={t.py(z.y)}
             width={t.s(z.w)}
             height={t.s(z.h)}
-            stroke="#4f8cff"
+            stroke="#2563eb"
             strokeWidth={1.5}
             dash={[8, 6]}
             fill="rgba(79,140,255,0.08)"
@@ -177,7 +177,7 @@ export function FlatEditorCanvas({
               {/* Ось изделия (вертикаль) + ручка сверху */}
               <Line
                 points={[t.px(draft.centerAxisX), t.py(0), t.px(draft.centerAxisX), t.py(flatMm.h)]}
-                stroke="#39d98a"
+                stroke="#16a34a"
                 strokeWidth={1}
                 dash={[5, 6]}
                 listening={false}
@@ -185,7 +185,7 @@ export function FlatEditorCanvas({
               <Handle
                 x={t.px(draft.centerAxisX)}
                 y={t.py(Math.max(10, draft.neckline.y - 40))}
-                color="#39d98a"
+                color="#16a34a"
                 label="ось"
                 draggable={!measure}
                 onMove={(px) => onChange({ centerAxisX: t.toMmX(px.x) })}
@@ -194,7 +194,7 @@ export function FlatEditorCanvas({
               <Handle
                 x={t.px(draft.neckline.x)}
                 y={t.py(draft.neckline.y)}
-                color="#ff5a5f"
+                color="#e11d48"
                 label="горловина"
                 draggable={!measure}
                 onMove={(px) =>
@@ -207,7 +207,7 @@ export function FlatEditorCanvas({
             <>
               <Line
                 points={[t.px(0), t.py(draft.sleeveBottomY), t.px(flatMm.w), t.py(draft.sleeveBottomY)]}
-                stroke="#ff5a5f"
+                stroke="#e11d48"
                 strokeWidth={1}
                 dash={[5, 6]}
                 listening={false}
@@ -215,7 +215,7 @@ export function FlatEditorCanvas({
               <Handle
                 x={t.px(draft.sleeveCenterX)}
                 y={t.py(draft.sleeveBottomY)}
-                color="#ff5a5f"
+                color="#e11d48"
                 label="низ/центр рукава"
                 draggable={!measure}
                 onMove={(px) =>
@@ -250,14 +250,14 @@ export function FlatEditorCanvas({
             setPts([]);
           }}
           className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
-            measure ? "bg-amber-500 text-black" : "bg-neutral-800/90 text-neutral-300 hover:bg-neutral-700"
+            measure ? "bg-amber-500 text-black" : "bg-raised text-gray-700 hover:bg-gray-200"
           }`}
         >
           Калибровка{measureDist != null ? ` · ${measureDist.toFixed(1)} мм` : ""}
         </button>
         {measure && measureDist != null && (
-          <div className="w-56 rounded-md border border-neutral-700 bg-neutral-900/95 p-2.5 text-xs">
-            <div className="mb-1 text-neutral-400">
+          <div className="w-56 rounded-md border border-line bg-white p-2.5 text-xs">
+            <div className="mb-1 text-gray-500">
               Измерено {measureDist.toFixed(1)} мм (текущий масштаб)
             </div>
             <input
@@ -265,11 +265,11 @@ export function FlatEditorCanvas({
               value={realLen}
               onChange={(e) => setRealLen(e.target.value)}
               placeholder="реальная длина, мм"
-              className="mb-2 w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1"
+              className="mb-2 w-full rounded border border-line bg-shell px-2 py-1"
             />
             <button
               onClick={applyCalibration}
-              className="w-full rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500"
+              className="w-full rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-700"
             >
               Применить масштаб
             </button>
@@ -277,7 +277,7 @@ export function FlatEditorCanvas({
         )}
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-black/50 px-2 py-1 text-xs text-neutral-300">
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded bg-[rgba(17,24,39,0.45)] px-2 py-1 text-xs text-gray-700">
         флэт {Math.round(flatMm.w)}×{Math.round(flatMm.h)} мм · scale{" "}
         {draft.scaleMmPerUnit.toFixed(3)} мм/ед · {t.pxPerMM.toFixed(2)} px/мм
       </div>
@@ -308,7 +308,7 @@ function Handle({
       draggable={draggable}
       onDragMove={(e) => onMove({ x: e.target.x(), y: e.target.y() })}
     >
-      <Circle radius={6} fill={color} stroke="#0b0d10" strokeWidth={1.5} />
+      <Circle radius={6} fill={color} stroke="#ffffff" strokeWidth={1.5} />
       <Text x={9} y={-6} text={label} fontSize={11} fill={color} />
     </Group>
   );

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { loadCatalog } from "@/lib/catalog/loadCatalog";
 import { listModels, deleteModel, saveModel } from "@/lib/persistence/models";
 import { cloneSku } from "@/lib/admin/skuEdit";
+import { Plus, Pencil, Copy, Trash2 } from "lucide-react";
 import type { SKU } from "@/types";
 
 interface Entry {
@@ -68,8 +69,8 @@ export function SkuList({
     await load();
   };
 
-  if (err) return <p className="p-4 text-red-400">Ошибка: {err}</p>;
-  if (!entries) return <p className="p-4 text-neutral-400">Загрузка каталога…</p>;
+  if (err) return <p className="p-4 text-red-700">Ошибка: {err}</p>;
+  if (!entries) return <p className="p-4 text-gray-500">Загрузка каталога…</p>;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col p-4">
@@ -78,13 +79,13 @@ export function SkuList({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Поиск по названию / id…"
-          className="w-64 rounded border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm"
+          className="w-64 rounded border border-line bg-white px-3 py-1.5 text-sm text-gray-900"
         />
         <button
           onClick={onCreate}
-          className="ml-auto rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+          className="ml-auto inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
         >
-          + Создать из флэта / DXF
+          <Plus size={14} strokeWidth={1.75} /> Создать из флэта / DXF
         </button>
       </div>
 
@@ -92,32 +93,32 @@ export function SkuList({
         {filtered.map(({ sku, source }) => (
           <div
             key={`${source}-${sku.id}`}
-            className="rounded-xl border border-neutral-700 bg-neutral-900 p-4"
+            className="rounded-xl border border-line bg-white p-4 shadow-sm"
           >
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-neutral-100">{sku.name}</span>
+              <span className="font-semibold text-ink">{sku.name}</span>
               <span
                 className={`rounded px-1.5 py-0.5 text-[10px] ${
                   source === "seed"
-                    ? "bg-neutral-800 text-neutral-400"
-                    : "bg-blue-900/60 text-blue-300"
+                    ? "bg-raised text-gray-500"
+                    : "bg-blue-50 text-blue-700"
                 }`}
               >
                 {source === "seed" ? "seed" : "моя"}
               </span>
             </div>
-            <div className="mt-0.5 text-xs text-neutral-500">{sku.id}</div>
+            <div className="mt-0.5 text-xs text-gray-400">{sku.id}</div>
             <div className="mt-2 flex flex-wrap gap-1">
               {sku.views.map((v) => (
                 <span
                   key={v.id}
-                  className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-300"
+                  className="rounded bg-raised px-1.5 py-0.5 text-[10px] text-gray-700"
                 >
                   {v.kind}
                 </span>
               ))}
             </div>
-            <div className="mt-1 text-[11px] text-neutral-500">
+            <div className="mt-1 text-[11px] text-gray-400">
               Размеры: {sku.sizes.join(", ")}
             </div>
 
@@ -126,37 +127,37 @@ export function SkuList({
                 <>
                   <button
                     onClick={() => onEdit(sku, reservedFor(sku.id))}
-                    className="rounded bg-neutral-700 px-2.5 py-1 text-xs text-neutral-100 hover:bg-neutral-600"
+                    className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-ink hover:bg-gray-200"
                   >
-                    Редактировать
+                    <Pencil size={14} strokeWidth={1.75} /> Редактировать
                   </button>
                   <button
                     onClick={() => duplicate(sku)}
-                    className="rounded bg-neutral-800 px-2.5 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+                    className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-gray-700 hover:bg-line-soft"
                   >
-                    Дублировать
+                    <Copy size={14} strokeWidth={1.75} /> Дублировать
                   </button>
                   <button
                     onClick={() => onDelete(sku.id)}
-                    className="ml-auto rounded px-2 py-1 text-xs text-neutral-500 hover:text-red-400"
+                    className="ml-auto inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 hover:text-red-600"
                   >
-                    Удалить
+                    <Trash2 size={14} strokeWidth={1.75} /> Удалить
                   </button>
                 </>
               ) : (
                 <button
                   onClick={() => duplicate(sku)}
                   title="Seed-лекала только для чтения — создаётся редактируемая копия"
-                  className="rounded bg-neutral-700 px-2.5 py-1 text-xs text-neutral-100 hover:bg-neutral-600"
+                  className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-ink hover:bg-gray-200"
                 >
-                  Копия для правки
+                  <Copy size={14} strokeWidth={1.75} /> Копия для правки
                 </button>
               )}
             </div>
           </div>
         ))}
         {filtered.length === 0 && (
-          <p className="text-sm text-neutral-500">Ничего не найдено.</p>
+          <p className="text-sm text-gray-400">Ничего не найдено.</p>
         )}
       </div>
     </div>

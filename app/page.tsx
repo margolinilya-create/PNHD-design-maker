@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Shirt } from "lucide-react";
 import { SkuPicker } from "@/components/catalog/SkuPicker";
 
 export default function HomePage() {
@@ -7,15 +8,16 @@ export default function HomePage() {
       <header className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">PINHEAD</h1>
-          <p className="mt-1 text-neutral-400">
+          <p className="mt-1 text-gray-500">
             Превью и технические рисунки-раскладки мерча. Выбери изделие, чтобы
             открыть редактор.
           </p>
         </div>
         <Link
           href="/admin"
-          className="shrink-0 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:border-blue-500 hover:bg-neutral-900"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink hover:border-blue-500 hover:bg-white"
         >
+          <Shirt size={16} strokeWidth={1.75} />
           Админка SKU
         </Link>
       </header>
