@@ -58,6 +58,12 @@ const SkuViewCanvas = dynamic(
   },
 );
 
+const MockupZoneCanvas = dynamic(
+  () =>
+    import("@/components/admin/MockupZoneCanvas").then((m) => m.MockupZoneCanvas),
+  { ssr: false, loading: () => <div className="h-56 w-full rounded bg-neutral-950" /> },
+);
+
 const VIEW_KINDS: { value: ViewKind; label: string }[] = [
   { value: "front", label: "перёд" },
   { value: "back", label: "спина" },
@@ -654,6 +660,20 @@ export function SkuEditor({
                       </button>
                     </div>
                   </div>
+
+                  {/* Визуальное позиционирование зоны на фото */}
+                  <MockupZoneCanvas
+                    photo={view.mockup.photo}
+                    print={view.mockup.print}
+                    zoneAspect={(() => {
+                      const z = zoneRect(effView.print_areas[0]);
+                      return z.w > 0 ? z.h / z.w : 1;
+                    })()}
+                    onChange={(print) => patchMockup({ print })}
+                  />
+                  <p className="text-[10px] text-neutral-500">
+                    Двигай/масштабируй синюю рамку на фото — или правь числами ниже.
+                  </p>
 
                   <div className="grid grid-cols-3 gap-1.5">
                     <NumField
