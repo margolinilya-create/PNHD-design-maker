@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { loadAsset } from "@/lib/catalog/loadAsset";
+import { generateMaskFromPhoto } from "@/lib/admin/autoMask";
 import {
   validateSku,
   idError,
@@ -86,6 +87,10 @@ export function SkuEditor({
   const [msg, setMsg] = useState<string | null>(null);
   // Размер, под который правим геометрию (per-size override; базовый = общий).
   const [editSize, setEditSize] = useState<string>(initial.base_size);
+  // Авто-маска ткани для фото-мокапа.
+  const [maskThreshold, setMaskThreshold] = useState(150);
+  const [maskInvert, setMaskInvert] = useState(false);
+  const [maskBusy, setMaskBusy] = useState(false);
 
   // editSize всегда должен быть среди размеров (напр. после удаления размера).
   useEffect(() => {
@@ -106,6 +111,40 @@ export function SkuEditor({
       const withScale = updateView(s, viewId, { scale_mm_per_unit: scale });
       return setSizeFlat(withScale, viewId, editSize, s.base_size, loaded.dataUrl);
     });
+  };
+
+  // Фото-мокап (превью для клиента) — на уровне вида, не per-size.
+  type Mockup = NonNullable<View["mockup"]>;
+  const addMockup = async (file: File) => {
+    if (!view) return;
+    const loaded = await loadAsset(file);
+    setSku(
+      updateView(sku, view.id, {
+        mockup: {
+          photo: loaded.dataUrl,
+          print: view.mockup?.print ?? { x: 0.3, y: 0.22, w: 0.4 },
+          mask: view.mockup?.mask,
+        },
+      }),
+    );
+  };
+  const patchMockup = (patch: Partial<Mockup>) => {
+    if (!view?.mockup) return;
+    setSku(updateView(sku, view.id, { mockup: { ...view.mockup, ...patch } }));
+  };
+  const autoMask = async () => {
+    if (!view?.mockup) return;
+    setMaskBusy(true);
+    try {
+      const mask = await generateMaskFromPhoto(
+        view.mockup.photo,
+        maskThreshold,
+        maskInvert,
+      );
+      patchMockup({ mask });
+    } finally {
+      setMaskBusy(false);
+    }
   };
 
   const errors = useMemo(() => validateSku(sku), [sku]);
@@ -557,6 +596,154 @@ export function SkuEditor({
                 </p>
               </Section>
             )}
+
+            <Section title="Фото-мокап (превью для клиента)">
+              {!view.mockup ? (
+                <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-blue-500">
+                  Добавить фото изделия (для превью клиенту)
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) addMockup(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={view.mockup.photo}
+                      alt="мокап"
+                      className="h-16 w-16 rounded object-cover"
+                    />
+                    {view.mockup.mask && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={view.mockup.mask}
+                        alt="маска"
+                        className="h-16 w-16 rounded bg-neutral-800 object-contain"
+                        title="маска ткани"
+                      />
+                    )}
+                    <div className="flex flex-col gap-1">
+                      <label className="cursor-pointer rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-300 hover:bg-neutral-700">
+                        Заменить фото
+                        <input
+                          type="file"
+                          accept=".jpg,.jpeg,.png,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) addMockup(f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      <button
+                        onClick={() =>
+                          setSku(updateView(sku, view.id, { mockup: undefined }))
+                        }
+                        className="rounded bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 hover:bg-neutral-700"
+                      >
+                        Убрать мокап
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <NumField
+                      label="зона X (0..1)"
+                      value={view.mockup.print.x}
+                      onChange={(n) =>
+                        patchMockup({ print: { ...view.mockup!.print, x: n } })
+                      }
+                    />
+                    <NumField
+                      label="зона Y (0..1)"
+                      value={view.mockup.print.y}
+                      onChange={(n) =>
+                        patchMockup({ print: { ...view.mockup!.print, y: n } })
+                      }
+                    />
+                    <NumField
+                      label="зона Ш (0..1)"
+                      value={view.mockup.print.w}
+                      onChange={(n) =>
+                        patchMockup({ print: { ...view.mockup!.print, w: n } })
+                      }
+                    />
+                  </div>
+
+                  {/* Маска ткани для перекраски под цвет */}
+                  <div className="rounded border border-neutral-800 p-2">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-[11px] text-neutral-400">
+                        Маска ткани {view.mockup.mask ? "✓" : "— нет"}
+                      </span>
+                      {view.mockup.mask && (
+                        <button
+                          onClick={() => patchMockup({ mask: undefined })}
+                          className="text-[11px] text-neutral-500 hover:text-red-400"
+                        >
+                          убрать
+                        </button>
+                      )}
+                    </div>
+                    <p className="mb-1.5 text-[10px] text-neutral-500">
+                      Нужна для перекраски фото под цвет изделия (multiply по ткани).
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] text-neutral-500">
+                        порог {maskThreshold}
+                      </label>
+                      <input
+                        type="range"
+                        min={0}
+                        max={255}
+                        value={maskThreshold}
+                        onChange={(e) => setMaskThreshold(Number(e.target.value))}
+                        className="flex-1"
+                      />
+                      <label className="flex items-center gap-1 text-[10px] text-neutral-500">
+                        <input
+                          type="checkbox"
+                          checked={maskInvert}
+                          onChange={(e) => setMaskInvert(e.target.checked)}
+                        />
+                        инверт.
+                      </label>
+                    </div>
+                    <div className="mt-1.5 flex gap-2">
+                      <button
+                        onClick={autoMask}
+                        disabled={maskBusy}
+                        className="flex-1 rounded bg-neutral-700 px-2 py-1 text-[11px] text-neutral-100 hover:bg-neutral-600 disabled:opacity-50"
+                      >
+                        {maskBusy ? "…" : "Авто-маска по яркости"}
+                      </button>
+                      <label className="flex-1 cursor-pointer rounded bg-neutral-800 px-2 py-1 text-center text-[11px] text-neutral-300 hover:bg-neutral-700">
+                        Загрузить маску
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg,image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const f = e.target.files?.[0];
+                            if (f) patchMockup({ mask: (await loadAsset(f)).dataUrl });
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Section>
           </div>
           )}
         </aside>
