@@ -1,8 +1,18 @@
 // Композиция итоговой сцены в ЕДИНЫЙ SVG (скил vector-pdf-export).
 // Флэт + макеты + размерная обвязка + подписи + рамка проекта. Масштаб 1:1 в мм.
 import type { Asset, Placement, SKU, View } from "@/types";
-import { placementInfo, anchorsForSize, viewZone } from "@/lib/geometry/view";
+import { viewZone } from "@/lib/geometry/view";
+import { buildDimensionLines } from "@/lib/geometry/dimensionLines";
 import { recolorGarment } from "@/lib/export/flatMarkup";
+import { resolveMethod, printMethodProfile } from "@/lib/catalog/printMethod";
+
+/** Эффективный метод нанесения с учётом дефолта зоны. */
+function placementMethod(view: View, p: Placement) {
+  const areaDefault = view.print_areas.find(
+    (a) => a.id === p.print_area_id,
+  )?.default_method;
+  return printMethodProfile(resolveMethod(p.method, areaDefault));
+}
 
 export interface SceneInput {
   sku: SKU;
@@ -103,7 +113,9 @@ export function buildSceneSvg(input: SceneInput): string {
       const sy = p.flip_v ? -1 : 1;
       // href + xlink:href (то же значение) для надёжной вставки в разных рендерах; значение экранируем.
       const hrefVal = escAttr(asset.data_url);
-      return `<g clip-path="url(#clip-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})">
+      const profile = placementMethod(view, p);
+      // Production-слой: чистое нанесение, помечено методом/режимом цвета для цеха/RIP.
+      return `<g data-layer="production" data-method="${profile.id}" data-color-mode="${profile.colorMode}" clip-path="url(#clip-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})">
         <image href="${hrefVal}" xlink:href="${hrefVal}" x="${p.x_mm}" y="${p.y_mm}" width="${p.width_mm}" height="${p.height_mm}" preserveAspectRatio="none"/>
       </g></g>`;
     })
@@ -111,53 +123,75 @@ export function buildSceneSvg(input: SceneInput): string {
 
   const dimsSvg = placements
     .map((p) => {
-      const info = placementInfo(
+      // S2.1: обвязка как структурный объект — единый источник линий и чисел.
+      const scene = buildDimensionLines(
         view,
         { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
         p.rotation_deg,
         input.meta.size,
         p.print_area_id,
       );
-      const { aabb, zone, dimensions: d, anchor } = info;
+      const { aabb, zone, centerX, anchorY, lines } = scene;
       const midX = aabb.x + aabb.w / 2;
       const midY = aabb.y + aabb.h / 2;
-      // Per-size якоря: линия и число должны браться по тому же размеру (а не по базовым).
-      const anchors = anchorsForSize(view, input.meta.size);
-      const centerX =
-        anchor.kind === "sleeve"
-          ? (anchors.sleeve_center_x ?? midX)
-          : anchor.kind === "panel"
-            ? zone.zx + zone.zw / 2
-            : (anchors.center_axis_x ?? midX);
-      const anchorY =
-        anchor.kind === "sleeve"
-          ? (anchors.sleeve_bottom_y ?? zone.zy + zone.zh)
-          : anchor.kind === "panel"
-            ? zone.zy
-            : (anchors.neckline_point?.y ?? zone.zy);
+      const line = (k: (typeof lines)[number]["kind"]) =>
+        lines.find((l) => l.kind === k)!;
+      // Размерные стрелки до краёв зоны (left/right/top/bottom).
+      const edges = (["left", "right", "top", "bottom"] as const)
+        .map((k) => {
+          const l = line(k);
+          return dimArrow(
+            l.from.x,
+            l.from.y,
+            l.to.x,
+            l.to.y,
+            `${Math.round(l.value)}`,
+            l.danger,
+          );
+        })
+        .join("\n        ");
+      const vAnchor = line("vertical-anchor");
+      const hAnchor = line("horizontal-anchor");
       // Метка Ш×В с halo-подложкой для читаемости.
       const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} мм`;
       const whHalfW = wh.length * 3.5 + 2;
+      // Подпись метода печати под Ш×В (режим цвета — для цеха).
+      const profile = placementMethod(view, p);
+      const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}`;
+      const mtHalfW = methodText.length * 2.8 + 2;
       return `
-        ${dimArrow(zone.zx, midY, aabb.x, midY, `${Math.round(d.left)}`, d.left < 0)}
-        ${dimArrow(aabb.x + aabb.w, midY, zone.zx + zone.zw, midY, `${Math.round(d.right)}`, d.right < 0)}
-        ${dimArrow(midX, zone.zy, midX, aabb.y, `${Math.round(d.top)}`, d.top < 0)}
-        ${dimArrow(midX, aabb.y + aabb.h, midX, zone.zy + zone.zh, `${Math.round(d.bottom)}`, d.bottom < 0)}
-        <line x1="${centerX}" y1="${anchorY}" x2="${centerX}" y2="${midY}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
-        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(Math.abs(anchor.vertical))}</text>
+        ${edges}
+        <line x1="${vAnchor.from.x}" y1="${vAnchor.from.y}" x2="${vAnchor.to.x}" y2="${vAnchor.to.y}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
+        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(vAnchor.value)}</text>
         <line x1="${centerX}" y1="${zone.zy}" x2="${centerX}" y2="${zone.zy + zone.zh}" stroke="#d12f33" stroke-width="0.75" stroke-dasharray="3 3"/>
-        ${dimArrow(centerX, midY, midX, midY, `${Math.round(anchor.horizontal)}`, false)}
+        ${dimArrow(hAnchor.from.x, hAnchor.from.y, hAnchor.to.x, hAnchor.to.y, `${Math.round(hAnchor.value)}`, false)}
         <rect x="${midX - whHalfW}" y="${midY - 11}" width="${whHalfW * 2}" height="14" fill="#ffffff" fill-opacity="0.75"/>
-        <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${esc(wh)}</text>`;
+        <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${esc(wh)}</text>
+        <rect x="${midX - mtHalfW}" y="${midY + 3}" width="${mtHalfW * 2}" height="11" fill="#ffffff" fill-opacity="0.75"/>
+        <text x="${midX}" y="${midY + 11}" font-size="8" fill="#555" text-anchor="middle">${esc(methodText)}</text>`;
     })
     .join("\n");
+
+  // Сводка методов печати по нанесениям вида (для рамки проекта).
+  const methodsSummary = (() => {
+    const seen = new Map<string, string>();
+    for (const p of placements) {
+      const pr = placementMethod(view, p);
+      seen.set(
+        pr.id,
+        `${pr.label} (${pr.colorMode === "spot" ? "spot/Pantone" : "CMYK"})`,
+      );
+    }
+    return [...seen.values()].join(", ");
+  })();
 
   const frameY = flatMm.h + 8;
   const frame = `
     <line x1="0" y1="${flatMm.h}" x2="${W}" y2="${flatMm.h}" stroke="#ccc" stroke-width="0.5"/>
     <text x="4" y="${frameY + 10}" font-size="12" font-weight="bold" fill="#111">${esc(sku.name)} · размер ${esc(meta.size)}</text>
     <text x="4" y="${frameY + 26}" font-size="11" fill="#333">Клиент: ${esc(meta.client || "—")}   Заказ: ${esc(meta.orderRef || "—")}</text>
-    <text x="4" y="${frameY + 42}" font-size="11" fill="#333">Вид: ${esc(view.kind)}   Дата: ${esc(meta.date)}   Масштаб 1:1 (мм)</text>`;
+    <text x="4" y="${frameY + 42}" font-size="11" fill="#333">Вид: ${esc(view.kind)}   Дата: ${esc(meta.date)}   Масштаб 1:1 (мм)</text>
+    ${methodsSummary ? `<text x="4" y="${frameY + 56}" font-size="10" fill="#555">Метод печати: ${esc(methodsSummary)}</text>` : ""}`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}">
   <defs>
@@ -167,10 +201,12 @@ export function buildSceneSvg(input: SceneInput): string {
     ${clipDefs}
   </defs>
   <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
-  <g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>
-  ${placementSvg}
+  <g data-layer="garment" transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>
+  <g data-layer="production-artwork">${placementSvg}</g>
+  <g data-layer="markup">
   ${dimsSvg}
   ${frame}
   ${calibrationBar(W - 110, flatMm.h + 50)}
+  </g>
 </svg>`;
 }

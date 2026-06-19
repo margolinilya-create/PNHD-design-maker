@@ -10,11 +10,14 @@ export const viewKindSchema = z.enum([
   "label_neck_outer",
 ]);
 
+export const printMethodSchema = z.enum(["dtf", "screenprint", "embroidery"]);
+
 export const printAreaSchema = z.object({
   id: z.string(),
   name: z.string(),
   polygon_mm: z.array(z.tuple([z.number(), z.number()])).min(3),
   safe_inset_mm: z.number().nonnegative(),
+  default_method: printMethodSchema.optional(),
 });
 
 export const anchorsSchema = z.object({
@@ -22,6 +25,18 @@ export const anchorsSchema = z.object({
   center_axis_x: z.number().optional(),
   sleeve_bottom_y: z.number().optional(),
   sleeve_center_x: z.number().optional(),
+});
+
+export const anchorDeltaSchema = z.object({
+  dx: z.number().optional(),
+  dy: z.number().optional(),
+});
+
+export const gradeRuleSchema = z.object({
+  neckline: anchorDeltaSchema.optional(),
+  center_axis_dx: z.number().optional(),
+  sleeve_bottom_dy: z.number().optional(),
+  sleeve_center_dx: z.number().optional(),
 });
 
 export const viewSchema = z.object({
@@ -32,6 +47,7 @@ export const viewSchema = z.object({
   anchors: anchorsSchema,
   size_flats: z.record(z.string(), z.string()).optional(),
   size_anchors: z.record(z.string(), anchorsSchema).optional(),
+  grade_rule: gradeRuleSchema.optional(),
   print_areas: z.array(printAreaSchema).min(1),
   size_print_areas: z
     .record(z.string(), z.array(printAreaSchema).min(1))

@@ -19,11 +19,21 @@ import {
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
+import {
+  PRINT_METHOD_LIST,
+  printMethodProfile,
+  resolveMethod,
+} from "@/lib/catalog/printMethod";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
 import { exportSvgAsPng } from "@/lib/export/exportPng";
 import { resolveFlatMarkup } from "@/lib/export/flatMarkup";
+import {
+  preflight,
+  hasBlockingErrors,
+  type PreflightIssue,
+} from "@/lib/export/preflight";
 import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
@@ -96,6 +106,10 @@ export function SidePanel() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Pre-export чеклист (S1.4): список проблем перед сборкой PDF.
+  const [preflightIssues, setPreflightIssues] = useState<
+    PreflightIssue[] | null
+  >(null);
 
   // Целевая зона для загрузки (мультизонные виды).
   const areas = useMemo(
@@ -164,8 +178,25 @@ export function SidePanel() {
     }
   };
 
-  const onExport = async () => {
+  // Гейт перед экспортом: прогоняем чеклист, при проблемах — модалка.
+  const onExport = () => {
     if (!sku) return;
+    const issues = preflight({
+      views: sku.views,
+      placements,
+      assets,
+      size: size ?? undefined,
+    });
+    if (issues.length > 0) {
+      setPreflightIssues(issues);
+      return;
+    }
+    void runExport();
+  };
+
+  const runExport = async () => {
+    if (!sku) return;
+    setPreflightIssues(null);
     setBusy(true);
     setMsg(null);
     try {
@@ -468,6 +499,93 @@ export function SidePanel() {
         </button>
         {msg && <p className="mt-2 text-xs text-neutral-400">{msg}</p>}
       </section>
+
+      {preflightIssues && (
+        <PreflightModal
+          issues={preflightIssues}
+          onCancel={() => setPreflightIssues(null)}
+          onProceed={() => void runExport()}
+          onSelect={(pid) => {
+            selectPlacement(pid);
+            setPreflightIssues(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Модалка pre-export чеклиста (S1.4). */
+function PreflightModal({
+  issues,
+  onCancel,
+  onProceed,
+  onSelect,
+}: {
+  issues: PreflightIssue[];
+  onCancel: () => void;
+  onProceed: () => void;
+  onSelect: (placementId: string) => void;
+}) {
+  const blocking = hasBlockingErrors(issues);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 font-semibold text-neutral-100">
+          Проверка перед экспортом
+        </h3>
+        <p className="mb-3 text-xs text-neutral-500">
+          {blocking
+            ? "Есть блокирующая проблема — экспорт невозможен."
+            : "Найдены предупреждения. Можно исправить или продолжить."}
+        </p>
+        <ul className="flex flex-col gap-1.5">
+          {issues.map((it, i) => {
+            const clickable = !!it.placementId;
+            return (
+              <li
+                key={i}
+                onClick={
+                  clickable ? () => onSelect(it.placementId!) : undefined
+                }
+                title={clickable ? "Перейти к нанесению" : undefined}
+                className={`rounded px-2 py-1.5 text-xs ${
+                  clickable ? "cursor-pointer hover:brightness-125" : ""
+                } ${
+                  it.level === "error"
+                    ? "bg-red-950/70 text-red-300"
+                    : "bg-amber-950/50 text-amber-200"
+                }`}
+              >
+                {it.level === "error" ? "⛔ " : "⚠ "}
+                {it.message}
+              </li>
+            );
+          })}
+        </ul>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+          >
+            {blocking ? "Закрыть" : "Отмена"}
+          </button>
+          {!blocking && (
+            <button
+              onClick={onProceed}
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            >
+              Экспортировать всё равно
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -527,9 +645,22 @@ function LayerRow({
         : false,
     [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, p.print_area_id, garmentSize],
   );
-  const { quality, dpi } = printQuality(asset, p.width_mm);
+  const areaDefault = view?.print_areas.find(
+    (a) => a.id === p.print_area_id,
+  )?.default_method;
+  const method = resolveMethod(p.method, areaDefault);
+  const profile = printMethodProfile(method);
+  const { quality, dpi } = printQuality(asset, p.width_mm, method);
   const dpiColor =
     quality === "low" ? "text-red-400" : quality === "mid" ? "text-amber-400" : "text-neutral-500";
+  const qualityLabel =
+    quality === "vector"
+      ? "вектор"
+      : quality === "embroidery"
+        ? "деталь"
+        : dpi
+          ? `${Math.round(dpi)}dpi`
+          : "";
 
   const icon = "rounded px-1.5 py-0.5 text-neutral-400 hover:bg-neutral-700 hover:text-neutral-200";
   return (
@@ -552,8 +683,14 @@ function LayerRow({
           onChange={(e) => onRename(e.target.value)}
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-200 outline-none focus:rounded focus:bg-neutral-950 focus:px-1"
         />
+        <span
+          className="shrink-0 rounded bg-neutral-800 px-1 text-[9px] text-neutral-400"
+          title={profile.label}
+        >
+          {profile.short}
+        </span>
         <span className={`shrink-0 text-[10px] tabular-nums ${dpiColor}`}>
-          {quality === "vector" ? "вектор" : dpi ? `${Math.round(dpi)}dpi` : ""}
+          {qualityLabel}
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-0.5 text-xs">
@@ -596,6 +733,11 @@ function PlacementInspector({
 }) {
   const isSleeve = view?.kind === "sleeve_left" || view?.kind === "sleeve_right";
   const otherViews = views.filter((v) => v.id !== view?.id);
+  const areaDefault = view?.print_areas.find(
+    (a) => a.id === p.print_area_id,
+  )?.default_method;
+  const method = resolveMethod(p.method, areaDefault);
+  const profile = printMethodProfile(method);
   const applyPreset = (preset: PositionPreset) => {
     if (!view) return;
     const pos = presetPosition(
@@ -607,11 +749,20 @@ function PlacementInspector({
     );
     onChange(pos);
   };
+  const isFrontBack =
+    view?.kind === "front" || view?.kind === "back";
   const presets: { key: PositionPreset; label: string }[] = [
     { key: "center-x", label: "Центр X" },
     { key: "center-zone", label: "Центр зоны" },
     { key: "top", label: "Вверх" },
     { key: "bottom", label: "Вниз" },
+    // Стандарты от горловины — только для front/back.
+    ...(isFrontBack
+      ? ([
+          { key: "chest-standard", label: "Грудь (3″)" },
+          { key: "left-chest", label: "Лев. грудь" },
+        ] as { key: PositionPreset; label: string }[])
+      : []),
   ];
   return (
     <section>
@@ -685,12 +836,38 @@ function PlacementInspector({
         )}
       </div>
 
+      {/* Метод печати — задаёт профиль качества и production-вывод */}
+      <div className="mt-3 border-t border-neutral-800 pt-3">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-xs text-neutral-400">Метод печати</span>
+          <span className="text-[10px] text-neutral-500">
+            {profile.colorMode === "spot" ? "spot / Pantone" : "CMYK"}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {PRINT_METHOD_LIST.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => onChange({ method: m.id })}
+              title={m.label}
+              className={`rounded px-2.5 py-1 text-xs ${
+                m.id === method
+                  ? "bg-blue-600 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {asset?.size_estimated && (
         <p className="mt-2 rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
           размер оценочно — уточните Ш×В
         </p>
       )}
-      <DpiBadge asset={asset} printWidthMm={p.width_mm} />
+      <DpiBadge asset={asset} printWidthMm={p.width_mm} method={method} />
     </section>
   );
 }
@@ -698,16 +875,29 @@ function PlacementInspector({
 const tbtn = (active?: boolean) =>
   `rounded px-2 py-1 text-xs ${active ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-200 hover:bg-neutral-700"}`;
 
-/** Индикатор качества печати (DPI) на текущем размере макета. */
+/** Индикатор качества печати на текущем размере макета (с учётом метода). */
 function DpiBadge({
   asset,
   printWidthMm,
+  method,
 }: {
   asset: Asset | undefined;
   printWidthMm: number;
+  method?: import("@/types").PrintMethod;
 }) {
-  const { quality, dpi } = printQuality(asset, printWidthMm);
+  const { quality, dpi } = printQuality(asset, printWidthMm, method);
   if (quality === "unknown") return null;
+  const profile = printMethodProfile(method);
+  if (quality === "embroidery") {
+    const d = profile.detail!;
+    return (
+      <p className="mt-2 rounded bg-sky-950/60 px-2 py-1 text-xs text-sky-300">
+        вышивка — проверьте мин. деталь: линия ≥ {d.minLineMm} мм, текст ≥{" "}
+        {d.minTextMm} мм (диджитайз вне инструмента)
+      </p>
+    );
+  }
+  const good = profile.dpi?.good ?? 300;
   const map: Record<string, { cls: string; text: string }> = {
     vector: {
       cls: "bg-emerald-950/60 text-emerald-300",
@@ -719,7 +909,7 @@ function DpiBadge({
     },
     mid: {
       cls: "bg-amber-950/60 text-amber-300",
-      text: `${Math.round(dpi ?? 0)} DPI — приемлемо (уменьшите макет для 300+)`,
+      text: `${Math.round(dpi ?? 0)} DPI — приемлемо (уменьшите макет для ${good}+)`,
     },
     low: {
       cls: "bg-red-950/70 text-red-300",

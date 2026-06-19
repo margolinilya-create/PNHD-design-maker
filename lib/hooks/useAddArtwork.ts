@@ -31,6 +31,7 @@ export function useAddArtwork() {
         opts?.areaId && areas.some((a) => a.id === opts.areaId)
           ? opts.areaId
           : areas[0].id;
+      const area = areas.find((a) => a.id === areaId);
       const { zone } = viewZone(view, size, areaId);
 
       const loaded = await loadAsset(file);
@@ -66,6 +67,7 @@ export function useAddArtwork() {
         width_mm: w,
         height_mm: h,
         rotation_deg: 0,
+        method: area?.default_method,
       });
     },
     [addAsset, addPlacement],

@@ -52,4 +52,25 @@ describe("printQuality", () => {
     };
     expect(printQuality(a, 100).quality).toBe("unknown");
   });
+
+  it("метод-зависимые пороги: шелкография терпимее DTF", () => {
+    // 600px/100мм ≈ 152 DPI: для DTF — mid, для шелкографии (good=200,min=120) — тоже mid,
+    // а 500px/100мм ≈ 127 DPI: DTF → low, шелкография → mid.
+    expect(printQuality(png(500), 100, "dtf").quality).toBe("low");
+    expect(printQuality(png(500), 100, "screenprint").quality).toBe("mid");
+  });
+
+  it("вышивка — особое качество (деталь, не DPI)", () => {
+    expect(printQuality(png(1200), 100, "embroidery").quality).toBe(
+      "embroidery",
+    );
+    // даже SVG в режиме вышивки трактуется как embroidery-контроль детали
+    const svg: Asset = {
+      id: "s2",
+      type: "svg",
+      source_file: "l.svg",
+      intrinsic_size_mm: { width: 50, height: 50 },
+    };
+    expect(printQuality(svg, 200, "embroidery").quality).toBe("embroidery");
+  });
 });
