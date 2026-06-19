@@ -984,6 +984,30 @@ function PlacementInspector({
         </div>
       </div>
 
+      {/* Спецификация для цеха: допуск ± и «как мерить» (P1 #13) */}
+      <div className="mt-3 border-t border-neutral-800 pt-3">
+        <span className="mb-1 block text-xs text-neutral-400">
+          Спецификация (печатается в обвязке)
+        </span>
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          <MmField
+            label="Допуск ± мм"
+            value={p.tolerance_mm ?? 0}
+            min={0}
+            onCommit={(v) => onChange({ tolerance_mm: v > 0 ? v : undefined })}
+          />
+        </div>
+        <label className="mb-1 block text-xs text-neutral-400">
+          Как мерить (HTM)
+        </label>
+        <input
+          value={p.htm ?? ""}
+          onChange={(e) => onChange({ htm: e.target.value || undefined })}
+          placeholder="напр. от шва горловины до верха принта"
+          className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs"
+        />
+      </div>
+
       {asset?.size_estimated && (
         <p className="mt-2 rounded bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
           размер оценочно — уточните Ш×В

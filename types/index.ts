@@ -138,6 +138,10 @@ export interface Placement {
   rotation_deg: number;
   /** Метод печати нанесения (фоллбэк — default_method зоны, затем DTF). */
   method?: PrintMethod;
+  /** Допуск ± на ключевые меры обвязки (мм). Target = вычисленное значение. */
+  tolerance_mm?: number;
+  /** How-To-Measure: краткая заметка «как мерить» для цеха. */
+  htm?: string;
   /** Зеркалирование по горизонтали/вертикали. */
   flip_h?: boolean;
   flip_v?: boolean;
