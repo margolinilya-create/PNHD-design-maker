@@ -181,7 +181,7 @@ export function SkuViewCanvas({
                   y={t.py(r.y)}
                   width={t.s(r.w)}
                   height={t.s(r.h)}
-                  stroke={sel ? "#2563eb" : "#7aa2ff99"}
+                  stroke={sel ? "#2563eb" : "#93b4fc"}
                   strokeWidth={sel ? 1.8 : 1}
                   dash={[8, 6]}
                   fill={sel ? "rgba(79,140,255,0.10)" : "rgba(79,140,255,0.04)"}
@@ -212,7 +212,8 @@ export function SkuViewCanvas({
                   y={t.py(r.y) + 3}
                   text={area.name}
                   fontSize={11}
-                  fill={sel ? "#bcd0ff" : "#7aa2ff"}
+                  fill={sel ? "#1d4ed8" : "#2563eb"}
+                  fontStyle={sel ? "bold" : "normal"}
                   listening={false}
                 />
               </Group>
