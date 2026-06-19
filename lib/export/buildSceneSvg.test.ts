@@ -72,6 +72,46 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
     expect(svg).toMatch(/height="660mm"/);
   });
 
+  it("production-вариант: без обвязки и легенды, с пометкой для цеха", () => {
+    const common = {
+      sku,
+      view,
+      flatSvgMarkup: '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+      flatMm: { w: 600, h: 760 },
+      placements: [
+        {
+          id: "p1",
+          print_area_id: "chest",
+          asset_id: "a1",
+          x_mm: 200,
+          y_mm: 200,
+          width_mm: 100,
+          height_mm: 100,
+          rotation_deg: 0,
+          method: "dtf" as const,
+        },
+      ],
+      assets: {
+        a1: {
+          id: "a1",
+          type: "png" as const,
+          source_file: "l.png",
+          data_url: "data:image/png;base64,AAAA",
+          intrinsic_size_mm: { width: 100, height: 100 },
+        },
+      },
+      meta: { client: "", orderRef: "", size: "L", date: "16.06.2026" },
+    };
+    const full = buildSceneSvg(common);
+    const prod = buildSceneSvg({ ...common, variant: "production" });
+    // обвязка (Ш×В метка) есть в full, нет в production
+    expect(full).toContain("мм");
+    expect(prod).not.toContain('data-legend="1"');
+    expect(prod).toContain("ЛИСТ ДЛЯ ЦЕХА");
+    // нанесение (production-artwork) присутствует в обоих
+    expect(prod).toContain('data-layer="production-artwork"');
+  });
+
   it("содержит легенду обозначений тех-чертежа", () => {
     const svg = scene();
     expect(svg).toContain('data-legend="1"');

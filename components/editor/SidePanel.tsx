@@ -267,7 +267,7 @@ export function SidePanel() {
     void runExport();
   };
 
-  const runExport = async () => {
+  const runExport = async (variant: "full" | "production" = "full") => {
     if (!sku) return;
     setPreflightIssues(null);
     setBusy(true);
@@ -309,14 +309,16 @@ export function SidePanel() {
               size: size ?? sku.base_size,
               date: new Date().toLocaleDateString("ru-RU"),
             },
+            variant,
           }),
         );
       }
+      const suffix = variant === "production" ? "-цех" : "";
       await exportScenesPdf(
         scenes,
-        `${sku.id}-${orderRef || "draft"}.pdf`,
+        `${sku.id}-${orderRef || "draft"}${suffix}.pdf`,
       );
-      setMsg("PDF готов");
+      setMsg(variant === "production" ? "PDF для цеха готов" : "PDF готов");
     } catch (e) {
       setMsg(`Ошибка экспорта: ${e}`);
     } finally {
@@ -633,6 +635,13 @@ export function SidePanel() {
           className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
+        </button>
+        <button
+          onClick={() => void runExport("production")}
+          disabled={busy || viewLayers.length === 0}
+          className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
+        >
+          PDF для цеха (без обвязки)
         </button>
         <button
           onClick={() => setShowBatch(true)}
