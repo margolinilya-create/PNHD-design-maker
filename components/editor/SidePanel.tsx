@@ -34,6 +34,7 @@ import {
   hasBlockingErrors,
   type PreflightIssue,
 } from "@/lib/export/preflight";
+import { reviewGrading } from "@/lib/geometry/gradingReview";
 import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
@@ -110,6 +111,8 @@ export function SidePanel() {
   const [preflightIssues, setPreflightIssues] = useState<
     PreflightIssue[] | null
   >(null);
+  // Проверка ростовки (P1 #12): свод по всем размерам.
+  const [showReview, setShowReview] = useState(false);
 
   // Целевая зона для загрузки (мультизонные виды).
   const areas = useMemo(
@@ -484,6 +487,13 @@ export function SidePanel() {
 
       <section className="mt-auto space-y-2">
         <button
+          onClick={() => setShowReview(true)}
+          disabled={viewLayers.length === 0}
+          className="w-full rounded-lg bg-neutral-800 px-3 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-50"
+        >
+          Проверка ростовки
+        </button>
+        <button
           onClick={onExportPng}
           disabled={busy}
           className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
@@ -511,6 +521,118 @@ export function SidePanel() {
           }}
         />
       )}
+
+      {showReview && (
+        <GradingReviewModal
+          view={view}
+          placements={placements}
+          sizes={sku.sizes}
+          fromSize={size ?? sku.base_size}
+          onClose={() => setShowReview(false)}
+          onPickSize={(sz) => {
+            selectSize(sz);
+            setShowReview(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Модалка «Проверка ростовки» (P1 #12): свод по всем размерам. */
+function GradingReviewModal({
+  view,
+  placements,
+  sizes,
+  fromSize,
+  onClose,
+  onPickSize,
+}: {
+  view: View;
+  placements: Placement[];
+  sizes: string[];
+  fromSize: string;
+  onClose: () => void;
+  onPickSize: (size: string) => void;
+}) {
+  const rows = useMemo(
+    () => reviewGrading(view, placements, sizes, fromSize),
+    [view, placements, sizes, fromSize],
+  );
+  const names = rows[0]?.items.map((i) => i.name) ?? [];
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 font-semibold text-neutral-100">
+          Проверка ростовки · {view.kind}
+        </h3>
+        <p className="mb-3 text-xs text-neutral-500">
+          Позиции пересчитаны от размера {fromSize} (константа отступа от
+          горловины). Красное — выход за зону; число — мин. отступ, мм.
+        </p>
+        {names.length === 0 ? (
+          <p className="text-xs text-neutral-500">Нет нанесений на этом виде.</p>
+        ) : (
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="text-neutral-400">
+                <th className="py-1 pr-2 text-left font-medium">Размер</th>
+                {names.map((n, i) => (
+                  <th key={i} className="px-2 py-1 text-left font-medium">
+                    {n}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.size}
+                  onClick={() => onPickSize(r.size)}
+                  title="Открыть этот размер"
+                  className={`cursor-pointer border-t border-neutral-800 hover:bg-neutral-800/50 ${
+                    r.anyOut ? "bg-red-950/30" : ""
+                  }`}
+                >
+                  <td className="py-1.5 pr-2 font-medium text-neutral-200">
+                    {r.size}
+                    {r.size === fromSize && (
+                      <span className="ml-1 text-[10px] text-neutral-500">
+                        эталон
+                      </span>
+                    )}
+                  </td>
+                  {r.items.map((it) => (
+                    <td
+                      key={it.placementId}
+                      className={`px-2 py-1.5 tabular-nums ${
+                        it.outOfZone ? "text-red-300" : "text-emerald-300"
+                      }`}
+                    >
+                      {it.outOfZone ? "⚠ " : "✓ "}
+                      {Math.round(it.minMargin)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
