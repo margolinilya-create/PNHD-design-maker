@@ -71,10 +71,16 @@ export function SkuEditor({
 
   const replaceFlat = async (file: File, viewId: string) => {
     const loaded = await loadAsset(file);
+    // scale = реальная ширина (мм) / пиксели → флэт сразу в верном масштабе
+    // (как в FlatCreator). При оценочном размере калибровка уточнит вручную.
+    const scale =
+      loaded.naturalWidth > 0
+        ? loaded.intrinsic_size_mm.width / loaded.naturalWidth
+        : 1;
     setSku((s) =>
       updateView(s, viewId, {
         flat_svg: loaded.dataUrl,
-        scale_mm_per_unit: loaded.type === "svg" ? 1 : s.views.find((v) => v.id === viewId)?.scale_mm_per_unit ?? 1,
+        scale_mm_per_unit: scale,
       }),
     );
   };
@@ -223,9 +229,14 @@ export function SkuEditor({
                   {sku.views.length > 1 && (
                     <button
                       onClick={() => {
+                        const remaining = sku.views.filter((x) => x.id !== v.id);
                         setSku(removeView(sku, v.id));
-                        if (activeViewId === v.id)
-                          setActiveViewId(sku.views[0].id);
+                        if (activeViewId === v.id && remaining[0]) {
+                          setActiveViewId(remaining[0].id);
+                          setSelectedZoneId(
+                            remaining[0].print_areas[0]?.id ?? null,
+                          );
+                        }
                       }}
                       className="text-neutral-500 hover:text-red-400"
                     >
