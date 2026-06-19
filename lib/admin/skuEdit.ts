@@ -174,6 +174,119 @@ export function setGradeRule(
   return updateView(sku, viewId, { grade_rule: rule });
 }
 
+// ── Per-size: эффективные значения (override на размер → фоллбэк на базовые) ──
+
+/** Якоря вида для размера: size_anchors[size] ?? базовые. */
+export function effAnchors(view: View, size: string, baseSize: string) {
+  if (size === baseSize) return view.anchors;
+  return view.size_anchors?.[size] ?? view.anchors;
+}
+
+/** Зоны вида для размера: size_print_areas[size] ?? базовые. */
+export function effZones(view: View, size: string, baseSize: string): PrintArea[] {
+  if (size === baseSize) return view.print_areas;
+  return view.size_print_areas?.[size] ?? view.print_areas;
+}
+
+/** Флэт вида для размера: size_flats[size] ?? базовый. */
+export function effFlat(view: View, size: string, baseSize: string): string {
+  if (size === baseSize) return view.flat_svg;
+  return view.size_flats?.[size] ?? view.flat_svg;
+}
+
+function findView(sku: SKU, viewId: string) {
+  return sku.views.find((v) => v.id === viewId);
+}
+
+/** Записать якоря для размера (базовый → anchors, иначе → size_anchors). */
+export function setSizeAnchors(
+  sku: SKU,
+  viewId: string,
+  size: string,
+  baseSize: string,
+  anchors: View["anchors"],
+): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  if (size === baseSize) return updateView(sku, viewId, { anchors });
+  return updateView(sku, viewId, {
+    size_anchors: { ...v.size_anchors, [size]: anchors },
+  });
+}
+
+/** Записать флэт для размера. */
+export function setSizeFlat(
+  sku: SKU,
+  viewId: string,
+  size: string,
+  baseSize: string,
+  flat: string,
+): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  if (size === baseSize) return updateView(sku, viewId, { flat_svg: flat });
+  return updateView(sku, viewId, {
+    size_flats: { ...v.size_flats, [size]: flat },
+  });
+}
+
+/** Записать массив зон для размера. */
+export function setSizeZones(
+  sku: SKU,
+  viewId: string,
+  size: string,
+  baseSize: string,
+  areas: PrintArea[],
+): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  if (size === baseSize) return updateView(sku, viewId, { print_areas: areas });
+  return updateView(sku, viewId, {
+    size_print_areas: { ...v.size_print_areas, [size]: areas },
+  });
+}
+
+/**
+ * Переопределить геометрию зоны (polygon_mm) для размера — copy-on-write:
+ * первое изменение копирует все зоны из базовых в size_print_areas[size].
+ * Состав зон (id/имя/метод) остаётся общим — двигается только прямоугольник.
+ */
+export function updateSizeZoneRect(
+  sku: SKU,
+  viewId: string,
+  size: string,
+  baseSize: string,
+  areaId: string,
+  rect: { x: number; y: number; w: number; h: number },
+): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  const cur = effZones(v, size, baseSize);
+  const next = cur.map((a) =>
+    a.id === areaId
+      ? { ...a, polygon_mm: rectZone(a.id, a.name, rect.x, rect.y, rect.w, rect.h).polygon_mm }
+      : a,
+  );
+  return setSizeZones(sku, viewId, size, baseSize, next);
+}
+
+/** Сбросить per-size override вида (вернуть к базовым на этом размере). */
+export function clearSizeOverride(sku: SKU, viewId: string, size: string): SKU {
+  const v = findView(sku, viewId);
+  if (!v) return sku;
+  const sa = { ...v.size_anchors };
+  delete sa[size];
+  const sz = { ...v.size_print_areas };
+  delete sz[size];
+  const sf = { ...v.size_flats };
+  delete sf[size];
+  return updateView(sku, viewId, {
+    size_anchors: Object.keys(sa).length ? sa : undefined,
+    size_print_areas: Object.keys(sz).length ? sz : undefined,
+    size_flats: Object.keys(sf).length ? sf : undefined,
+  });
+}
+
 /** Пустой SKU-каркас (для «создать вручную»). */
 export function emptySku(id: string, name: string, type: GarmentType): SKU {
   const base: BaseSize = "M";
