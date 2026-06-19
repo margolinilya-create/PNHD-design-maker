@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { loadAsset } from "@/lib/catalog/loadAsset";
 import {
   validateSku,
   addSize,
@@ -29,6 +31,18 @@ import type {
 
 const inp = "w-full rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm";
 
+const SkuViewCanvas = dynamic(
+  () => import("@/components/admin/SkuViewCanvas").then((m) => m.SkuViewCanvas),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center text-neutral-500">
+        Загрузка холста…
+      </div>
+    ),
+  },
+);
+
 const VIEW_KINDS: { value: ViewKind; label: string }[] = [
   { value: "front", label: "перёд" },
   { value: "back", label: "спина" },
@@ -49,8 +63,21 @@ export function SkuEditor({
 }) {
   const [sku, setSku] = useState<SKU>(initial);
   const [activeViewId, setActiveViewId] = useState(initial.views[0]?.id ?? "");
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(
+    initial.views[0]?.print_areas[0]?.id ?? null,
+  );
   const [newSize, setNewSize] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+
+  const replaceFlat = async (file: File, viewId: string) => {
+    const loaded = await loadAsset(file);
+    setSku((s) =>
+      updateView(s, viewId, {
+        flat_svg: loaded.dataUrl,
+        scale_mm_per_unit: loaded.type === "svg" ? 1 : s.views.find((v) => v.id === viewId)?.scale_mm_per_unit ?? 1,
+      }),
+    );
+  };
 
   const errors = useMemo(() => validateSku(sku), [sku]);
   const view = sku.views.find((v) => v.id === activeViewId) ?? sku.views[0];
@@ -94,9 +121,9 @@ export function SkuEditor({
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto md:grid-cols-2">
-        {/* Колонка 1 — модель и виды */}
-        <div className="space-y-4 border-r border-neutral-800 p-4">
+      <div className="flex min-h-0 flex-1">
+        {/* Форма-сайдбар */}
+        <aside className="w-96 shrink-0 space-y-4 overflow-y-auto border-r border-neutral-800 p-4">
           <Section title="Модель">
             <Field label="Название">
               <input
@@ -182,7 +209,10 @@ export function SkuEditor({
                   }`}
                 >
                   <button
-                    onClick={() => setActiveViewId(v.id)}
+                    onClick={() => {
+                      setActiveViewId(v.id);
+                      setSelectedZoneId(v.print_areas[0]?.id ?? null);
+                    }}
                     className="flex-1 text-left"
                   >
                     {v.kind}{" "}
@@ -209,11 +239,10 @@ export function SkuEditor({
               <AddViewSelect onAdd={(k) => setSku(addView(sku, k))} />
             </div>
           </Section>
-        </div>
 
-        {/* Колонка 2 — активный вид */}
-        {view && (
-          <div className="space-y-4 p-4">
+          {/* Активный вид — продолжение формы */}
+          {view && (
+          <div className="space-y-4">
             <Section title={`Вид: ${view.kind}`}>
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Тип вида">
@@ -251,6 +280,20 @@ export function SkuEditor({
                   />
                 </Field>
               </div>
+
+              <label className="flex cursor-pointer items-center justify-center rounded border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-blue-500">
+                {view.flat_svg ? "Заменить флэт (SVG/PNG)" : "Загрузить флэт (SVG/PNG)"}
+                <input
+                  type="file"
+                  accept=".svg,.png,image/svg+xml,image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) replaceFlat(f, view.id);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
 
               {/* Якоря */}
               {!isLabel && (
@@ -322,6 +365,8 @@ export function SkuEditor({
                   key={a.id}
                   area={a}
                   canRemove={view.print_areas.length > 1}
+                  selected={a.id === selectedZoneId}
+                  onSelect={() => setSelectedZoneId(a.id)}
                   onChange={(patch) =>
                     setSku(updateZone(sku, view.id, a.id, patch))
                   }
@@ -346,7 +391,20 @@ export function SkuEditor({
               </Section>
             )}
           </div>
-        )}
+          )}
+        </aside>
+
+        {/* Холст активного вида */}
+        <main className="relative min-w-0 flex-1 bg-neutral-950">
+          {view && (
+            <SkuViewCanvas
+              view={view}
+              selectedZoneId={selectedZoneId}
+              onSelectZone={setSelectedZoneId}
+              onChange={(patch) => setSku(updateView(sku, view.id, patch))}
+            />
+          )}
+        </main>
       </div>
     </div>
   );
@@ -355,11 +413,15 @@ export function SkuEditor({
 function ZoneEditor({
   area,
   canRemove,
+  selected,
+  onSelect,
   onChange,
   onRemove,
 }: {
   area: PrintArea;
   canRemove: boolean;
+  selected: boolean;
+  onSelect: () => void;
   onChange: (patch: Partial<PrintArea>) => void;
   onRemove: () => void;
 }) {
@@ -369,7 +431,12 @@ function ZoneEditor({
     onChange({ polygon_mm: rectZone(area.id, area.name, nr.x, nr.y, nr.w, nr.h).polygon_mm });
   };
   return (
-    <div className="rounded border border-neutral-700 bg-neutral-900 p-2">
+    <div
+      onClick={onSelect}
+      className={`rounded border bg-neutral-900 p-2 ${
+        selected ? "border-blue-500" : "border-neutral-700"
+      }`}
+    >
       <div className="mb-2 flex items-center gap-2">
         <input
           value={area.name}
