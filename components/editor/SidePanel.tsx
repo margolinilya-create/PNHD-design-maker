@@ -271,6 +271,7 @@ export function SidePanel() {
                 orderRef,
                 size: tSize,
                 date: new Date().toLocaleDateString("ru-RU"),
+                status,
               },
             }),
           );
@@ -351,6 +352,7 @@ export function SidePanel() {
               orderRef,
               size: size ?? sku.base_size,
               date: new Date().toLocaleDateString("ru-RU"),
+                status,
             },
             variant,
           }),
