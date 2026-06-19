@@ -34,6 +34,8 @@ import {
   hasBlockingErrors,
   type PreflightIssue,
 } from "@/lib/export/preflight";
+import { reviewGrading } from "@/lib/geometry/gradingReview";
+import { regradePlacementsToSize } from "@/lib/geometry/regradeBatch";
 import type { Asset, Placement, View } from "@/types";
 
 export function SidePanel() {
@@ -62,6 +64,11 @@ export function SidePanel() {
   const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
   const garmentColor = useProjectStore((s) => s.garmentColor);
   const setGarmentColor = useProjectStore((s) => s.setGarmentColor);
+  const comments = useProjectStore((s) => s.comments);
+  const addComment = useProjectStore((s) => s.addComment);
+  const removeComment = useProjectStore((s) => s.removeComment);
+  const readOnly = useProjectStore((s) => s.readOnly);
+  const setReadOnly = useProjectStore((s) => s.setReadOnly);
 
   // Сохранение проектов (Supabase или localStorage).
   const [projName, setProjName] = useState("");
@@ -110,6 +117,10 @@ export function SidePanel() {
   const [preflightIssues, setPreflightIssues] = useState<
     PreflightIssue[] | null
   >(null);
+  // Проверка ростовки (P1 #12): свод по всем размерам.
+  const [showReview, setShowReview] = useState(false);
+  // Batch-PDF по размерам (P1 #20).
+  const [showBatch, setShowBatch] = useState(false);
 
   // Целевая зона для загрузки (мультизонные виды).
   const areas = useMemo(
@@ -173,6 +184,65 @@ export function SidePanel() {
       setMsg(mockup ? "Фото-мокап готов" : "PNG-превью готов");
     } catch (e) {
       setMsg(`Ошибка превью: ${e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Batch-PDF: тех-листы по выбранным размерам в один файл (P1 #20).
+  const onExportBatch = async (sizesSel: string[]) => {
+    if (!sku || sizesSel.length === 0) return;
+    setShowBatch(false);
+    setBusy(true);
+    setMsg(null);
+    try {
+      const fromSize = size ?? sku.base_size;
+      const scenes: string[] = [];
+      for (const tSize of sizesSel) {
+        const pls = regradePlacementsToSize(
+          sku.views,
+          placements,
+          fromSize,
+          tSize,
+        );
+        const viewsWith = sku.views.filter((v) =>
+          pls.some((p) => v.print_areas.some((a) => a.id === p.print_area_id)),
+        );
+        for (const v of viewsWith) {
+          const markup = await resolveFlatMarkup(flatForSize(v, tSize));
+          const raw = svgSizeMm(markup);
+          const s = v.scale_mm_per_unit ?? 1;
+          const vp = pls.filter((p) =>
+            v.print_areas.some((a) => a.id === p.print_area_id),
+          );
+          scenes.push(
+            buildSceneSvg({
+              sku,
+              view: v,
+              flatSvgMarkup: markup,
+              flatMm: { w: raw.w * s, h: raw.h * s },
+              scaleMmPerUnit: s,
+              garmentColor,
+              placements: vp,
+              assets,
+              meta: {
+                client,
+                orderRef,
+                size: tSize,
+                date: new Date().toLocaleDateString("ru-RU"),
+              },
+            }),
+          );
+        }
+      }
+      if (!scenes.length) {
+        setMsg("Нет нанесений для batch");
+        return;
+      }
+      await exportScenesPdf(scenes, `${sku.id}-batch-${orderRef || "draft"}.pdf`);
+      setMsg(`Batch PDF готов (${sizesSel.length} разм.)`);
+    } catch (e) {
+      setMsg(`Ошибка batch: ${e}`);
     } finally {
       setBusy(false);
     }
@@ -260,6 +330,23 @@ export function SidePanel() {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 text-sm">
+      <div className="flex items-center justify-between rounded-lg bg-neutral-800/60 px-3 py-2">
+        <span className="text-xs text-neutral-300">
+          {readOnly ? "👁 Просмотр (правки заблокированы)" : "✏ Редактирование"}
+        </span>
+        <button
+          onClick={() => setReadOnly(!readOnly)}
+          className={`rounded px-2.5 py-1 text-xs ${
+            readOnly
+              ? "bg-blue-600 text-white"
+              : "bg-neutral-700 text-neutral-200 hover:bg-neutral-600"
+          }`}
+        >
+          {readOnly ? "Включить правки" : "Только просмотр"}
+        </button>
+      </div>
+
+      {!readOnly && (
       <section>
         <h3 className="mb-2 font-semibold text-neutral-200">Макет</h3>
         <input
@@ -306,6 +393,7 @@ export function SidePanel() {
           » текущего вида.
         </p>
       </section>
+      )}
 
       <section>
         <h3 className="mb-2 font-semibold text-neutral-200">Размер (эталон)</h3>
@@ -373,6 +461,7 @@ export function SidePanel() {
               asset={assets[p.asset_id]}
               garmentSize={size}
               selected={p.id === selectedId}
+              readOnly={readOnly}
               onSelect={() => selectPlacement(p.id)}
               onRemove={() => removePlacement(p.id)}
               onDup={() => duplicatePlacement(p.id)}
@@ -386,7 +475,7 @@ export function SidePanel() {
         </div>
       </section>
 
-      {selectedPlacement && (
+      {selectedPlacement && !readOnly && (
         <PlacementInspector
           placement={selectedPlacement}
           view={findViewForPlacement(sku.views, selectedPlacement)}
@@ -428,6 +517,43 @@ export function SidePanel() {
           >
             {status === "approved" ? "Согласовано" : "Черновик"}
           </button>
+        </div>
+
+        {/* Комментарии согласования (P1 #24) */}
+        <div className="mt-3 border-t border-neutral-800 pt-3">
+          <span className="mb-1 block text-xs text-neutral-400">
+            Согласование ({comments.length})
+          </span>
+          <CommentBox onAdd={(role, text) => addComment({ role, text })} />
+          {comments.length > 0 && (
+            <div className="mt-2 flex max-h-44 flex-col gap-1.5 overflow-y-auto">
+              {comments.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded bg-neutral-800/60 px-2 py-1.5 text-xs"
+                >
+                  <div className="mb-0.5 flex items-center justify-between">
+                    <span
+                      className={`rounded px-1 text-[10px] ${
+                        c.role === "client"
+                          ? "bg-blue-950 text-blue-300"
+                          : "bg-emerald-950 text-emerald-300"
+                      }`}
+                    >
+                      {c.role === "client" ? "Клиент" : "Цех"}
+                    </span>
+                    <button
+                      onClick={() => removeComment(c.id)}
+                      className="text-neutral-600 hover:text-red-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="whitespace-pre-wrap text-neutral-200">{c.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Сохранение проекта */}
@@ -484,6 +610,13 @@ export function SidePanel() {
 
       <section className="mt-auto space-y-2">
         <button
+          onClick={() => setShowReview(true)}
+          disabled={viewLayers.length === 0}
+          className="w-full rounded-lg bg-neutral-800 px-3 py-2 text-sm font-medium text-neutral-200 hover:bg-neutral-700 disabled:opacity-50"
+        >
+          Проверка ростовки
+        </button>
+        <button
           onClick={onExportPng}
           disabled={busy}
           className="w-full rounded-lg bg-neutral-700 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-600 disabled:opacity-50"
@@ -496,6 +629,13 @@ export function SidePanel() {
           className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
         >
           {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
+        </button>
+        <button
+          onClick={() => setShowBatch(true)}
+          disabled={busy || viewLayers.length === 0}
+          className="w-full rounded-lg bg-emerald-900/70 px-3 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-800/70 disabled:opacity-50"
+        >
+          Batch PDF (по размерам)
         </button>
         {msg && <p className="mt-2 text-xs text-neutral-400">{msg}</p>}
       </section>
@@ -511,6 +651,207 @@ export function SidePanel() {
           }}
         />
       )}
+
+      {showReview && (
+        <GradingReviewModal
+          view={view}
+          placements={placements}
+          sizes={sku.sizes}
+          fromSize={size ?? sku.base_size}
+          onClose={() => setShowReview(false)}
+          onPickSize={(sz) => {
+            selectSize(sz);
+            setShowReview(false);
+          }}
+        />
+      )}
+
+      {showBatch && (
+        <BatchModal
+          sizes={sku.sizes}
+          baseSize={size ?? sku.base_size}
+          onClose={() => setShowBatch(false)}
+          onBuild={(sel) => void onExportBatch(sel)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Модалка выбора размеров для batch-PDF (P1 #20). */
+function BatchModal({
+  sizes,
+  baseSize,
+  onClose,
+  onBuild,
+}: {
+  sizes: string[];
+  baseSize: string;
+  onClose: () => void;
+  onBuild: (selected: string[]) => void;
+}) {
+  const [sel, setSel] = useState<Set<string>>(() => new Set(sizes));
+  const toggle = (sz: string) =>
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(sz)) next.delete(sz);
+      else next.add(sz);
+      return next;
+    });
+  const ordered = sizes.filter((s) => sel.has(s));
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 font-semibold text-neutral-100">
+          Batch PDF по размерам
+        </h3>
+        <p className="mb-3 text-xs text-neutral-500">
+          Один файл с тех-листами по выбранным ростовкам (позиции пересчитаны от{" "}
+          {baseSize}).
+        </p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {sizes.map((sz) => (
+            <button
+              key={sz}
+              onClick={() => toggle(sz)}
+              className={`rounded px-2.5 py-1 text-xs ${
+                sel.has(sz)
+                  ? "bg-blue-600 text-white"
+                  : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              {sz}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-between gap-2">
+          <button
+            onClick={() => setSel(new Set(sizes))}
+            className="rounded bg-neutral-800 px-2.5 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700"
+          >
+            Все
+          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+            >
+              Отмена
+            </button>
+            <button
+              onClick={() => onBuild(ordered)}
+              disabled={ordered.length === 0}
+              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              Собрать ({ordered.length})
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Модалка «Проверка ростовки» (P1 #12): свод по всем размерам. */
+function GradingReviewModal({
+  view,
+  placements,
+  sizes,
+  fromSize,
+  onClose,
+  onPickSize,
+}: {
+  view: View;
+  placements: Placement[];
+  sizes: string[];
+  fromSize: string;
+  onClose: () => void;
+  onPickSize: (size: string) => void;
+}) {
+  const rows = useMemo(
+    () => reviewGrading(view, placements, sizes, fromSize),
+    [view, placements, sizes, fromSize],
+  );
+  const names = rows[0]?.items.map((i) => i.name) ?? [];
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 font-semibold text-neutral-100">
+          Проверка ростовки · {view.kind}
+        </h3>
+        <p className="mb-3 text-xs text-neutral-500">
+          Позиции пересчитаны от размера {fromSize} (константа отступа от
+          горловины). Красное — выход за зону; число — мин. отступ, мм.
+        </p>
+        {names.length === 0 ? (
+          <p className="text-xs text-neutral-500">Нет нанесений на этом виде.</p>
+        ) : (
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="text-neutral-400">
+                <th className="py-1 pr-2 text-left font-medium">Размер</th>
+                {names.map((n, i) => (
+                  <th key={i} className="px-2 py-1 text-left font-medium">
+                    {n}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr
+                  key={r.size}
+                  onClick={() => onPickSize(r.size)}
+                  title="Открыть этот размер"
+                  className={`cursor-pointer border-t border-neutral-800 hover:bg-neutral-800/50 ${
+                    r.anyOut ? "bg-red-950/30" : ""
+                  }`}
+                >
+                  <td className="py-1.5 pr-2 font-medium text-neutral-200">
+                    {r.size}
+                    {r.size === fromSize && (
+                      <span className="ml-1 text-[10px] text-neutral-500">
+                        эталон
+                      </span>
+                    )}
+                  </td>
+                  {r.items.map((it) => (
+                    <td
+                      key={it.placementId}
+                      className={`px-2 py-1.5 tabular-nums ${
+                        it.outOfZone ? "text-red-300" : "text-emerald-300"
+                      }`}
+                    >
+                      {it.outOfZone ? "⚠ " : "✓ "}
+                      {Math.round(it.minMargin)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-600"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -590,6 +931,58 @@ function PreflightModal({
   );
 }
 
+/** Форма добавления комментария согласования (P1 #24). */
+function CommentBox({
+  onAdd,
+}: {
+  onAdd: (role: "client" | "shop", text: string) => void;
+}) {
+  const [role, setRole] = useState<"client" | "shop">("shop");
+  const [text, setText] = useState("");
+  const submit = () => {
+    const t = text.trim();
+    if (!t) return;
+    onAdd(role, t);
+    setText("");
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-1.5">
+        {(["shop", "client"] as const).map((r) => (
+          <button
+            key={r}
+            onClick={() => setRole(r)}
+            className={`rounded px-2 py-0.5 text-[11px] ${
+              role === r
+                ? "bg-blue-600 text-white"
+                : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+            }`}
+          >
+            {r === "client" ? "Клиент" : "Цех"}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder="Комментарий…"
+          className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs"
+        />
+        <button
+          onClick={submit}
+          className="shrink-0 rounded bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function findViewForPlacement(views: View[], p: Placement): View | undefined {
   return views.find((v) => v.print_areas.some((a) => a.id === p.print_area_id));
 }
@@ -609,6 +1002,7 @@ function LayerRow({
   asset,
   garmentSize,
   selected,
+  readOnly,
   onSelect,
   onRemove,
   onDup,
@@ -623,6 +1017,7 @@ function LayerRow({
   asset: Asset | undefined;
   garmentSize: string | null;
   selected: boolean;
+  readOnly?: boolean;
   onSelect: () => void;
   onRemove: () => void;
   onDup: () => void;
@@ -681,6 +1076,7 @@ function LayerRow({
           value={findViewForPlacementName(view, p)}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onRename(e.target.value)}
+          readOnly={readOnly}
           className="min-w-0 flex-1 bg-transparent text-sm text-neutral-200 outline-none focus:rounded focus:bg-neutral-950 focus:px-1"
         />
         <span
@@ -694,12 +1090,16 @@ function LayerRow({
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-0.5 text-xs">
-        <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}>▲</button>
-        <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}>▼</button>
-        <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? "🙈" : "👁"}</button>
-        <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? "🔒" : "🔓"}</button>
-        <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}>⎘</button>
-        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-400`}>✕</button>
+        {!readOnly && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}>▲</button>
+            <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}>▼</button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? "🙈" : "👁"}</button>
+            <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? "🔒" : "🔓"}</button>
+            <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}>⎘</button>
+            <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-400`}>✕</button>
+          </>
+        )}
         {out && <span className="ml-auto rounded bg-red-950 px-1 text-[10px] text-red-300">за зоной</span>}
       </div>
     </div>
@@ -860,6 +1260,30 @@ function PlacementInspector({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Спецификация для цеха: допуск ± и «как мерить» (P1 #13) */}
+      <div className="mt-3 border-t border-neutral-800 pt-3">
+        <span className="mb-1 block text-xs text-neutral-400">
+          Спецификация (печатается в обвязке)
+        </span>
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          <MmField
+            label="Допуск ± мм"
+            value={p.tolerance_mm ?? 0}
+            min={0}
+            onCommit={(v) => onChange({ tolerance_mm: v > 0 ? v : undefined })}
+          />
+        </div>
+        <label className="mb-1 block text-xs text-neutral-400">
+          Как мерить (HTM)
+        </label>
+        <input
+          value={p.htm ?? ""}
+          onChange={(e) => onChange({ htm: e.target.value || undefined })}
+          placeholder="напр. от шва горловины до верха принта"
+          className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1.5 text-xs"
+        />
       </div>
 
       {asset?.size_estimated && (

@@ -154,6 +154,42 @@ describe("buildSceneSvg — масштаб и калибровка", () => {
     expect(svg).toContain("Вышивка");
   });
 
+  it("печатает допуск ± и HTM-заметку нанесения", () => {
+    const svg = buildSceneSvg({
+      sku,
+      view,
+      flatSvgMarkup: '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+      flatMm: { w: 600, h: 760 },
+      placements: [
+        {
+          id: "p1",
+          print_area_id: "chest",
+          asset_id: "a1",
+          x_mm: 200,
+          y_mm: 200,
+          width_mm: 100,
+          height_mm: 100,
+          rotation_deg: 0,
+          method: "dtf",
+          tolerance_mm: 3,
+          htm: "от шва горловины",
+        },
+      ],
+      assets: {
+        a1: {
+          id: "a1",
+          type: "png",
+          source_file: "logo.png",
+          data_url: "data:image/png;base64,AAAA",
+          intrinsic_size_mm: { width: 100, height: 100 },
+        },
+      },
+      meta: { client: "", orderRef: "", size: "L", date: "16.06.2026" },
+    });
+    expect(svg).toContain("±3");
+    expect(svg).toContain("HTM: от шва горловины");
+  });
+
   it("содержит калибровочную шкалу ровно 100 мм", () => {
     const svg = scene();
     expect(svg).toContain('data-calibration-mm="100"');

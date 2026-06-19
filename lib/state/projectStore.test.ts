@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useProjectStore } from "./projectStore";
 
 const reset = () =>
-  useProjectStore.setState({ placements: [], assets: {}, past: [], future: [], selectedPlacementId: null });
+  useProjectStore.setState({ placements: [], assets: {}, past: [], future: [], selectedPlacementId: null, comments: [], readOnly: false });
 
 const sample = {
   print_area_id: "z", asset_id: "a",
@@ -49,6 +49,31 @@ describe("projectStore undo/redo", () => {
     expect(st.placements[1].x_mm).toBe(sample.x_mm + 10);
     useProjectStore.getState().undo();
     expect(useProjectStore.getState().placements).toHaveLength(1);
+  });
+
+  it("комментарии согласования: добавление, удаление, roundtrip snapshot", () => {
+    const s = useProjectStore.getState();
+    s.addComment({ role: "client", text: "сместить выше" });
+    s.addComment({ role: "shop", text: "ок, принято" });
+    let st = useProjectStore.getState();
+    expect(st.comments).toHaveLength(2);
+    expect(st.comments[0].role).toBe("client");
+    // snapshot переносит комментарии
+    const snap = st.snapshot("p1", "Проект");
+    expect(snap.comments).toHaveLength(2);
+    // удаление
+    st.removeComment(st.comments[0].id);
+    expect(useProjectStore.getState().comments).toHaveLength(1);
+    // restore возвращает комментарии из снапшота
+    useProjectStore.getState().restore(snap);
+    expect(useProjectStore.getState().comments).toHaveLength(2);
+  });
+
+  it("режим только просмотр переключается", () => {
+    useProjectStore.getState().setReadOnly(true);
+    expect(useProjectStore.getState().readOnly).toBe(true);
+    useProjectStore.getState().setReadOnly(false);
+    expect(useProjectStore.getState().readOnly).toBe(false);
   });
 
   it("copyPlacementToView копирует с print_area_id целевого вида", () => {

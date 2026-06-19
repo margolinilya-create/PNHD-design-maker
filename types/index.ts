@@ -138,6 +138,10 @@ export interface Placement {
   rotation_deg: number;
   /** Метод печати нанесения (фоллбэк — default_method зоны, затем DTF). */
   method?: PrintMethod;
+  /** Допуск ± на ключевые меры обвязки (мм). Target = вычисленное значение. */
+  tolerance_mm?: number;
+  /** How-To-Measure: краткая заметка «как мерить» для цеха. */
+  htm?: string;
   /** Зеркалирование по горизонтали/вертикали. */
   flip_h?: boolean;
   flip_v?: boolean;
@@ -148,6 +152,14 @@ export interface Placement {
   name?: string;
 }
 
+/** Комментарий согласования (P1 #24). Роль — кто оставил. */
+export interface ProjectComment {
+  id: string;
+  role: "client" | "shop";
+  text: string;
+  ts: number;
+}
+
 export interface Project {
   id: string;
   sku_id: string;
@@ -155,4 +167,5 @@ export interface Project {
   order_ref: string;
   status: ProjectStatus;
   placements: Placement[];
+  comments?: ProjectComment[];
 }

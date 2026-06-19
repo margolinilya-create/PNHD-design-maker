@@ -159,16 +159,26 @@ export function buildSceneSvg(input: SceneInput): string {
       const profile = placementMethod(view, p);
       const methodText = `${profile.label} · ${profile.colorMode === "spot" ? "spot/Pantone" : "CMYK"}`;
       const mtHalfW = methodText.length * 2.8 + 2;
+      // Допуск ± на ключевую меру (отступ от горловины) и HTM-заметка (P1 #13).
+      const tol =
+        p.tolerance_mm && p.tolerance_mm > 0 ? ` ±${p.tolerance_mm}` : "";
+      const htm = p.htm?.trim();
+      const htmHalfW = htm ? htm.length * 2.6 + 2 : 0;
+      const htmSvg = htm
+        ? `<rect x="${midX - htmHalfW}" y="${midY + 14}" width="${htmHalfW * 2}" height="11" fill="#ffffff" fill-opacity="0.75"/>
+        <text x="${midX}" y="${midY + 22}" font-size="8" fill="#777" text-anchor="middle">${esc(`HTM: ${htm}`)}</text>`
+        : "";
       return `
         ${edges}
         <line x1="${vAnchor.from.x}" y1="${vAnchor.from.y}" x2="${vAnchor.to.x}" y2="${vAnchor.to.y}" stroke="#d12f33" stroke-width="1" stroke-dasharray="5 4"/>
-        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(vAnchor.value)}</text>
+        <text x="${centerX + 4}" y="${(anchorY + midY) / 2}" font-size="11" fill="#d12f33">↕${Math.round(vAnchor.value)}${tol}</text>
         <line x1="${centerX}" y1="${zone.zy}" x2="${centerX}" y2="${zone.zy + zone.zh}" stroke="#d12f33" stroke-width="0.75" stroke-dasharray="3 3"/>
         ${dimArrow(hAnchor.from.x, hAnchor.from.y, hAnchor.to.x, hAnchor.to.y, `${Math.round(hAnchor.value)}`, false)}
         <rect x="${midX - whHalfW}" y="${midY - 11}" width="${whHalfW * 2}" height="14" fill="#ffffff" fill-opacity="0.75"/>
         <text x="${midX}" y="${midY}" font-size="12" font-weight="bold" fill="#111" text-anchor="middle">${esc(wh)}</text>
         <rect x="${midX - mtHalfW}" y="${midY + 3}" width="${mtHalfW * 2}" height="11" fill="#ffffff" fill-opacity="0.75"/>
-        <text x="${midX}" y="${midY + 11}" font-size="8" fill="#555" text-anchor="middle">${esc(methodText)}</text>`;
+        <text x="${midX}" y="${midY + 11}" font-size="8" fill="#555" text-anchor="middle">${esc(methodText)}</text>
+        ${htmSvg}`;
     })
     .join("\n");
 
