@@ -63,6 +63,7 @@ import {
   Ruler,
   Layers,
   Edit3,
+  Plus,
 } from "lucide-react";
 
 export function SidePanel() {
@@ -1096,9 +1097,10 @@ function CommentBox({
         />
         <button
           onClick={submit}
-          className="shrink-0 rounded bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          title="Добавить комментарий"
+          className="flex shrink-0 items-center justify-center rounded bg-blue-600 px-2.5 py-1.5 text-white hover:bg-blue-700"
         >
-          +
+          <Plus size={14} strokeWidth={2} />
         </button>
       </div>
     </div>
