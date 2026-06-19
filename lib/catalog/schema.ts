@@ -18,6 +18,12 @@ export const printAreaSchema = z.object({
   polygon_mm: z.array(z.tuple([z.number(), z.number()])).min(3),
   safe_inset_mm: z.number().nonnegative(),
   default_method: printMethodSchema.optional(),
+  max_print_mm: z
+    .object({ width: z.number().positive(), height: z.number().positive() })
+    .optional(),
+  min_print_mm: z
+    .object({ width: z.number().positive(), height: z.number().positive() })
+    .optional(),
 });
 
 export const anchorsSchema = z.object({

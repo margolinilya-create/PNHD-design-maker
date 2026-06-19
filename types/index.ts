@@ -59,6 +59,10 @@ export interface PrintArea {
   safe_inset_mm: number;
   /** Метод печати по умолчанию для зоны (напр. этикетка/грудь — вышивка). */
   default_method?: PrintMethod;
+  /** Допустимый максимум размера печати (мм) — превышение предупреждается. */
+  max_print_mm?: { width: number; height: number };
+  /** Допустимый минимум размера печати (мм) — меньше = предупреждение. */
+  min_print_mm?: { width: number; height: number };
 }
 
 export interface View {
