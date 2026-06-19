@@ -490,7 +490,7 @@ export function SidePanel() {
           )}
           <input
             type="color"
-            value={garmentColor || "#1b1f24"}
+            value={garmentColor || "#ffffff"}
             onChange={(e) => setGarmentColor(e.target.value)}
             title="Свой цвет"
             className="h-6 w-8 cursor-pointer rounded border border-gray-300 bg-transparent"
