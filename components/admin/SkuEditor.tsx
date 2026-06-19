@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { loadAsset } from "@/lib/catalog/loadAsset";
-import { generateMaskFromPhoto } from "@/lib/admin/autoMask";
+import { generateMaskFromPhoto, generateMaskAuto } from "@/lib/admin/autoMask";
 import {
   validateSku,
   idError,
@@ -125,12 +125,26 @@ export function SkuEditor({
   const addMockup = async (file: File) => {
     if (!view) return;
     const loaded = await loadAsset(file);
+    // Маска ткани генерится автоматически при загрузке фото (порог/инверсия
+    // подбираются по контрасту фон↔ткань). Доводка — ручными контролами ниже.
+    let mask = view.mockup?.mask;
+    setMaskBusy(true);
+    try {
+      const auto = await generateMaskAuto(loaded.dataUrl);
+      mask = auto.mask;
+      setMaskThreshold(auto.threshold);
+      setMaskInvert(auto.invert);
+    } catch {
+      /* не удалось авто — маску можно собрать вручную */
+    } finally {
+      setMaskBusy(false);
+    }
     setSku(
       updateView(sku, view.id, {
         mockup: {
           photo: loaded.dataUrl,
           print: view.mockup?.print ?? { x: 0.3, y: 0.22, w: 0.4 },
-          mask: view.mockup?.mask,
+          mask,
         },
       }),
     );
@@ -737,7 +751,9 @@ export function SkuEditor({
                       )}
                     </div>
                     <p className="mb-1.5 text-[10px] text-gray-400">
-                      Нужна для перекраски фото под цвет изделия (multiply по ткани).
+                      Создаётся автоматически при загрузке фото. Нужна для
+                      перекраски под цвет изделия — здесь только доводка
+                      (порог/инверсия).
                     </p>
                     <div className="flex items-center gap-2">
                       <label className="text-[10px] text-gray-400">
