@@ -17,6 +17,7 @@ import {
   presetPosition,
   fitToZone,
   flatForSize,
+  yForNecklineOffset,
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
@@ -1322,6 +1323,32 @@ function PlacementInspector({
   };
   const isFrontBack =
     view?.kind === "front" || view?.kind === "back";
+  // Отступ от шва горловины (знаковый, мм) — вводимое поле для front/back.
+  const neckInfo =
+    view && isFrontBack
+      ? placementInfo(
+          view,
+          { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+          p.rotation_deg,
+          garmentSize ?? undefined,
+          p.print_area_id,
+        )
+      : null;
+  const neckOffset =
+    neckInfo?.anchor.kind === "neckline" ? neckInfo.anchor.vertical : null;
+  const commitNeckOffset = (v: number) => {
+    if (!view) return;
+    onChange({
+      y_mm: yForNecklineOffset(
+        view,
+        { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+        p.rotation_deg,
+        v,
+        garmentSize ?? undefined,
+        p.print_area_id,
+      ),
+    });
+  };
   const presets: { key: PositionPreset; label: string }[] = [
     { key: "center-x", label: "Центр X" },
     { key: "center-zone", label: "Центр зоны" },
@@ -1374,6 +1401,13 @@ function PlacementInspector({
           value={p.y_mm}
           onCommit={(v) => onChange({ y_mm: v })}
         />
+        {neckOffset !== null && (
+          <MmField
+            label="Отступ от горловины"
+            value={neckOffset}
+            onCommit={commitNeckOffset}
+          />
+        )}
         <MmField
           label="Ширина"
           value={p.width_mm}

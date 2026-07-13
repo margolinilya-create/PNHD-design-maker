@@ -21,6 +21,7 @@ import {
   findPrintArea,
   presetPosition,
   fitToZone,
+  yForNecklineOffset,
 } from "./view";
 
 // Эталон из seed: перед tshirt-classic.
@@ -357,6 +358,39 @@ describe("мультизона + пресеты позиции", () => {
     const r = fitToZone(v, { x: 0, y: 0, w: 50, h: 50 }, "fill", undefined, "chest");
     expect(r.width_mm).toBe(370);
     expect(r.height_mm).toBe(370);
+  });
+
+  describe("yForNecklineOffset — обратная к verticalFromNeckline", () => {
+    const roundTrip = (rot: number, offset: number) => {
+      const bbox: Bbox = { x: 240, y: 300, w: 120, h: 100 };
+      const y = yForNecklineOffset(v, bbox, rot, offset, undefined, "chest");
+      const moved = { ...bbox, y };
+      return placementInfo(v, moved, rot, undefined, "chest").anchor.vertical;
+    };
+
+    it("round-trip без поворота", () => {
+      expect(roundTrip(0, 75)).toBeCloseTo(75, 6);
+    });
+
+    it("round-trip при повороте 30°", () => {
+      expect(roundTrip(30, 75)).toBeCloseTo(75, 6);
+    });
+
+    it("отрицательный отступ — выше шва", () => {
+      expect(roundTrip(0, -20)).toBeCloseTo(-20, 6);
+    });
+
+    it("без якоря горловины отсчёт от верха зоны", () => {
+      const noNeck = {
+        ...v,
+        anchors: { center_axis_x: 300 },
+      } as unknown as import("@/types").View;
+      const bbox: Bbox = { x: 240, y: 300, w: 120, h: 100 };
+      // necklineY → zone.zy (140): offset 30 → y = 170.
+      expect(
+        yForNecklineOffset(noNeck, bbox, 0, 30, undefined, "chest"),
+      ).toBeCloseTo(170, 6);
+    });
   });
 });
 
