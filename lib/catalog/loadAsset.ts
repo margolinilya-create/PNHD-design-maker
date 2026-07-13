@@ -3,6 +3,7 @@
 "use client";
 
 import type { AssetType } from "@/types";
+import { isPdfLike, loadPdfAsset } from "./loadPdf";
 
 export interface LoadedAsset {
   type: AssetType;
@@ -116,6 +117,9 @@ function readPngDpi(buf: ArrayBuffer): number | null {
 }
 
 export async function loadAsset(file: File): Promise<LoadedAsset> {
+  // PDF/AI — отдельный лоадер (сам pdfjs подтягивается динамически внутри).
+  if (isPdfLike(file)) return loadPdfAsset(file);
+
   const dataUrl = await readAsDataUrl(file);
   const isSvg = file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
 

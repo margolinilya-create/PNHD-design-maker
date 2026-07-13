@@ -242,4 +242,85 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
     expect(m).not.toBeNull();
     expect(parseFloat(m![2]) - parseFloat(m![1])).toBeCloseTo(100, 6);
   });
+
+  describe("minimal-вариант — тех-рисунок без лишнего", () => {
+    const minimal = () =>
+      buildSceneSvg({
+        sku,
+        view,
+        flatSvgMarkup:
+          '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+        flatMm: { w: 600, h: 760 },
+        placements: [
+          {
+            id: "p1",
+            print_area_id: "chest",
+            asset_id: "a1",
+            x_mm: 250,
+            y_mm: 167, // отступ от горловины 92 → 75 мм
+            width_mm: 100,
+            height_mm: 100,
+            rotation_deg: 0,
+            method: "dtf",
+          },
+        ],
+        assets: pngAsset,
+        meta: { client: "К", orderRef: "З-1", size: "M", date: "13.07.2026" },
+        variant: "minimal",
+      });
+
+    it("страница без спец-панели и титула: W=PAD+флэт+PAD, H с блоком размера", () => {
+      const svg = minimal();
+      expect(svg).toMatch(/width="628mm"/); // 14+600+14
+      expect(svg).toMatch(/height="830mm"/); // 14+760+42+14
+    });
+
+    it("нет лишнего: титул/спека/легенда/зоны/стрелки/футер", () => {
+      const svg = minimal();
+      expect(svg).not.toContain('data-title="1"');
+      expect(svg).not.toContain('data-spec="1"');
+      expect(svg).not.toContain('data-legend="1"');
+      expect(svg).not.toContain('data-layer="zones"');
+      expect(svg).not.toContain("marker-start"); // краевые стрелки
+      expect(svg).not.toContain("Согласовано (цех)");
+      expect(svg).not.toContain("PINHEAD"); // вордмарк титула
+    });
+
+    it("есть только требуемое: размер, отступ от горловины, Ш×В, шкала", () => {
+      const svg = minimal();
+      expect(svg).toContain('data-size-label="M"');
+      expect(svg).toMatch(/>M<\/text>/); // крупная буква размера
+      expect(svg).toContain(">75<"); // отступ от горловины, мм
+      // Латинско-безопасные подписи: стандартные шрифты jsPDF без кириллицы.
+      expect(svg).toContain("100×100 mm"); // размер макета
+      expect(svg).toContain('data-calibration-mm="100"');
+      expect(svg).toContain('data-layer="garment"');
+      expect(svg).toContain('data-layer="production-artwork"');
+    });
+
+    it("full-вариант не деградировал (спека и зоны на месте)", () => {
+      const svg = scene();
+      expect(svg).toContain('data-title="1"');
+      expect(svg).toContain("PINHEAD");
+    });
+  });
+
+  it("растровый флэт (PDF/AI-визуалка) рисуется <image> в garment-слое", () => {
+    const svg = buildSceneSvg({
+      sku,
+      view,
+      flatSvgMarkup: "",
+      flatRaster: { dataUrl: "data:image/png;base64,FLAT" },
+      flatMm: { w: 600, h: 760 },
+      placements: [],
+      assets: {},
+      meta: { client: "", orderRef: "", size: "M", date: "13.07.2026" },
+      variant: "minimal",
+    });
+    const garment = svg.match(/<g data-layer="garment">([\s\S]*?)<\/g>/)![1];
+    expect(garment).toContain("<image");
+    expect(garment).toContain('width="600"');
+    expect(garment).toContain('height="760"');
+    expect(svg).toMatch(/width="628mm"/); // страница по-прежнему в мм
+  });
 });

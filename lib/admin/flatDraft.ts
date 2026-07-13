@@ -69,6 +69,7 @@ export function buildSkuFromDraft(d: FlatDraft): SKU {
     id: d.skuId,
     name: d.skuName,
     type: d.type,
+    product_kind: "finished",
     base_size: d.baseSize,
     sizes: [d.baseSize],
     views: [view],

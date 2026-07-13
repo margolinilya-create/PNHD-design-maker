@@ -327,6 +327,7 @@ export function emptySku(id: string, name: string, type: GarmentType): SKU {
     id,
     name,
     type,
+    product_kind: "finished",
     base_size: base,
     sizes: [base],
     views: [emptyView(id, "front")],

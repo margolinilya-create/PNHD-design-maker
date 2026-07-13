@@ -17,6 +17,9 @@ import {
   presetPosition,
   fitToZone,
   flatForSize,
+  yForNecklineOffset,
+  positionOnAxis,
+  anchorsForSize,
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
@@ -30,7 +33,7 @@ import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
 import { exportSvgAsPng } from "@/lib/export/exportPng";
-import { resolveFlatMarkup } from "@/lib/export/flatMarkup";
+import { resolveFlat } from "@/lib/export/resolveFlat";
 import {
   preflight,
   hasBlockingErrors,
@@ -184,9 +187,8 @@ export function SidePanel() {
     setBusy(true);
     setMsg(null);
     try {
-      const markup = await resolveFlatMarkup(flatForSize(view, size ?? undefined));
       const s = view.scale_mm_per_unit ?? 1;
-      const raw = svgSizeMm(markup);
+      const flat = await resolveFlat(flatForSize(view, size ?? undefined), s);
       const vp = placements.filter((p) =>
         view.print_areas.some((a) => a.id === p.print_area_id),
       );
@@ -208,8 +210,9 @@ export function SidePanel() {
       }
       const svg = buildPreviewSvg({
         view,
-        flatSvgMarkup: markup,
-        flatMm: { w: raw.w * s, h: raw.h * s },
+        flatSvgMarkup: flat.markup,
+        flatRasterUrl: flat.rasterUrl,
+        flatMm: flat.flatMm,
         scaleMmPerUnit: s,
         garmentColor,
         size: size ?? undefined,
@@ -250,9 +253,8 @@ export function SidePanel() {
           pls.some((p) => v.print_areas.some((a) => a.id === p.print_area_id)),
         );
         for (const v of viewsWith) {
-          const markup = await resolveFlatMarkup(flatForSize(v, tSize));
-          const raw = svgSizeMm(markup);
           const s = v.scale_mm_per_unit ?? 1;
+          const flat = await resolveFlat(flatForSize(v, tSize), s);
           const vp = pls.filter((p) =>
             v.print_areas.some((a) => a.id === p.print_area_id),
           );
@@ -260,8 +262,9 @@ export function SidePanel() {
             buildSceneSvg({
               sku,
               view: v,
-              flatSvgMarkup: markup,
-              flatMm: { w: raw.w * s, h: raw.h * s },
+              flatSvgMarkup: flat.markup,
+              flatRaster: flat.rasterUrl ? { dataUrl: flat.rasterUrl } : undefined,
+              flatMm: flat.flatMm,
               scaleMmPerUnit: s,
               garmentColor,
               placements: vp,
@@ -273,6 +276,7 @@ export function SidePanel() {
                 date: new Date().toLocaleDateString("ru-RU"),
                 status,
               },
+              variant: "minimal",
             }),
           );
         }
@@ -309,9 +313,11 @@ export function SidePanel() {
     action();
   };
 
-  const onExport = () => gateExport(() => void runExport("full"));
+  const onExport = () => gateExport(() => void runExport("minimal"));
 
-  const runExport = async (variant: "full" | "production" = "full") => {
+  const runExport = async (
+    variant: "full" | "production" | "minimal" = "minimal",
+  ) => {
     if (!sku) return;
     setPreflightIssues(null);
     setBusy(true);
@@ -329,11 +335,9 @@ export function SidePanel() {
       }
       const scenes: string[] = [];
       for (const v of target) {
-        const markup = await resolveFlatMarkup(flatForSize(v, size ?? undefined));
-        // Габариты viewBox — в единицах SVG; переводим в мм через scale_mm_per_unit.
-        const raw = svgSizeMm(markup);
+        // Габариты в мм считает резолвер (viewBox × scale или растр × scale).
         const s = v.scale_mm_per_unit ?? 1;
-        const flatMm = { w: raw.w * s, h: raw.h * s };
+        const flat = await resolveFlat(flatForSize(v, size ?? undefined), s);
         const vp = placements.filter((p) =>
           v.print_areas.some((a) => a.id === p.print_area_id),
         );
@@ -341,8 +345,9 @@ export function SidePanel() {
           buildSceneSvg({
             sku,
             view: v,
-            flatSvgMarkup: markup,
-            flatMm,
+            flatSvgMarkup: flat.markup,
+            flatRaster: flat.rasterUrl ? { dataUrl: flat.rasterUrl } : undefined,
+            flatMm: flat.flatMm,
             scaleMmPerUnit: s,
             garmentColor,
             placements: vp,
@@ -363,7 +368,11 @@ export function SidePanel() {
         scenes,
         `${sku.id}-${orderRef || "draft"}${suffix}.pdf`,
       );
-      setMsg(variant === "production" ? "PDF для цеха готов" : "PDF готов");
+      setMsg(
+        variant === "production"
+          ? "PDF для цеха готов"
+          : "Тех-рисунок (PDF) готов",
+      );
     } catch (e) {
       setMsg(`Ошибка экспорта: ${e}`);
     } finally {
@@ -403,7 +412,7 @@ export function SidePanel() {
         <input
           ref={fileRef}
           type="file"
-          accept=".svg,.png,image/svg+xml,image/png"
+          accept=".svg,.png,.jpg,.jpeg,.pdf,.ai,image/svg+xml,image/png,image/jpeg,application/pdf"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -436,7 +445,7 @@ export function SidePanel() {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-700"
         >
           <Upload size={16} strokeWidth={1.75} />
-          Загрузить SVG / PNG
+          Загрузить макет (SVG/PNG/JPG/PDF/AI)
         </button>
         <p className="mt-1 text-xs text-gray-400">
           Добавится в зону «
@@ -680,16 +689,10 @@ export function SidePanel() {
         <button
           onClick={onExport}
           disabled={busy}
+          title="Размер изделия, отступ от шва горловины и размер макета — в мм, 1:1"
           className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
-          {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
-        </button>
-        <button
-          onClick={() => gateExport(() => void runExport("production"))}
-          disabled={busy || viewLayers.length === 0}
-          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-ink hover:bg-gray-200 disabled:opacity-50"
-        >
-          PDF для цеха (без обвязки)
+          {busy ? "Сборка…" : "Тех-рисунок (PDF)"}
         </button>
         <button
           onClick={() => setShowBatch(true)}
@@ -1322,6 +1325,32 @@ function PlacementInspector({
   };
   const isFrontBack =
     view?.kind === "front" || view?.kind === "back";
+  // Отступ от шва горловины (знаковый, мм) — вводимое поле для front/back.
+  const neckInfo =
+    view && isFrontBack
+      ? placementInfo(
+          view,
+          { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+          p.rotation_deg,
+          garmentSize ?? undefined,
+          p.print_area_id,
+        )
+      : null;
+  const neckOffset =
+    neckInfo?.anchor.kind === "neckline" ? neckInfo.anchor.vertical : null;
+  const commitNeckOffset = (v: number) => {
+    if (!view) return;
+    onChange({
+      y_mm: yForNecklineOffset(
+        view,
+        { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+        p.rotation_deg,
+        v,
+        garmentSize ?? undefined,
+        p.print_area_id,
+      ),
+    });
+  };
   const presets: { key: PositionPreset; label: string }[] = [
     { key: "center-x", label: "Центр X" },
     { key: "center-zone", label: "Центр зоны" },
@@ -1335,6 +1364,20 @@ function PlacementInspector({
         ] as { key: PositionPreset; label: string }[])
       : []),
   ];
+  // Именованные вертикальные оси вида (выточки/рельефы) → пресеты «Центр: …».
+  const namedAxes = view
+    ? (garmentSize ? anchorsForSize(view, garmentSize) : view.anchors).axes ?? []
+    : [];
+  const applyAxis = (axisId: string) => {
+    if (!view) return;
+    const pos = positionOnAxis(
+      view,
+      { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+      axisId,
+      garmentSize ?? undefined,
+    );
+    if (pos) onChange(pos);
+  };
   return (
     <section>
       <h3 className="mb-2 font-semibold text-ink">Позиция (мм)</h3>
@@ -1346,6 +1389,16 @@ function PlacementInspector({
             className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
           >
             {pr.label}
+          </button>
+        ))}
+        {namedAxes.map((a) => (
+          <button
+            key={a.id}
+            onClick={() => applyAxis(a.id)}
+            title={`Центрировать по оси «${a.name}» (X=${a.x} мм)`}
+            className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
+          >
+            Центр: {a.name}
           </button>
         ))}
         <button
@@ -1374,6 +1427,13 @@ function PlacementInspector({
           value={p.y_mm}
           onCommit={(v) => onChange({ y_mm: v })}
         />
+        {neckOffset !== null && (
+          <MmField
+            label="Отступ от горловины"
+            value={neckOffset}
+            onCommit={commitNeckOffset}
+          />
+        )}
         <MmField
           label="Ширина"
           value={p.width_mm}
@@ -1614,13 +1674,4 @@ async function loadPhoto(
     img.src = dataUrl;
   });
   return { dataUrl, ...dims };
-}
-
-/** Размер SVG в мм по viewBox (для сцены PDF). */
-function svgSizeMm(markup: string): { w: number; h: number } {
-  const vb = markup.match(
-    /viewBox\s*=\s*["']\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)/i,
-  );
-  if (vb) return { w: parseFloat(vb[3]), h: parseFloat(vb[4]) };
-  return { w: 600, h: 760 };
 }

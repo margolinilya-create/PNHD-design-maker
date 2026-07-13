@@ -168,7 +168,7 @@ export function FlatCreator({
         <input
           ref={fileRef}
           type="file"
-          accept=".svg,.png,image/svg+xml,image/png"
+          accept=".svg,.png,.jpg,.jpeg,.pdf,.ai,image/svg+xml,image/png,image/jpeg,application/pdf"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -197,7 +197,7 @@ export function FlatCreator({
           onClick={() => fileRef.current?.click()}
           className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
         >
-          <Upload size={14} strokeWidth={1.75} /> Загрузить флэт (SVG/PNG)
+          <Upload size={14} strokeWidth={1.75} /> Загрузить флэт (SVG/PNG/PDF/AI)
         </button>
       </header>
 

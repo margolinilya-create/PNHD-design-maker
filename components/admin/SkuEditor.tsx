@@ -38,6 +38,7 @@ import type {
   GarmentType,
   GradeRule,
   PrintArea,
+  ProductKind,
   SKU,
   View,
   ViewKind,
@@ -297,6 +298,21 @@ export function SkuEditor({
                 </select>
               </Field>
             </div>
+            <Field label="Тип продукта">
+              <select
+                value={sku.product_kind ?? "finished"}
+                onChange={(e) =>
+                  setSku({
+                    ...sku,
+                    product_kind: e.target.value as ProductKind,
+                  })
+                }
+                className={inp}
+              >
+                <option value="finished">на готовом изделии</option>
+                <option value="cut">в крое</option>
+              </select>
+            </Field>
             <Field label="Размеры (ростовка)">
               <div className="flex flex-wrap items-center gap-1.5">
                 {sku.sizes.map((s) => (
@@ -514,7 +530,7 @@ export function SkuEditor({
                   " · SVG/PNG"}
                 <input
                   type="file"
-                  accept=".svg,.png,image/svg+xml,image/png"
+                  accept=".svg,.png,.jpg,.jpeg,.pdf,.ai,image/svg+xml,image/png,image/jpeg,application/pdf"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -585,6 +601,90 @@ export function SkuEditor({
                       />
                     </>
                   )}
+                </div>
+              )}
+              {/* Именованные вертикальные оси (выточки/рельефы/швы):
+                  пресет «Центр: {имя}» и прилипание в редакторе. */}
+              {!isLabel && (
+                <div className="mt-2 space-y-1.5">
+                  <div className="text-[11px] font-medium text-gray-500">
+                    Доп. оси центровки (выточки)
+                  </div>
+                  {(effView.anchors.axes ?? []).map((ax, i) => (
+                    <div key={ax.id} className="flex items-center gap-1.5">
+                      <input
+                        value={ax.name}
+                        onChange={(e) =>
+                          setSku(
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              axes: (effView.anchors.axes ?? []).map((a, j) =>
+                                j === i ? { ...a, name: e.target.value } : a,
+                              ),
+                            }),
+                          )
+                        }
+                        placeholder="имя (напр. выточка Л)"
+                        className={`${inp} flex-1`}
+                      />
+                      <input
+                        type="number"
+                        value={ax.x}
+                        onChange={(e) =>
+                          setSku(
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              axes: (effView.anchors.axes ?? []).map((a, j) =>
+                                j === i
+                                  ? { ...a, x: Number(e.target.value) }
+                                  : a,
+                              ),
+                            }),
+                          )
+                        }
+                        title="X оси, мм"
+                        className={`${inp} w-24`}
+                      />
+                      <button
+                        onClick={() =>
+                          setSku(
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              axes: (effView.anchors.axes ?? []).filter(
+                                (_, j) => j !== i,
+                              ),
+                            }),
+                          )
+                        }
+                        title="Удалить ось"
+                        className="shrink-0 rounded px-1.5 py-1 text-gray-400 hover:text-red-600"
+                      >
+                        <X size={14} strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setSku(
+                        setSizeAnchors(sku, view.id, editSize, base, {
+                          ...effView.anchors,
+                          axes: [
+                            ...(effView.anchors.axes ?? []),
+                            {
+                              id: `axis-${Date.now().toString(36)}`,
+                              name: `ось ${(effView.anchors.axes?.length ?? 0) + 1}`,
+                              x: Math.round(
+                                effView.anchors.center_axis_x ?? 0,
+                              ),
+                            },
+                          ],
+                        }),
+                      )
+                    }
+                    className="w-full rounded border border-dashed border-line px-2 py-1.5 text-xs text-gray-500 hover:border-gray-400"
+                  >
+                    + ось
+                  </button>
                 </div>
               )}
             </Section>

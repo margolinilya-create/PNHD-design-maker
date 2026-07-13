@@ -96,6 +96,16 @@ describe("skuEdit", () => {
     expect(validateSku(emptySku("new", "Новая", "tshirt"))).toEqual([]);
   });
 
+  it("emptySku — готовое изделие по умолчанию", () => {
+    expect(emptySku("new", "Новая", "tshirt").product_kind).toBe("finished");
+  });
+
+  it("именованные оси (axes) проходят валидацию схемы", () => {
+    const s = emptySku("ax", "С осями", "tshirt");
+    s.views[0].anchors.axes = [{ id: "dart-l", name: "выточка Л", x: 120 }];
+    expect(validateSku(s)).toEqual([]);
+  });
+
   it("per-size: override якорей/зон, фоллбэк на базовые, валидность", () => {
     // базовый размер — фоллбэк на базовые
     expect(effAnchors(sku.views[0], "M", "M").neckline_point?.y).toBe(30);

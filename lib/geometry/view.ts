@@ -163,6 +163,43 @@ export function presetPosition(
 }
 
 /**
+ * Центрирование по именованной вертикальной оси (выточка/рельеф/шов).
+ * null — ось не найдена у вида/размера. Y не меняется.
+ */
+export function positionOnAxis(
+  view: View,
+  bbox: Bbox,
+  axisId: string,
+  size?: string,
+): { x_mm: number; y_mm: number } | null {
+  const anchors = size ? anchorsForSize(view, size) : view.anchors;
+  const axis = anchors.axes?.find((a) => a.id === axisId);
+  if (!axis) return null;
+  return { x_mm: axis.x - bbox.w / 2, y_mm: bbox.y };
+}
+
+/**
+ * Обратная задача к verticalFromNeckline: y_mm (top-left bbox), при котором
+ * верх ПОВЁРНУТОГО AABB макета отстоит от шва горловины на offsetMm
+ * (знаковое: отрицательное = выше шва). Инвариант к повороту: сдвиг
+ * aabb.y − bbox.y зависит только от размеров и угла, не от позиции.
+ */
+export function yForNecklineOffset(
+  view: View,
+  bbox: Bbox,
+  rotationDeg: number,
+  offsetMm: number,
+  size?: string,
+  areaId?: string,
+): number {
+  const { zone } = viewZone(view, size, areaId);
+  const anchors = size ? anchorsForSize(view, size) : view.anchors;
+  const necklineY = anchors.neckline_point?.y ?? zone.zy;
+  const aabb = rotatedAabb(bbox, rotationDeg);
+  return bbox.y + (necklineY + offsetMm - aabb.y);
+}
+
+/**
  * Вписать (fit) или заполнить (fill) нанесение по печатной зоне с учётом
  * safe-inset, сохраняя пропорции текущего bbox. Возвращает полный bbox (мм).
  * fit — целиком внутри зоны; fill — покрывает зону (излишек обрежется маской).

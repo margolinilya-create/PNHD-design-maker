@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shirt, Palette } from "lucide-react";
+import { Shirt, Palette, Scissors } from "lucide-react";
 import { SkuPicker } from "@/components/catalog/SkuPicker";
 
 export default function HomePage() {
@@ -30,7 +30,27 @@ export default function HomePage() {
           </Link>
         </div>
       </header>
-      <SkuPicker />
+
+      {/* Первичное разделение: печать на готовом изделии / в крое. */}
+      <div className="mb-6 inline-flex rounded-lg border border-line bg-white p-1 shadow-sm">
+        <span className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">
+          <Shirt size={16} strokeWidth={1.75} />
+          На готовом изделии
+        </span>
+        <button
+          disabled
+          title="Печать на крое до пошива — в следующей итерации"
+          className="inline-flex cursor-not-allowed items-center gap-2 rounded-md px-4 py-2 text-sm text-gray-400"
+        >
+          <Scissors size={16} strokeWidth={1.75} />
+          В крое
+          <span className="rounded bg-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-gray-500">
+            скоро
+          </span>
+        </button>
+      </div>
+
+      <SkuPicker kind="finished" />
     </main>
   );
 }

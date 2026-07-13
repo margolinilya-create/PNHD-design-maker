@@ -7,8 +7,9 @@ import { loadCatalog } from "@/lib/catalog/loadCatalog";
 import { listModels, deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
 import { useProjectStore } from "@/lib/state/projectStore";
+import type { ProductKind } from "@/types";
 
-export function SkuPicker() {
+export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   const router = useRouter();
   const catalog = useProjectStore((s) => s.catalog);
   const setCatalog = useProjectStore((s) => s.setCatalog);
@@ -20,7 +21,19 @@ export function SkuPicker() {
   const load = useCallback(async () => {
     try {
       const cat = await loadCatalog();
-      const models = await listModels();
+      // Пользовательские модели из облака — best-effort: недоступный или
+      // зависший Supabase не должен блокировать seed-каталог (таймаут 5 с).
+      let models: Awaited<ReturnType<typeof listModels>> = [];
+      try {
+        models = await Promise.race([
+          listModels(),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error("cloud timeout")), 5000),
+          ),
+        ]);
+      } catch {
+        /* облако недоступно — работаем на seed */
+      }
       const ids = new Set(cat.skus.map((s) => s.id));
       const custom = models.filter((m) => !ids.has(m.id));
       setCustomIds(new Set(custom.map((m) => m.id)));
@@ -54,9 +67,22 @@ export function SkuPicker() {
   if (!catalog)
     return <p className="text-gray-500">Загрузка каталога…</p>;
 
+  // Первичное разделение каталога: готовое изделие / крой.
+  const skus = catalog.skus.filter(
+    (sku) => (sku.product_kind ?? "finished") === kind,
+  );
+  if (!skus.length)
+    return (
+      <p className="text-gray-500">
+        {kind === "cut"
+          ? "Раздел «В крое» пока пуст — появится в следующей итерации."
+          : "В каталоге пока нет моделей."}
+      </p>
+    );
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {catalog.skus.map((sku) => {
+      {skus.map((sku) => {
         const custom = customIds.has(sku.id);
         return (
           <div

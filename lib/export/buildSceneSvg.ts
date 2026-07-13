@@ -19,7 +19,13 @@ function placementMethod(view: View, p: Placement) {
 export interface SceneInput {
   sku: SKU;
   view: View;
-  flatSvgMarkup: string; // исходный <svg>…</svg> флэта
+  flatSvgMarkup: string; // исходный <svg>…</svg> флэта («» при растровом флэте)
+  /**
+   * Растровый флэт (data URL PNG/JPEG — напр. загруженная PDF/AI-визуалка):
+   * рисуется <image> на всю площадь flatMm вместо inner-SVG.
+   * Перекраска garmentColor к растру не применяется.
+   */
+  flatRaster?: { dataUrl: string };
   flatMm: { w: number; h: number }; // габариты флэта В МИЛЛИМЕТРАХ
   /** Коэффициент единицы SVG флэта → мм (1 = 1 ед = 1 мм). */
   scaleMmPerUnit?: number;
@@ -37,9 +43,11 @@ export interface SceneInput {
   /**
    * Вариант листа (P2 #4):
    * - "full" (по умолчанию) — флэт + нанесения + обвязка + спецификация;
-   * - "production" — флэт + чистое нанесение без обвязки (для цеха).
+   * - "production" — флэт + чистое нанесение без обвязки (для цеха);
+   * - "minimal" — тех-рисунок без лишнего: только размер изделия,
+   *   отступ от шва горловины (мм) и размер макета Ш×В (мм) + шкала 1:1.
    */
-  variant?: "full" | "production";
+  variant?: "full" | "production" | "minimal";
 }
 
 // ── Палитра «Студия» ──
@@ -101,8 +109,12 @@ function dimArrow(
     <text x="${mx}" y="${my - 3}" font-size="11" fill="${tc}" text-anchor="middle" style="font-variant-numeric:tabular-nums">${esc(text)}</text>`;
 }
 
-/** Калибровочная шкала 100 мм (контроль 1:1 линейкой). */
-function calibrationBar(x: number, y: number): string {
+/**
+ * Калибровочная шкала 100 мм (контроль 1:1 линейкой).
+ * latinSafe — только латиница/цифры: стандартные шрифты jsPDF не несут
+ * кириллицу, на минимальном листе подписи должны читаться гарантированно.
+ */
+function calibrationBar(x: number, y: number, latinSafe = false): string {
   const LEN = 100;
   let ticks = "";
   for (let i = 0; i <= 10; i++) {
@@ -110,13 +122,48 @@ function calibrationBar(x: number, y: number): string {
     const h = i % 5 === 0 ? 5 : 3;
     ticks += `<line x1="${tx}" y1="${y}" x2="${tx}" y2="${y - h}" stroke="${C.body}" stroke-width="0.5"/>`;
   }
+  const caption = latinSafe
+    ? `<text x="${x}" y="${y - 8}" font-size="8" fill="${C.hint}">scale 1:1</text>`
+    : `<text x="${x}" y="${y - 8}" font-size="8" fill="${C.hint}">контроль масштаба 1:1</text>`;
   return `<g data-calibration-mm="${LEN}">
-    <text x="${x}" y="${y - 8}" font-size="8" fill="${C.hint}">контроль масштаба 1:1</text>
+    ${caption}
     <line x1="${x}" y1="${y}" x2="${x + LEN}" y2="${y}" stroke="${C.body}" stroke-width="0.75"/>
     ${ticks}
     <text x="${x}" y="${y + 9}" font-size="9" fill="${C.body}">0</text>
-    <text x="${x + LEN}" y="${y + 9}" font-size="9" fill="${C.body}" text-anchor="end">100 мм</text>
+    <text x="${x + LEN}" y="${y + 9}" font-size="9" fill="${C.body}" text-anchor="end">100 ${latinSafe ? "mm" : "мм"}</text>
   </g>`;
+}
+
+type DimScene = ReturnType<typeof buildDimensionLines>;
+
+/**
+ * Красная линия отступа от шва горловины с числом и точкой якоря.
+ * Единый билдер для full- и minimal-листа.
+ */
+function neckOffsetMarkup(scene: DimScene, toleranceMm?: number): string {
+  const vAnchor = scene.lines.find((l) => l.kind === "vertical-anchor")!;
+  const { aabb, centerX, anchorY } = scene;
+  const tol = toleranceMm && toleranceMm > 0 ? ` ±${toleranceMm}` : "";
+  const nl = `${Math.round(vAnchor.value)}${tol}`;
+  const nlW = nl.length * 3.5 + 6;
+  // Число — на измеряемом участке «шов горловины → верх макета»
+  // (не в центре макета: там его перекрывала плашка Ш×В).
+  const nlY = anchorY + Math.max(9, (aabb.y - anchorY) / 2);
+  return `<line x1="${vAnchor.from.x}" y1="${vAnchor.from.y}" x2="${vAnchor.to.x}" y2="${vAnchor.to.y}" stroke="${C.anchor}" stroke-width="1" stroke-dasharray="5 4"/>
+        <rect x="${centerX - 5 - nlW}" y="${nlY - 9}" width="${nlW}" height="12" rx="2" fill="${C.halo}"/>
+        <text x="${centerX - 8}" y="${nlY}" font-size="11" fill="${C.anchor}" text-anchor="end" style="font-variant-numeric:tabular-nums">${nl}</text>
+        <circle cx="${centerX}" cy="${anchorY}" r="3" fill="${C.anchor}"/>`;
+}
+
+/** Синяя плашка «Ш×В мм» у верха нанесения (размер макета). */
+function whPlateMarkup(scene: DimScene, latinSafe = false): string {
+  const { aabb } = scene;
+  const midX = aabb.x + aabb.w / 2;
+  const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} ${latinSafe ? "mm" : "мм"}`;
+  const whHalfW = wh.length * 3.6 + 3;
+  const whY = aabb.y + 3;
+  return `<rect x="${midX - whHalfW}" y="${whY}" width="${whHalfW * 2}" height="16" rx="2" fill="${C.zone}"/>
+        <text x="${midX}" y="${whY + 11}" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle" style="font-variant-numeric:tabular-nums">${esc(wh)}</text>`;
 }
 
 /** Титульный блок: вордмарк + сетка метаданных. */
@@ -248,19 +295,24 @@ function specPanel(
 export function buildSceneSvg(input: SceneInput): string {
   const { view, flatMm, placements, assets, sku, meta } = input;
   const isProd = input.variant === "production";
+  const isMin = input.variant === "minimal";
+  const noSpec = isProd || isMin; // без зон/обвязки/спецификации
 
   // Раскладка (мм)
   const PAD = 14;
   const TITLE_H = 54;
   const FOOTER_H = 22;
   const GAP = 16;
-  const SPEC_W = isProd ? 0 : 150;
+  const SPEC_W = noSpec ? 0 : 150;
+  const SIZE_H = 42; // minimal: блок под изделием — буква размера + шкала 1:1
   const drawW = flatMm.w;
   const drawH = flatMm.h;
-  const W = PAD + drawW + (isProd ? 0 : GAP + SPEC_W) + PAD;
-  const H = TITLE_H + drawH + FOOTER_H + PAD;
+  const W = PAD + drawW + (noSpec ? 0 : GAP + SPEC_W) + PAD;
+  const H = isMin
+    ? PAD + drawH + SIZE_H + PAD
+    : TITLE_H + drawH + FOOTER_H + PAD;
   const DX = PAD;
-  const DY = TITLE_H;
+  const DY = isMin ? PAD : TITLE_H;
 
   // Клипы нанесений по их зонам (координаты — в пространстве рисунка).
   const clipDefs = placements
@@ -287,7 +339,7 @@ export function buildSceneSvg(input: SceneInput): string {
     .join("\n");
 
   // Зоны печати + safe-зоны (только в full).
-  const zonesSvg = isProd
+  const zonesSvg = noSpec
     ? ""
     : [...new Set(placements.map((p) => p.print_area_id))]
         .map((areaId) => {
@@ -297,7 +349,8 @@ export function buildSceneSvg(input: SceneInput): string {
         })
         .join("\n");
 
-  const dimsSvg = isProd
+  // Minimal: на нанесение — только отступ от горловины и плашка Ш×В.
+  const minDims = !isMin
     ? ""
     : placements
         .map((p) => {
@@ -308,9 +361,23 @@ export function buildSceneSvg(input: SceneInput): string {
             meta.size,
             p.print_area_id,
           );
-          const { aabb, zone, centerX, anchorY, lines } = scene;
-          const midX = aabb.x + aabb.w / 2;
-          const midY = aabb.y + aabb.h / 2;
+          return `${neckOffsetMarkup(scene, p.tolerance_mm)}
+        ${whPlateMarkup(scene, true)}`;
+        })
+        .join("\n");
+
+  const dimsSvg = noSpec
+    ? ""
+    : placements
+        .map((p) => {
+          const scene = buildDimensionLines(
+            view,
+            { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+            p.rotation_deg,
+            meta.size,
+            p.print_area_id,
+          );
+          const { zone, centerX, lines } = scene;
           const line = (k: (typeof lines)[number]["kind"]) =>
             lines.find((l) => l.kind === k)!;
           const edges = (["left", "right", "top", "bottom"] as const)
@@ -326,27 +393,13 @@ export function buildSceneSvg(input: SceneInput): string {
               );
             })
             .join("\n        ");
-          const vAnchor = line("vertical-anchor");
           const hAnchor = line("horizontal-anchor");
-          const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} мм`;
-          const whHalfW = wh.length * 3.6 + 3;
-          const tol =
-            p.tolerance_mm && p.tolerance_mm > 0 ? ` ±${p.tolerance_mm}` : "";
-          const nl = `${Math.round(vAnchor.value)}${tol}`;
-          const nlW = nl.length * 3.5 + 6;
-          const nlY = (anchorY + midY) / 2;
-          // Плашка Ш×В у верха нанесения (не закрывает центр макета).
-          const whY = aabb.y + 3;
           return `
         ${edges}
-        <line x1="${vAnchor.from.x}" y1="${vAnchor.from.y}" x2="${vAnchor.to.x}" y2="${vAnchor.to.y}" stroke="${C.anchor}" stroke-width="1" stroke-dasharray="5 4"/>
-        <rect x="${centerX - 5 - nlW}" y="${nlY - 9}" width="${nlW}" height="12" rx="2" fill="${C.halo}"/>
-        <text x="${centerX - 8}" y="${nlY}" font-size="11" fill="${C.anchor}" text-anchor="end" style="font-variant-numeric:tabular-nums">${nl}</text>
-        <circle cx="${centerX}" cy="${anchorY}" r="3" fill="${C.anchor}"/>
+        ${neckOffsetMarkup(scene, p.tolerance_mm)}
         <line x1="${centerX}" y1="${zone.zy}" x2="${centerX}" y2="${zone.zy + zone.zh}" stroke="${C.zone}" stroke-width="0.7" stroke-dasharray="3 5" opacity="0.6"/>
         ${dimArrow(hAnchor.from.x, hAnchor.from.y, hAnchor.to.x, hAnchor.to.y, `${Math.round(hAnchor.value)}`, false)}
-        <rect x="${midX - whHalfW}" y="${whY}" width="${whHalfW * 2}" height="16" rx="2" fill="${C.zone}"/>
-        <text x="${midX}" y="${whY + 11}" font-size="11" font-weight="bold" fill="#ffffff" text-anchor="middle" style="font-variant-numeric:tabular-nums">${esc(wh)}</text>`;
+        ${whPlateMarkup(scene)}`;
         })
         .join("\n");
 
@@ -356,17 +409,30 @@ export function buildSceneSvg(input: SceneInput): string {
     <text x="14" y="${footerY}" font-size="6.5" fill="${C.hint}" style="font-variant-numeric:tabular-nums">Масштаб 1:1 · единицы — мм · сгенерировано PINHEAD${isProd ? " · ЛИСТ ДЛЯ ЦЕХА (без обвязки)" : ""}</text>
     <text x="${W - 14}" y="${footerY}" font-size="6.5" fill="${C.hint}" text-anchor="end">Согласовано (цех): ____________   Дата: __________</text>`;
 
+  const garmentLayer = input.flatRaster
+    ? `<image href="${escAttr(input.flatRaster.dataUrl)}" xlink:href="${escAttr(input.flatRaster.dataUrl)}" x="0" y="0" width="${drawW}" height="${drawH}" preserveAspectRatio="none"/>`
+    : `<g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>`;
+
   const drawing = `<g transform="translate(${DX} ${DY})">
-    <g data-layer="garment" transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>
-    ${isProd ? "" : `<g data-layer="zones">${zonesSvg}</g>`}
+    <g data-layer="garment">${garmentLayer}</g>
+    ${noSpec ? "" : `<g data-layer="zones">${zonesSvg}</g>`}
     <g data-layer="production-artwork">${placementSvg}</g>
     <g data-layer="markup">
-      ${dimsSvg}
-      ${calibrationBar(drawW - 110, drawH - 6)}
+      ${isMin ? minDims : dimsSvg}
+      ${isMin ? "" : calibrationBar(drawW - 110, drawH - 6)}
     </g>
   </g>`;
 
-  const spec = isProd
+  // Minimal: под изделием — крупная буква размера (как на лекалах) + шкала.
+  const sizeY = PAD + drawH + 30;
+  const sizeBlock = isMin
+    ? `<g data-size-label="${escAttr(meta.size)}">
+    <text x="${W / 2}" y="${sizeY + 4}" font-size="34" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc(meta.size)}</text>
+  </g>
+  ${calibrationBar(W - PAD - 100, sizeY - 4, true)}`
+    : "";
+
+  const spec = noSpec
     ? ""
     : specPanel(DX + drawW + GAP, DY, SPEC_W, view, placements, assets, meta.size);
 
@@ -378,10 +444,10 @@ export function buildSceneSvg(input: SceneInput): string {
     ${clipDefs}
   </defs>
   <rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>
-  ${titleBlock(W, sku, view, meta)}
-  ${dividerTop}
+  ${isMin ? "" : titleBlock(W, sku, view, meta)}
+  ${isMin ? "" : dividerTop}
   ${drawing}
   ${spec}
-  ${footer}
+  ${isMin ? sizeBlock : footer}
 </svg>`;
 }
