@@ -14,6 +14,7 @@ import { buildSkuFromDxf } from "@/lib/import/dxfSku";
 import { svgToDataUrl } from "@/lib/export/flatMarkup";
 import { ChevronLeft, FileUp, Upload, TriangleAlert, ArrowRight } from "lucide-react";
 import type { GarmentType, ViewKind, BaseSize, SKU } from "@/types";
+import { GARMENT_TYPE_LABELS } from "@/types";
 
 const FlatEditorCanvas = dynamic(
   () => import("@/components/admin/FlatEditorCanvas").then((m) => m.FlatEditorCanvas),
@@ -248,10 +249,9 @@ export function FlatCreator({
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Тип">
                   <select value={draft.type} onChange={(e) => patch({ type: e.target.value as GarmentType })} className={inp}>
-                    <option value="tshirt">tshirt</option>
-                    <option value="sweatshirt">sweatshirt</option>
-                    <option value="hoodie">hoodie</option>
-                    <option value="shopper">shopper</option>
+                    {Object.entries(GARMENT_TYPE_LABELS).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
                   </select>
                 </Field>
                 <Field label="Базовый размер">

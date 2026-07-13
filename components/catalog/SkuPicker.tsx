@@ -8,6 +8,7 @@ import { listModels, deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
 import { useProjectStore } from "@/lib/state/projectStore";
 import type { ProductKind } from "@/types";
+import { GARMENT_TYPE_LABELS } from "@/types";
 
 export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   const router = useRouter();
@@ -104,7 +105,8 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
                 )}
               </div>
               <div className="mt-1 text-sm text-gray-500">
-                {sku.type} · эталон {sku.base_size}
+                {GARMENT_TYPE_LABELS[sku.type] ?? sku.type} · эталон{" "}
+                {sku.base_size}
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {sku.views.map((v) => (
