@@ -207,6 +207,98 @@ export function duplicateView(sku: SKU, viewId: string): SKU {
   return { ...sku, views };
 }
 
+/**
+ * Зеркальная копия рукава L↔R: новый вид с противоположным kind, геометрия
+ * отражена по вертикальной оси флэта (x' = W − x, в ЕДИНИЦАХ вида).
+ * Флэт переиспользуется как есть — предполагаем симметричный рукав
+ * (асимметрию доводят на холсте). Мокап не копируется (фото стороны ≠ фото
+ * другой стороны). id зон новые (уникальны в рамках SKU).
+ */
+export function mirrorSleeveView(
+  sku: SKU,
+  viewId: string,
+  flatWidthUnits: number,
+): SKU {
+  const v = sku.views.find((x) => x.id === viewId);
+  if (!v || !(v.kind === "sleeve_left" || v.kind === "sleeve_right")) return sku;
+  if (!(flatWidthUnits > 0)) return sku;
+  const W = flatWidthUnits;
+  const kind: ViewKind = v.kind === "sleeve_left" ? "sleeve_right" : "sleeve_left";
+  const suffix = cloneSuffix();
+
+  const mirrorAnchors = (a: View["anchors"]): View["anchors"] => ({
+    ...a,
+    sleeve_center_x:
+      a.sleeve_center_x === undefined ? undefined : W - a.sleeve_center_x,
+    center_axis_x:
+      a.center_axis_x === undefined ? undefined : W - a.center_axis_x,
+    neckline_point: a.neckline_point
+      ? { x: W - a.neckline_point.x, y: a.neckline_point.y }
+      : undefined,
+    axes: a.axes?.map((ax) => ({ ...ax, x: W - ax.x })),
+  });
+  const mirrorAreas = (areas: PrintArea[]): PrintArea[] =>
+    areas.map((a) => ({
+      ...structuredClone(a),
+      id: `${a.id}-mir-${suffix}`,
+      polygon_mm: a.polygon_mm.map(([x, y]) => [W - x, y] as [number, number]),
+    }));
+
+  const cloned = structuredClone(v);
+  const mirrored: View = {
+    ...cloned,
+    id: `${v.id}-mir-${suffix}`,
+    kind,
+    anchors: mirrorAnchors(cloned.anchors),
+    size_anchors: cloned.size_anchors
+      ? Object.fromEntries(
+          Object.entries(cloned.size_anchors).map(([s, a]) => [
+            s,
+            mirrorAnchors(a),
+          ]),
+        )
+      : undefined,
+    print_areas: mirrorAreas(cloned.print_areas),
+    size_print_areas: cloned.size_print_areas
+      ? Object.fromEntries(
+          Object.entries(cloned.size_print_areas).map(([s, areas]) => [
+            s,
+            mirrorAreas(areas),
+          ]),
+        )
+      : undefined,
+    // Правило ростовки: горизонтальные дельты меняют знак.
+    grade_rule: cloned.grade_rule
+      ? {
+          ...cloned.grade_rule,
+          sleeve_center_dx:
+            cloned.grade_rule.sleeve_center_dx === undefined
+              ? undefined
+              : -cloned.grade_rule.sleeve_center_dx,
+          center_axis_dx:
+            cloned.grade_rule.center_axis_dx === undefined
+              ? undefined
+              : -cloned.grade_rule.center_axis_dx,
+          neckline: cloned.grade_rule.neckline
+            ? {
+                ...cloned.grade_rule.neckline,
+                dx:
+                  cloned.grade_rule.neckline.dx === undefined
+                    ? undefined
+                    : -cloned.grade_rule.neckline.dx,
+              }
+            : undefined,
+        }
+      : undefined,
+    mockup: undefined,
+  };
+
+  const i = sku.views.findIndex((x) => x.id === viewId);
+  const views = [...sku.views];
+  views.splice(i + 1, 0, mirrored);
+  return { ...sku, views };
+}
+
 /** Добавить зону в вид. */
 export function addZone(sku: SKU, viewId: string): SKU {
   const v = sku.views.find((x) => x.id === viewId);

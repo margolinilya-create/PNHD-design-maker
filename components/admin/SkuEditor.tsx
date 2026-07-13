@@ -32,6 +32,7 @@ import {
   moveView,
   moveZone,
   duplicateView,
+  mirrorSleeveView,
 } from "@/lib/admin/skuEdit";
 import { saveModel, deleteModel } from "@/lib/persistence/models";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
@@ -40,6 +41,7 @@ import {
   ChevronUp,
   ChevronDown,
   Copy,
+  FlipHorizontal2,
   X,
   TriangleAlert,
   Check,
@@ -215,6 +217,32 @@ export function SkuEditor({
       setSku(updateView(sku, view.id, { scale_mm_per_unit: patch.scale_mm_per_unit }));
     } else {
       setSku(updateView(sku, view.id, patch));
+    }
+  };
+
+  // Зеркальная копия рукава: ширина флэта в ЕДИНИЦАХ вида = naturalWidth
+  // (anchors/полигоны хранятся в единицах SVG; мм = unit × scale).
+  const mirrorSleeve = async (viewId: string) => {
+    const v = sku.views.find((x) => x.id === viewId);
+    if (!v?.flat_svg) return;
+    try {
+      const width = await new Promise<number>((res, rej) => {
+        const img = new window.Image();
+        img.onload = () => res(img.naturalWidth || 0);
+        img.onerror = () => rej(new Error("не прочитать флэт"));
+        img.src = effFlat(v, base, base);
+      });
+      const next = mirrorSleeveView(sku, viewId, width);
+      if (next === sku) return;
+      const i = next.views.findIndex((x) => x.id === viewId);
+      const copy = next.views[i + 1];
+      setSku(next);
+      if (copy) {
+        setActiveViewId(copy.id);
+        setSelectedZoneId(copy.print_areas[0]?.id ?? null);
+      }
+    } catch {
+      setMsg("Не удалось прочитать флэт для зеркала");
     }
   };
 
@@ -599,6 +627,22 @@ export function SkuEditor({
                   }}
                 />
               </label>
+
+              {isSleeve && (
+                <button
+                  onClick={() => mirrorSleeve(view.id)}
+                  disabled={!view.flat_svg}
+                  title={
+                    view.flat_svg
+                      ? "Создать противоположный рукав: геометрия отражается по оси флэта"
+                      : "Нужен флэт вида"
+                  }
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded border border-line bg-white px-2 py-1.5 text-xs text-ink hover:border-blue-500 disabled:opacity-50"
+                >
+                  <FlipHorizontal2 size={14} strokeWidth={1.75} />
+                  Зеркальная копия L↔R
+                </button>
+              )}
 
               {/* Якоря (per-size: пишем под выбранный размер) */}
               {!isLabel && (
