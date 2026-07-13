@@ -1,0 +1,51 @@
+{
+  "visuals_dir": "/tmp/claude-0/-home-user-PNHD-design-maker/f3e2ae64-97c0-55c2-b007-7000fbd0738c/scratchpad/visuals",
+  "out_flats": "public/seed/flats",
+  "categories": [
+    { "slug": "tshirt", "type": "tshirt", "name_ru": "Футболка", "file": "tshirt.ai", "fits": [
+      { "page": 1, "fit": "Classic", "fit_slug": "classic" },
+      { "page": 3, "fit": "OversizeCrop", "fit_slug": "oversizecrop" },
+      { "page": 4, "fit": "Oversize", "fit_slug": "oversize" },
+      { "page": 5, "fit": "Regular", "fit_slug": "regular" } ] },
+    { "slug": "longsleeve", "type": "longsleeve", "name_ru": "Лонгслив", "file": "longsleeve.ai", "fits": [
+      { "page": 3, "fit": "Classic (жен)", "fit_slug": "classic-w" },
+      { "page": 4, "fit": "FreeFit", "fit_slug": "freefit" },
+      { "page": 5, "fit": "Regular", "fit_slug": "regular" },
+      { "page": 6, "fit": "Oversize", "fit_slug": "oversize" } ] },
+    { "slug": "sweatshirt", "type": "sweatshirt", "name_ru": "Свитшот", "file": "sweatshirt.ai", "fits": [
+      { "page": 1, "fit": "Regular", "fit_slug": "regular" },
+      { "page": 2, "fit": "Classic", "fit_slug": "classic" },
+      { "page": 3, "fit": "Oversize", "fit_slug": "oversize" },
+      { "page": 4, "fit": "FreeFit", "fit_slug": "freefit" } ] },
+    { "slug": "hoodie", "type": "hoodie", "name_ru": "Худи", "file": "hoodie.ai", "fits": [
+      { "page": 1, "fit": "Regular", "fit_slug": "regular" },
+      { "page": 2, "fit": "FreeFit", "fit_slug": "freefit" },
+      { "page": 3, "fit": "Oversize", "fit_slug": "oversize" },
+      { "page": 4, "fit": "Classic", "fit_slug": "classic" },
+      { "page": 5, "fit": "Reglan", "fit_slug": "reglan" } ] },
+    { "slug": "zip-hoodie", "type": "zip_hoodie", "name_ru": "Зип-худи", "file": "zip-hoodie.ai", "fits": [
+      { "page": 1, "fit": "Regular", "fit_slug": "regular" },
+      { "page": 2, "fit": "FreeFit", "fit_slug": "freefit" },
+      { "page": 3, "fit": "Oversize", "fit_slug": "oversize" } ] },
+    { "slug": "half-zip", "type": "half_zip", "name_ru": "Халф-зип", "file": "half-zip.ai", "fits": [
+      { "page": 1, "fit": "Regular", "fit_slug": "regular" },
+      { "page": 3, "fit": "FreeFit", "fit_slug": "freefit" },
+      { "page": 5, "fit": "Oversize", "fit_slug": "oversize" } ] },
+    { "slug": "bomber", "type": "bomber", "name_ru": "Бомбер", "file": "bomber.ai", "fits": [
+      { "page": 1, "fit": "Зип", "fit_slug": "zip" },
+      { "page": 2, "fit": "Basic", "fit_slug": "basic" } ] },
+    { "slug": "olympic", "type": "olympic", "name_ru": "Олимпийка", "file": "olympic.ai", "fits": [
+      { "page": 1, "fit": "FreeFit", "fit_slug": "freefit" } ] },
+    { "slug": "polo", "type": "polo", "name_ru": "Поло", "file": "polo.ai", "board_views": 4, "fits": [
+      { "page": 1, "fit": "Regular", "fit_slug": "regular" },
+      { "page": 2, "fit": "Oversize", "fit_slug": "oversize" } ] },
+    { "slug": "pants", "type": "pants", "name_ru": "Брюки", "file": "pants.ai", "fits": [
+      { "page": 1, "fit": "FreeFit (муж)", "fit_slug": "freefit" },
+      { "page": 2, "fit": "Regular (муж)", "fit_slug": "regular" },
+      { "page": 3, "fit": "женские", "fit_slug": "women" } ] },
+    { "slug": "shopper", "type": "shopper", "name_ru": "Шоппер", "file": "shopper.ai", "board_views": 1, "fits": [
+      { "page": 1, "fit": "Classic", "fit_slug": "classic" },
+      { "page": 2, "fit": "Composite", "fit_slug": "composite" },
+      { "page": 4, "fit": "Horizontal", "fit_slug": "horizontal" } ] }
+  ]
+}

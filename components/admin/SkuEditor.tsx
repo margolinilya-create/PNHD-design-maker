@@ -43,6 +43,7 @@ import type {
   View,
   ViewKind,
 } from "@/types";
+import { GARMENT_TYPE_LABELS } from "@/types";
 
 const inp = "w-full rounded border border-line bg-shell px-2 py-1.5 text-sm";
 const resetBtn =
@@ -276,10 +277,11 @@ export function SkuEditor({
                   }
                   className={inp}
                 >
-                  <option value="tshirt">tshirt</option>
-                  <option value="sweatshirt">sweatshirt</option>
-                  <option value="hoodie">hoodie</option>
-                  <option value="shopper">shopper</option>
+                  {Object.entries(GARMENT_TYPE_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <Field label="Базовый размер">

@@ -1,7 +1,33 @@
 // Доменная модель PINHEAD — Merch Preview Tool (BUILD.md §3).
 // Все метрические величины — в миллиметрах (мм).
 
-export type GarmentType = "tshirt" | "sweatshirt" | "hoodie" | "shopper";
+export type GarmentType =
+  | "tshirt"
+  | "polo"
+  | "longsleeve"
+  | "sweatshirt"
+  | "hoodie"
+  | "zip_hoodie"
+  | "half_zip"
+  | "bomber"
+  | "olympic"
+  | "pants"
+  | "shopper";
+
+/** Русские подписи типов изделий (селекторы админки, карточки каталога). */
+export const GARMENT_TYPE_LABELS: Record<GarmentType, string> = {
+  tshirt: "футболка",
+  polo: "поло",
+  longsleeve: "лонгслив",
+  sweatshirt: "свитшот",
+  hoodie: "худи",
+  zip_hoodie: "зип-худи",
+  half_zip: "халф-зип",
+  bomber: "бомбер",
+  olympic: "олимпийка",
+  pants: "брюки",
+  shopper: "шоппер",
+};
 /**
  * Вид продукта: печать на готовом изделии (визуалка) или на крое до пошива
  * (лекало). Первичное разделение каталога; отсутствие поля = "finished".
