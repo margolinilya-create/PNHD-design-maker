@@ -160,7 +160,7 @@ export function EditorCanvas() {
 
   const { zone, safeInsetMm } = viewZone(view, garmentSize ?? undefined);
 
-  // Цель привязки для нанесения: ось изделия, центр зоны (мм).
+  // Цели привязки для нанесения: ось изделия, именованные оси, центр зоны (мм).
   const snapTargets = (p: Placement) => {
     const { zone } = viewZone(view, garmentSize ?? undefined, p.print_area_id);
     const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
@@ -168,31 +168,42 @@ export function EditorCanvas() {
       view.kind === "sleeve_left" || view.kind === "sleeve_right"
         ? (a.sleeve_center_x ?? zone.zx + zone.zw / 2)
         : (a.center_axis_x ?? zone.zx + zone.zw / 2);
-    return { axis, zoneCx: zone.zx + zone.zw / 2, zoneCy: zone.zy + zone.zh / 2 };
+    return {
+      axis,
+      namedAxes: (a.axes ?? []).map((ax) => ax.x),
+      zoneCx: zone.zx + zone.zw / 2,
+      zoneCy: zone.zy + zone.zh / 2,
+    };
+  };
+
+  /** Магнит X к оси изделия / именованным осям / центру зоны (порог SNAP мм). */
+  const snapX = (
+    cxmm: number,
+    tg: { axis: number; namedAxes: number[]; zoneCx: number },
+  ): number | null => {
+    const SNAP = 5;
+    for (const x of [tg.axis, ...tg.namedAxes, tg.zoneCx]) {
+      if (Math.abs(cxmm - x) < SNAP) return x;
+    }
+    return null;
   };
 
   // Live-привязка при перетаскивании: магнитим узел и показываем гайды.
   const onDragMove = (p: Placement, node: Konva.Image) => {
     const SNAP = 5;
-    const { axis, zoneCx, zoneCy } = snapTargets(p);
+    const tg = snapTargets(p);
     let cxmm = (node.x() - t.px(0)) / t.pxPerMM;
     let cymm = (node.y() - t.py(0)) / t.pxPerMM;
-    let gx: number | undefined;
     let gy: number | undefined;
-    if (Math.abs(cxmm - axis) < SNAP) {
-      cxmm = axis;
-      gx = axis;
-    } else if (Math.abs(cxmm - zoneCx) < SNAP) {
-      cxmm = zoneCx;
-      gx = zoneCx;
-    }
-    if (Math.abs(cymm - zoneCy) < SNAP) {
-      cymm = zoneCy;
-      gy = zoneCy;
+    const sx = snapX(cxmm, tg);
+    if (sx !== null) cxmm = sx;
+    if (Math.abs(cymm - tg.zoneCy) < SNAP) {
+      cymm = tg.zoneCy;
+      gy = tg.zoneCy;
     }
     node.x(t.px(cxmm));
     node.y(t.py(cymm));
-    setGuides(gx === undefined && gy === undefined ? null : { x: gx, y: gy });
+    setGuides(sx === null && gy === undefined ? null : { x: sx ?? undefined, y: gy });
   };
 
   // Узлы рендерятся с центр-ориджином → node.x()/y() = центр (мм).
@@ -200,19 +211,11 @@ export function EditorCanvas() {
     setGuides(null);
     let cxmm = (node.x() - t.px(0)) / t.pxPerMM;
     let cymm = (node.y() - t.py(0)) / t.pxPerMM;
-    // Привязка: магнит к оси изделия и центру зоны (порог 5 мм).
-    const { zone } = viewZone(view, garmentSize ?? undefined, p.print_area_id);
-    const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
-    const axis =
-      view.kind === "sleeve_left" || view.kind === "sleeve_right"
-        ? (a.sleeve_center_x ?? zone.zx + zone.zw / 2)
-        : (a.center_axis_x ?? zone.zx + zone.zw / 2);
     const SNAP = 5;
-    const zoneCx = zone.zx + zone.zw / 2;
-    const zoneCy = zone.zy + zone.zh / 2;
-    if (Math.abs(cxmm - axis) < SNAP) cxmm = axis;
-    else if (Math.abs(cxmm - zoneCx) < SNAP) cxmm = zoneCx;
-    if (Math.abs(cymm - zoneCy) < SNAP) cymm = zoneCy;
+    const tg = snapTargets(p);
+    const sx = snapX(cxmm, tg);
+    if (sx !== null) cxmm = sx;
+    if (Math.abs(cymm - tg.zoneCy) < SNAP) cymm = tg.zoneCy;
     updatePlacement(p.id, {
       x_mm: cxmm - p.width_mm / 2,
       y_mm: cymm - p.height_mm / 2,
@@ -429,9 +432,15 @@ export function EditorCanvas() {
           <GridLines zone={zone} t={t} />
         </Layer>
 
-        {/* Слой 2 — печатная зона + safe-zone */}
+        {/* Слой 2 — печатная зона + safe-zone + именованные оси */}
         <Layer listening={false}>
           <ZoneShapes view={view} t={t} size={garmentSize ?? undefined} />
+          <NamedAxesGuides
+            view={view}
+            t={t}
+            size={garmentSize ?? undefined}
+            flatH={flatMm.h}
+          />
         </Layer>
 
         {/* Слой 3 — нанесения */}
@@ -720,6 +729,45 @@ function ZoneShapes({
           </Group>
         );
       })}
+    </>
+  );
+}
+
+/** Именованные вертикальные оси (выточки/рельефы): пунктир + подпись. */
+function NamedAxesGuides({
+  view,
+  t,
+  size,
+  flatH,
+}: {
+  view: View;
+  t: Transform;
+  size?: string;
+  flatH: number;
+}) {
+  const anchors = size ? anchorsForSize(view, size) : view.anchors;
+  const axes = anchors.axes ?? [];
+  if (!axes.length) return null;
+  return (
+    <>
+      {axes.map((a) => (
+        <Group key={a.id}>
+          <Line
+            points={[t.px(a.x), t.py(0), t.px(a.x), t.py(flatH)]}
+            stroke="#7c3aed"
+            strokeWidth={0.8}
+            dash={[6, 6]}
+            opacity={0.7}
+          />
+          <Text
+            x={t.px(a.x) + 3}
+            y={t.py(0) + 4}
+            text={a.name}
+            fontSize={11}
+            fill="#7c3aed"
+          />
+        </Group>
+      ))}
     </>
   );
 }

@@ -31,6 +31,11 @@ export const anchorsSchema = z.object({
   center_axis_x: z.number().optional(),
   sleeve_bottom_y: z.number().optional(),
   sleeve_center_x: z.number().optional(),
+  axes: z
+    .array(
+      z.object({ id: z.string().min(1), name: z.string().min(1), x: z.number() }),
+    )
+    .optional(),
 });
 
 export const anchorDeltaSchema = z.object({

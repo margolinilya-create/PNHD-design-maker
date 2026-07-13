@@ -163,6 +163,22 @@ export function presetPosition(
 }
 
 /**
+ * Центрирование по именованной вертикальной оси (выточка/рельеф/шов).
+ * null — ось не найдена у вида/размера. Y не меняется.
+ */
+export function positionOnAxis(
+  view: View,
+  bbox: Bbox,
+  axisId: string,
+  size?: string,
+): { x_mm: number; y_mm: number } | null {
+  const anchors = size ? anchorsForSize(view, size) : view.anchors;
+  const axis = anchors.axes?.find((a) => a.id === axisId);
+  if (!axis) return null;
+  return { x_mm: axis.x - bbox.w / 2, y_mm: bbox.y };
+}
+
+/**
  * Обратная задача к verticalFromNeckline: y_mm (top-left bbox), при котором
  * верх ПОВЁРНУТОГО AABB макета отстоит от шва горловины на offsetMm
  * (знаковое: отрицательное = выше шва). Инвариант к повороту: сдвиг

@@ -20,6 +20,15 @@ export type ProjectStatus = "draft" | "approved";
 /** Метод нанесения (профиль подготовки к печати). */
 export type PrintMethod = "dtf" | "screenprint" | "embroidery";
 
+/** Именованная вертикальная ось изделия (выточка/рельеф/шов/карман). */
+export interface NamedAxis {
+  id: string;
+  /** Подпись для пресета «Центр: {name}» и оверлея. */
+  name: string;
+  /** X оси в единицах SVG вида (мм при scale 1). */
+  x: number;
+}
+
 /** Якоря вида, привязанные к изделию (не к холсту). Все в единицах SVG вида. */
 export interface ViewAnchors {
   /** Нижняя точка горловины по центру (front/back). */
@@ -30,6 +39,12 @@ export interface ViewAnchors {
   sleeve_bottom_y?: number;
   /** Центр рукава по горизонтали (sleeve). */
   sleeve_center_x?: number;
+  /**
+   * Доп. вертикальные оси (центровка «по выточкам» и т.п.).
+   * ВНИМАНИЕ: per-size override якорей заменяет объект целиком —
+   * оси в override нужно повторять (см. anchorsForSize/effAnchors).
+   */
+  axes?: NamedAxis[];
 }
 
 /** Дельта якоря на один шаг размера (мм). */

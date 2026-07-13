@@ -18,6 +18,8 @@ import {
   fitToZone,
   flatForSize,
   yForNecklineOffset,
+  positionOnAxis,
+  anchorsForSize,
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
@@ -1362,6 +1364,20 @@ function PlacementInspector({
         ] as { key: PositionPreset; label: string }[])
       : []),
   ];
+  // Именованные вертикальные оси вида (выточки/рельефы) → пресеты «Центр: …».
+  const namedAxes = view
+    ? (garmentSize ? anchorsForSize(view, garmentSize) : view.anchors).axes ?? []
+    : [];
+  const applyAxis = (axisId: string) => {
+    if (!view) return;
+    const pos = positionOnAxis(
+      view,
+      { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+      axisId,
+      garmentSize ?? undefined,
+    );
+    if (pos) onChange(pos);
+  };
   return (
     <section>
       <h3 className="mb-2 font-semibold text-ink">Позиция (мм)</h3>
@@ -1373,6 +1389,16 @@ function PlacementInspector({
             className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
           >
             {pr.label}
+          </button>
+        ))}
+        {namedAxes.map((a) => (
+          <button
+            key={a.id}
+            onClick={() => applyAxis(a.id)}
+            title={`Центрировать по оси «${a.name}» (X=${a.x} мм)`}
+            className="rounded bg-raised px-2 py-1 text-xs text-ink hover:bg-gray-200"
+          >
+            Центр: {a.name}
           </button>
         ))}
         <button

@@ -22,6 +22,7 @@ import {
   presetPosition,
   fitToZone,
   yForNecklineOffset,
+  positionOnAxis,
 } from "./view";
 
 // Эталон из seed: перед tshirt-classic.
@@ -390,6 +391,43 @@ describe("мультизона + пресеты позиции", () => {
       expect(
         yForNecklineOffset(noNeck, bbox, 0, 30, undefined, "chest"),
       ).toBeCloseTo(170, 6);
+    });
+  });
+
+  describe("positionOnAxis — центровка по именованной оси (выточки)", () => {
+    const withAxes = {
+      ...v,
+      anchors: {
+        ...v.anchors,
+        axes: [{ id: "dart-l", name: "выточка Л", x: 220 }],
+      },
+      size_anchors: {
+        // override размера БЕЗ осей — оси теряются (семантика «замена целиком»).
+        L: { neckline_point: { x: 300, y: 95 }, center_axis_x: 300 },
+      },
+    } as unknown as import("@/types").View;
+
+    it("центрирует bbox по X оси, Y не трогает", () => {
+      const r = positionOnAxis(withAxes, { x: 0, y: 250, w: 100, h: 80 }, "dart-l");
+      expect(r).toEqual({ x_mm: 170, y_mm: 250 }); // 220 − 100/2
+    });
+
+    it("неизвестная ось → null", () => {
+      expect(
+        positionOnAxis(withAxes, { x: 0, y: 0, w: 10, h: 10 }, "нет"),
+      ).toBeNull();
+    });
+
+    it("оси наследуются из базовых якорей при отсутствии override", () => {
+      expect(anchorsForSize(withAxes, "M").axes?.length).toBe(1);
+    });
+
+    it("per-size override заменяет якоря целиком — оси не мёржатся", () => {
+      // Фиксация текущей семантики (см. коммент в ViewAnchors.axes).
+      expect(anchorsForSize(withAxes, "L").axes).toBeUndefined();
+      expect(
+        positionOnAxis(withAxes, { x: 0, y: 0, w: 10, h: 10 }, "dart-l", "L"),
+      ).toBeNull();
     });
   });
 });

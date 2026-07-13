@@ -603,6 +603,90 @@ export function SkuEditor({
                   )}
                 </div>
               )}
+              {/* Именованные вертикальные оси (выточки/рельефы/швы):
+                  пресет «Центр: {имя}» и прилипание в редакторе. */}
+              {!isLabel && (
+                <div className="mt-2 space-y-1.5">
+                  <div className="text-[11px] font-medium text-gray-500">
+                    Доп. оси центровки (выточки)
+                  </div>
+                  {(effView.anchors.axes ?? []).map((ax, i) => (
+                    <div key={ax.id} className="flex items-center gap-1.5">
+                      <input
+                        value={ax.name}
+                        onChange={(e) =>
+                          setSku(
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              axes: (effView.anchors.axes ?? []).map((a, j) =>
+                                j === i ? { ...a, name: e.target.value } : a,
+                              ),
+                            }),
+                          )
+                        }
+                        placeholder="имя (напр. выточка Л)"
+                        className={`${inp} flex-1`}
+                      />
+                      <input
+                        type="number"
+                        value={ax.x}
+                        onChange={(e) =>
+                          setSku(
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              axes: (effView.anchors.axes ?? []).map((a, j) =>
+                                j === i
+                                  ? { ...a, x: Number(e.target.value) }
+                                  : a,
+                              ),
+                            }),
+                          )
+                        }
+                        title="X оси, мм"
+                        className={`${inp} w-24`}
+                      />
+                      <button
+                        onClick={() =>
+                          setSku(
+                            setSizeAnchors(sku, view.id, editSize, base, {
+                              ...effView.anchors,
+                              axes: (effView.anchors.axes ?? []).filter(
+                                (_, j) => j !== i,
+                              ),
+                            }),
+                          )
+                        }
+                        title="Удалить ось"
+                        className="shrink-0 rounded px-1.5 py-1 text-gray-400 hover:text-red-600"
+                      >
+                        <X size={14} strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setSku(
+                        setSizeAnchors(sku, view.id, editSize, base, {
+                          ...effView.anchors,
+                          axes: [
+                            ...(effView.anchors.axes ?? []),
+                            {
+                              id: `axis-${Date.now().toString(36)}`,
+                              name: `ось ${(effView.anchors.axes?.length ?? 0) + 1}`,
+                              x: Math.round(
+                                effView.anchors.center_axis_x ?? 0,
+                              ),
+                            },
+                          ],
+                        }),
+                      )
+                    }
+                    className="w-full rounded border border-dashed border-line px-2 py-1.5 text-xs text-gray-500 hover:border-gray-400"
+                  >
+                    + ось
+                  </button>
+                </div>
+              )}
             </Section>
 
             <Section title="Печатные зоны">
