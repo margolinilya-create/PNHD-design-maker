@@ -109,8 +109,12 @@ function dimArrow(
     <text x="${mx}" y="${my - 3}" font-size="11" fill="${tc}" text-anchor="middle" style="font-variant-numeric:tabular-nums">${esc(text)}</text>`;
 }
 
-/** Калибровочная шкала 100 мм (контроль 1:1 линейкой). */
-function calibrationBar(x: number, y: number): string {
+/**
+ * Калибровочная шкала 100 мм (контроль 1:1 линейкой).
+ * latinSafe — только латиница/цифры: стандартные шрифты jsPDF не несут
+ * кириллицу, на минимальном листе подписи должны читаться гарантированно.
+ */
+function calibrationBar(x: number, y: number, latinSafe = false): string {
   const LEN = 100;
   let ticks = "";
   for (let i = 0; i <= 10; i++) {
@@ -118,12 +122,15 @@ function calibrationBar(x: number, y: number): string {
     const h = i % 5 === 0 ? 5 : 3;
     ticks += `<line x1="${tx}" y1="${y}" x2="${tx}" y2="${y - h}" stroke="${C.body}" stroke-width="0.5"/>`;
   }
+  const caption = latinSafe
+    ? `<text x="${x}" y="${y - 8}" font-size="8" fill="${C.hint}">scale 1:1</text>`
+    : `<text x="${x}" y="${y - 8}" font-size="8" fill="${C.hint}">контроль масштаба 1:1</text>`;
   return `<g data-calibration-mm="${LEN}">
-    <text x="${x}" y="${y - 8}" font-size="8" fill="${C.hint}">контроль масштаба 1:1</text>
+    ${caption}
     <line x1="${x}" y1="${y}" x2="${x + LEN}" y2="${y}" stroke="${C.body}" stroke-width="0.75"/>
     ${ticks}
     <text x="${x}" y="${y + 9}" font-size="9" fill="${C.body}">0</text>
-    <text x="${x + LEN}" y="${y + 9}" font-size="9" fill="${C.body}" text-anchor="end">100 мм</text>
+    <text x="${x + LEN}" y="${y + 9}" font-size="9" fill="${C.body}" text-anchor="end">100 ${latinSafe ? "mm" : "мм"}</text>
   </g>`;
 }
 
@@ -149,10 +156,10 @@ function neckOffsetMarkup(scene: DimScene, toleranceMm?: number): string {
 }
 
 /** Синяя плашка «Ш×В мм» у верха нанесения (размер макета). */
-function whPlateMarkup(scene: DimScene): string {
+function whPlateMarkup(scene: DimScene, latinSafe = false): string {
   const { aabb } = scene;
   const midX = aabb.x + aabb.w / 2;
-  const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} мм`;
+  const wh = `${Math.round(aabb.w)}×${Math.round(aabb.h)} ${latinSafe ? "mm" : "мм"}`;
   const whHalfW = wh.length * 3.6 + 3;
   const whY = aabb.y + 3;
   return `<rect x="${midX - whHalfW}" y="${whY}" width="${whHalfW * 2}" height="16" rx="2" fill="${C.zone}"/>
@@ -355,7 +362,7 @@ export function buildSceneSvg(input: SceneInput): string {
             p.print_area_id,
           );
           return `${neckOffsetMarkup(scene, p.tolerance_mm)}
-        ${whPlateMarkup(scene)}`;
+        ${whPlateMarkup(scene, true)}`;
         })
         .join("\n");
 
@@ -422,7 +429,7 @@ export function buildSceneSvg(input: SceneInput): string {
     ? `<g data-size-label="${escAttr(meta.size)}">
     <text x="${W / 2}" y="${sizeY + 4}" font-size="34" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc(meta.size)}</text>
   </g>
-  ${calibrationBar(W - PAD - 100, sizeY - 4)}`
+  ${calibrationBar(W - PAD - 100, sizeY - 4, true)}`
     : "";
 
   const spec = noSpec

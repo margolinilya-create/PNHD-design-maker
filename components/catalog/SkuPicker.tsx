@@ -21,7 +21,19 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   const load = useCallback(async () => {
     try {
       const cat = await loadCatalog();
-      const models = await listModels();
+      // Пользовательские модели из облака — best-effort: недоступный или
+      // зависший Supabase не должен блокировать seed-каталог (таймаут 5 с).
+      let models: Awaited<ReturnType<typeof listModels>> = [];
+      try {
+        models = await Promise.race([
+          listModels(),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error("cloud timeout")), 5000),
+          ),
+        ]);
+      } catch {
+        /* облако недоступно — работаем на seed */
+      }
       const ids = new Set(cat.skus.map((s) => s.id));
       const custom = models.filter((m) => !ids.has(m.id));
       setCustomIds(new Set(custom.map((m) => m.id)));

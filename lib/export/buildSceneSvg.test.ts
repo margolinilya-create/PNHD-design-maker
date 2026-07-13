@@ -291,7 +291,8 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
       expect(svg).toContain('data-size-label="M"');
       expect(svg).toMatch(/>M<\/text>/); // крупная буква размера
       expect(svg).toContain(">75<"); // отступ от горловины, мм
-      expect(svg).toContain("100×100 мм"); // размер макета
+      // Латинско-безопасные подписи: стандартные шрифты jsPDF без кириллицы.
+      expect(svg).toContain("100×100 mm"); // размер макета
       expect(svg).toContain('data-calibration-mm="100"');
       expect(svg).toContain('data-layer="garment"');
       expect(svg).toContain('data-layer="production-artwork"');
