@@ -30,6 +30,13 @@ yarn-error.log*
 # testing
 /coverage
 
+# python (scripts/)
+__pycache__/
+*.py[cod]
+
+# deploy
+/.vercel
+
 # editor
 .vscode/
 .idea/
