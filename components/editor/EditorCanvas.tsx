@@ -249,7 +249,10 @@ export function EditorCanvas() {
     setDropActive(false);
     const el = containerRef.current;
     const files = Array.from(e.dataTransfer.files).filter(
-      (f) => /image\/(png|svg\+xml)/.test(f.type) || /\.(png|svg)$/i.test(f.name),
+      (f) =>
+        /image\/(png|svg\+xml|jpeg)/.test(f.type) ||
+        f.type === "application/pdf" ||
+        /\.(png|svg|jpe?g|pdf|ai)$/i.test(f.name),
     );
     if (!el || !files.length) return;
     const rect = el.getBoundingClientRect();

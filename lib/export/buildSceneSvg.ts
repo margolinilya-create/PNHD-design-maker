@@ -19,7 +19,13 @@ function placementMethod(view: View, p: Placement) {
 export interface SceneInput {
   sku: SKU;
   view: View;
-  flatSvgMarkup: string; // исходный <svg>…</svg> флэта
+  flatSvgMarkup: string; // исходный <svg>…</svg> флэта («» при растровом флэте)
+  /**
+   * Растровый флэт (data URL PNG/JPEG — напр. загруженная PDF/AI-визуалка):
+   * рисуется <image> на всю площадь flatMm вместо inner-SVG.
+   * Перекраска garmentColor к растру не применяется.
+   */
+  flatRaster?: { dataUrl: string };
   flatMm: { w: number; h: number }; // габариты флэта В МИЛЛИМЕТРАХ
   /** Коэффициент единицы SVG флэта → мм (1 = 1 ед = 1 мм). */
   scaleMmPerUnit?: number;
@@ -396,8 +402,12 @@ export function buildSceneSvg(input: SceneInput): string {
     <text x="14" y="${footerY}" font-size="6.5" fill="${C.hint}" style="font-variant-numeric:tabular-nums">Масштаб 1:1 · единицы — мм · сгенерировано PINHEAD${isProd ? " · ЛИСТ ДЛЯ ЦЕХА (без обвязки)" : ""}</text>
     <text x="${W - 14}" y="${footerY}" font-size="6.5" fill="${C.hint}" text-anchor="end">Согласовано (цех): ____________   Дата: __________</text>`;
 
+  const garmentLayer = input.flatRaster
+    ? `<image href="${escAttr(input.flatRaster.dataUrl)}" xlink:href="${escAttr(input.flatRaster.dataUrl)}" x="0" y="0" width="${drawW}" height="${drawH}" preserveAspectRatio="none"/>`
+    : `<g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>`;
+
   const drawing = `<g transform="translate(${DX} ${DY})">
-    <g data-layer="garment" transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""))}</g>
+    <g data-layer="garment">${garmentLayer}</g>
     ${noSpec ? "" : `<g data-layer="zones">${zonesSvg}</g>`}
     <g data-layer="production-artwork">${placementSvg}</g>
     <g data-layer="markup">

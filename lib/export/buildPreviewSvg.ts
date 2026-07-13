@@ -7,6 +7,8 @@ import { recolorGarment } from "./flatMarkup";
 export interface PreviewInput {
   view: View;
   flatSvgMarkup: string;
+  /** Растровый флэт (data URL) — рисуется <image> вместо inner-SVG. */
+  flatRasterUrl?: string;
   flatMm: { w: number; h: number };
   scaleMmPerUnit?: number;
   garmentColor?: string;
@@ -133,11 +135,15 @@ export function buildPreviewSvg(input: PreviewInput): string {
     })
     .join("");
 
-  const flat = innerSvg(recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""));
+  const flat = input.flatRasterUrl
+    ? `<image href="${escAttr(input.flatRasterUrl)}" xlink:href="${escAttr(input.flatRasterUrl)}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>`
+    : `<g transform="scale(${input.scaleMmPerUnit ?? 1})">${innerSvg(
+        recolorGarment(input.flatSvgMarkup, input.garmentColor ?? ""),
+      )}</g>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>${clipDefs}</defs>
-  <g transform="scale(${input.scaleMmPerUnit ?? 1})">${flat}</g>
+  ${flat}
   ${placementSvg}
 </svg>`;
 }

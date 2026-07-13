@@ -303,4 +303,23 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
       expect(svg).toContain("PINHEAD");
     });
   });
+
+  it("растровый флэт (PDF/AI-визуалка) рисуется <image> в garment-слое", () => {
+    const svg = buildSceneSvg({
+      sku,
+      view,
+      flatSvgMarkup: "",
+      flatRaster: { dataUrl: "data:image/png;base64,FLAT" },
+      flatMm: { w: 600, h: 760 },
+      placements: [],
+      assets: {},
+      meta: { client: "", orderRef: "", size: "M", date: "13.07.2026" },
+      variant: "minimal",
+    });
+    const garment = svg.match(/<g data-layer="garment">([\s\S]*?)<\/g>/)![1];
+    expect(garment).toContain("<image");
+    expect(garment).toContain('width="600"');
+    expect(garment).toContain('height="760"');
+    expect(svg).toMatch(/width="628mm"/); // страница по-прежнему в мм
+  });
 });

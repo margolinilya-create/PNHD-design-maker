@@ -31,7 +31,7 @@ import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
 import { exportSvgAsPng } from "@/lib/export/exportPng";
-import { resolveFlatMarkup } from "@/lib/export/flatMarkup";
+import { resolveFlat } from "@/lib/export/resolveFlat";
 import {
   preflight,
   hasBlockingErrors,
@@ -185,9 +185,8 @@ export function SidePanel() {
     setBusy(true);
     setMsg(null);
     try {
-      const markup = await resolveFlatMarkup(flatForSize(view, size ?? undefined));
       const s = view.scale_mm_per_unit ?? 1;
-      const raw = svgSizeMm(markup);
+      const flat = await resolveFlat(flatForSize(view, size ?? undefined), s);
       const vp = placements.filter((p) =>
         view.print_areas.some((a) => a.id === p.print_area_id),
       );
@@ -209,8 +208,9 @@ export function SidePanel() {
       }
       const svg = buildPreviewSvg({
         view,
-        flatSvgMarkup: markup,
-        flatMm: { w: raw.w * s, h: raw.h * s },
+        flatSvgMarkup: flat.markup,
+        flatRasterUrl: flat.rasterUrl,
+        flatMm: flat.flatMm,
         scaleMmPerUnit: s,
         garmentColor,
         size: size ?? undefined,
@@ -251,9 +251,8 @@ export function SidePanel() {
           pls.some((p) => v.print_areas.some((a) => a.id === p.print_area_id)),
         );
         for (const v of viewsWith) {
-          const markup = await resolveFlatMarkup(flatForSize(v, tSize));
-          const raw = svgSizeMm(markup);
           const s = v.scale_mm_per_unit ?? 1;
+          const flat = await resolveFlat(flatForSize(v, tSize), s);
           const vp = pls.filter((p) =>
             v.print_areas.some((a) => a.id === p.print_area_id),
           );
@@ -261,8 +260,9 @@ export function SidePanel() {
             buildSceneSvg({
               sku,
               view: v,
-              flatSvgMarkup: markup,
-              flatMm: { w: raw.w * s, h: raw.h * s },
+              flatSvgMarkup: flat.markup,
+              flatRaster: flat.rasterUrl ? { dataUrl: flat.rasterUrl } : undefined,
+              flatMm: flat.flatMm,
               scaleMmPerUnit: s,
               garmentColor,
               placements: vp,
@@ -333,11 +333,9 @@ export function SidePanel() {
       }
       const scenes: string[] = [];
       for (const v of target) {
-        const markup = await resolveFlatMarkup(flatForSize(v, size ?? undefined));
-        // Габариты viewBox — в единицах SVG; переводим в мм через scale_mm_per_unit.
-        const raw = svgSizeMm(markup);
+        // Габариты в мм считает резолвер (viewBox × scale или растр × scale).
         const s = v.scale_mm_per_unit ?? 1;
-        const flatMm = { w: raw.w * s, h: raw.h * s };
+        const flat = await resolveFlat(flatForSize(v, size ?? undefined), s);
         const vp = placements.filter((p) =>
           v.print_areas.some((a) => a.id === p.print_area_id),
         );
@@ -345,8 +343,9 @@ export function SidePanel() {
           buildSceneSvg({
             sku,
             view: v,
-            flatSvgMarkup: markup,
-            flatMm,
+            flatSvgMarkup: flat.markup,
+            flatRaster: flat.rasterUrl ? { dataUrl: flat.rasterUrl } : undefined,
+            flatMm: flat.flatMm,
             scaleMmPerUnit: s,
             garmentColor,
             placements: vp,
@@ -411,7 +410,7 @@ export function SidePanel() {
         <input
           ref={fileRef}
           type="file"
-          accept=".svg,.png,image/svg+xml,image/png"
+          accept=".svg,.png,.jpg,.jpeg,.pdf,.ai,image/svg+xml,image/png,image/jpeg,application/pdf"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -444,7 +443,7 @@ export function SidePanel() {
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-700"
         >
           <Upload size={16} strokeWidth={1.75} />
-          Загрузить SVG / PNG
+          Загрузить макет (SVG/PNG/JPG/PDF/AI)
         </button>
         <p className="mt-1 text-xs text-gray-400">
           Добавится в зону «
@@ -1649,13 +1648,4 @@ async function loadPhoto(
     img.src = dataUrl;
   });
   return { dataUrl, ...dims };
-}
-
-/** Размер SVG в мм по viewBox (для сцены PDF). */
-function svgSizeMm(markup: string): { w: number; h: number } {
-  const vb = markup.match(
-    /viewBox\s*=\s*["']\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)/i,
-  );
-  if (vb) return { w: parseFloat(vb[3]), h: parseFloat(vb[4]) };
-  return { w: 600, h: 760 };
 }

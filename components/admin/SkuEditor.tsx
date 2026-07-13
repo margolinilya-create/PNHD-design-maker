@@ -530,7 +530,7 @@ export function SkuEditor({
                   " · SVG/PNG"}
                 <input
                   type="file"
-                  accept=".svg,.png,image/svg+xml,image/png"
+                  accept=".svg,.png,.jpg,.jpeg,.pdf,.ai,image/svg+xml,image/png,image/jpeg,application/pdf"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];

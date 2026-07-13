@@ -37,6 +37,9 @@ __pycache__/
 # deploy
 /.vercel
 
+# генерится postinstall (scripts/copy-pdf-worker.mjs)
+/public/pdf.worker.min.mjs
+
 # editor
 .vscode/
 .idea/
