@@ -72,6 +72,7 @@ export const skuSchema = z
     id: z.string(),
     name: z.string(),
     type: z.enum(["tshirt", "sweatshirt", "hoodie", "shopper"]),
+    product_kind: z.enum(["finished", "cut"]).optional(),
     base_size: z.enum(["M", "L"]),
     sizes: z.array(z.string()).min(1),
     views: z.array(viewSchema).min(1),

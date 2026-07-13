@@ -38,6 +38,7 @@ import type {
   GarmentType,
   GradeRule,
   PrintArea,
+  ProductKind,
   SKU,
   View,
   ViewKind,
@@ -297,6 +298,21 @@ export function SkuEditor({
                 </select>
               </Field>
             </div>
+            <Field label="Тип продукта">
+              <select
+                value={sku.product_kind ?? "finished"}
+                onChange={(e) =>
+                  setSku({
+                    ...sku,
+                    product_kind: e.target.value as ProductKind,
+                  })
+                }
+                className={inp}
+              >
+                <option value="finished">на готовом изделии</option>
+                <option value="cut">в крое</option>
+              </select>
+            </Field>
             <Field label="Размеры (ростовка)">
               <div className="flex flex-wrap items-center gap-1.5">
                 {sku.sizes.map((s) => (

@@ -50,6 +50,7 @@ describe("flatDraft", () => {
     expect(sku.views[0].kind).toBe("front");
     expect(sku.base_size).toBe("M");
     expect(sku.sizes).toContain("M");
+    expect(sku.product_kind).toBe("finished");
   });
 
   it("ловит вырожденную зону", () => {

@@ -96,6 +96,10 @@ describe("skuEdit", () => {
     expect(validateSku(emptySku("new", "Новая", "tshirt"))).toEqual([]);
   });
 
+  it("emptySku — готовое изделие по умолчанию", () => {
+    expect(emptySku("new", "Новая", "tshirt").product_kind).toBe("finished");
+  });
+
   it("per-size: override якорей/зон, фоллбэк на базовые, валидность", () => {
     // базовый размер — фоллбэк на базовые
     expect(effAnchors(sku.views[0], "M", "M").neckline_point?.y).toBe(30);

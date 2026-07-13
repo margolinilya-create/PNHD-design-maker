@@ -2,6 +2,11 @@
 // Все метрические величины — в миллиметрах (мм).
 
 export type GarmentType = "tshirt" | "sweatshirt" | "hoodie" | "shopper";
+/**
+ * Вид продукта: печать на готовом изделии (визуалка) или на крое до пошива
+ * (лекало). Первичное разделение каталога; отсутствие поля = "finished".
+ */
+export type ProductKind = "finished" | "cut";
 export type BaseSize = "M" | "L";
 export type ViewKind =
   | "front"
@@ -105,6 +110,8 @@ export interface SKU {
   id: string;
   name: string;
   type: GarmentType;
+  /** Вид продукта: готовое изделие / крой. Отсутствие = "finished". */
+  product_kind?: ProductKind;
   base_size: BaseSize;
   sizes: string[];
   views: View[];

@@ -7,8 +7,9 @@ import { loadCatalog } from "@/lib/catalog/loadCatalog";
 import { listModels, deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
 import { useProjectStore } from "@/lib/state/projectStore";
+import type { ProductKind } from "@/types";
 
-export function SkuPicker() {
+export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   const router = useRouter();
   const catalog = useProjectStore((s) => s.catalog);
   const setCatalog = useProjectStore((s) => s.setCatalog);
@@ -54,9 +55,22 @@ export function SkuPicker() {
   if (!catalog)
     return <p className="text-gray-500">Загрузка каталога…</p>;
 
+  // Первичное разделение каталога: готовое изделие / крой.
+  const skus = catalog.skus.filter(
+    (sku) => (sku.product_kind ?? "finished") === kind,
+  );
+  if (!skus.length)
+    return (
+      <p className="text-gray-500">
+        {kind === "cut"
+          ? "Раздел «В крое» пока пуст — появится в следующей итерации."
+          : "В каталоге пока нет моделей."}
+      </p>
+    );
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {catalog.skus.map((sku) => {
+      {skus.map((sku) => {
         const custom = customIds.has(sku.id);
         return (
           <div
