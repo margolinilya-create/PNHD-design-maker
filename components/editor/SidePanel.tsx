@@ -274,6 +274,7 @@ export function SidePanel() {
                 date: new Date().toLocaleDateString("ru-RU"),
                 status,
               },
+              variant: "minimal",
             }),
           );
         }
@@ -310,9 +311,11 @@ export function SidePanel() {
     action();
   };
 
-  const onExport = () => gateExport(() => void runExport("full"));
+  const onExport = () => gateExport(() => void runExport("minimal"));
 
-  const runExport = async (variant: "full" | "production" = "full") => {
+  const runExport = async (
+    variant: "full" | "production" | "minimal" = "minimal",
+  ) => {
     if (!sku) return;
     setPreflightIssues(null);
     setBusy(true);
@@ -364,7 +367,11 @@ export function SidePanel() {
         scenes,
         `${sku.id}-${orderRef || "draft"}${suffix}.pdf`,
       );
-      setMsg(variant === "production" ? "PDF для цеха готов" : "PDF готов");
+      setMsg(
+        variant === "production"
+          ? "PDF для цеха готов"
+          : "Тех-рисунок (PDF) готов",
+      );
     } catch (e) {
       setMsg(`Ошибка экспорта: ${e}`);
     } finally {
@@ -681,16 +688,10 @@ export function SidePanel() {
         <button
           onClick={onExport}
           disabled={busy}
+          title="Размер изделия, отступ от шва горловины и размер макета — в мм, 1:1"
           className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
         >
-          {busy ? "Сборка…" : "Экспорт PDF (1:1)"}
-        </button>
-        <button
-          onClick={() => gateExport(() => void runExport("production"))}
-          disabled={busy || viewLayers.length === 0}
-          className="w-full rounded-lg bg-raised px-3 py-2 text-sm font-medium text-ink hover:bg-gray-200 disabled:opacity-50"
-        >
-          PDF для цеха (без обвязки)
+          {busy ? "Сборка…" : "Тех-рисунок (PDF)"}
         </button>
         <button
           onClick={() => setShowBatch(true)}
