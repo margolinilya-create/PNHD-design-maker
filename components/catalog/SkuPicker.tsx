@@ -7,7 +7,7 @@ import { loadCatalog } from "@/lib/catalog/loadCatalog";
 import { listModels, deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
 import { useProjectStore } from "@/lib/state/projectStore";
-import type { ProductKind } from "@/types";
+import type { GarmentType, ProductKind } from "@/types";
 import { GARMENT_TYPE_LABELS } from "@/types";
 
 export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
@@ -18,6 +18,8 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   const [error, setError] = useState<string | null>(null);
   // id моделей, добавленных пользователем (можно удалить).
   const [customIds, setCustomIds] = useState<Set<string>>(new Set());
+  // Фильтр по группе товаров (null = все группы).
+  const [typeFilter, setTypeFilter] = useState<GarmentType | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -81,9 +83,40 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
       </p>
     );
 
+  // Группы товаров, присутствующие в каталоге (в порядке словаря типов).
+  const typeCounts = new Map<GarmentType, number>();
+  for (const s of skus) typeCounts.set(s.type, (typeCounts.get(s.type) ?? 0) + 1);
+  const types = (Object.keys(GARMENT_TYPE_LABELS) as GarmentType[]).filter(
+    (t) => typeCounts.has(t),
+  );
+  // Выбранная группа могла исчезнуть (удалили модель) — тогда «все».
+  const active = typeFilter && typeCounts.has(typeFilter) ? typeFilter : null;
+  const shown = active ? skus.filter((s) => s.type === active) : skus;
+
+  const chip = (on: boolean) =>
+    `rounded-md px-3 py-1.5 text-sm transition ${
+      on
+        ? "bg-blue-600 font-medium text-white"
+        : "border border-line bg-white text-gray-700 hover:border-blue-500"
+    }`;
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {skus.map((sku) => {
+    <div>
+      {types.length > 1 && (
+        <div className="mb-5 flex flex-wrap gap-1.5">
+          <button onClick={() => setTypeFilter(null)} className={chip(active === null)}>
+            Все <span className="opacity-60">{skus.length}</span>
+          </button>
+          {types.map((t) => (
+            <button key={t} onClick={() => setTypeFilter(t)} className={chip(active === t)}>
+              {GARMENT_TYPE_LABELS[t]}{" "}
+              <span className="opacity-60">{typeCounts.get(t)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {shown.map((sku) => {
         const custom = customIds.has(sku.id);
         return (
           <div
@@ -131,6 +164,7 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
