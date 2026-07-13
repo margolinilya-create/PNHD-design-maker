@@ -79,11 +79,14 @@ const VIEW_KINDS: { value: ViewKind; label: string }[] = [
 export function SkuEditor({
   initial,
   reservedIds = [],
+  lockId = false,
   onBack,
   onSaved,
 }: {
   initial: SKU;
   reservedIds?: string[];
+  /** Правка базовой (seed) карточки: id зафиксирован, сохранение = override. */
+  lockId?: boolean;
   onBack: () => void;
   onSaved: (id: string) => void;
 }) {
@@ -171,9 +174,10 @@ export function SkuEditor({
   };
 
   const errors = useMemo(() => validateSku(sku), [sku]);
+  // При lockId id неизменяем — проверка занятости не нужна (это override).
   const idErr = useMemo(
-    () => idError(sku.id, reservedIds),
-    [sku.id, reservedIds],
+    () => (lockId ? null : idError(sku.id, reservedIds)),
+    [sku.id, reservedIds, lockId],
   );
   const view = sku.views.find((v) => v.id === activeViewId) ?? sku.views[0];
   const base = sku.base_size;
@@ -230,12 +234,23 @@ export function SkuEditor({
           id:
           <input
             value={sku.id}
+            disabled={lockId}
+            title={
+              lockId
+                ? "id базовой карточки зафиксирован — правки сохраняются поверх заводской версии"
+                : undefined
+            }
             onChange={(e) => setSku({ ...sku, id: e.target.value.trim() })}
-            className={`w-44 rounded border bg-shell px-2 py-1 text-xs ${
+            className={`w-44 rounded border bg-shell px-2 py-1 text-xs disabled:opacity-60 ${
               idErr ? "border-red-600 text-red-700" : "border-line text-ink"
             }`}
           />
         </label>
+        {lockId && (
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+            правка базовой — сохранится поверх заводской
+          </span>
+        )}
         {idErr && <span className="text-xs text-red-600">{idErr}</span>}
         <button
           onClick={save}

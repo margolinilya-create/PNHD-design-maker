@@ -6,14 +6,13 @@ import { ChevronLeft } from "lucide-react";
 import { SkuList } from "@/components/admin/SkuList";
 import { SkuEditor } from "@/components/admin/SkuEditor";
 import { FlatCreator } from "@/components/admin/FlatCreator";
-import { loadCatalog } from "@/lib/catalog/loadCatalog";
-import { listModels } from "@/lib/persistence/models";
+import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
 import type { SKU } from "@/types";
 
 type Mode =
   | { kind: "list" }
   | { kind: "create" }
-  | { kind: "edit"; sku: SKU; reservedIds: string[] };
+  | { kind: "edit"; sku: SKU; reservedIds: string[]; lockId?: boolean };
 
 export default function AdminPage() {
   const [mode, setMode] = useState<Mode>({ kind: "list" });
@@ -23,10 +22,8 @@ export default function AdminPage() {
 
   const loadReserved = useCallback(async () => {
     try {
-      const [cat, models] = await Promise.all([loadCatalog(), listModels()]);
-      const ids = new Set<string>(cat.skus.map((s) => s.id));
-      models.forEach((m) => ids.add(m.id));
-      setReserved([...ids]);
+      const merged = await loadMergedCatalog();
+      setReserved(merged.skus.map((s) => s.id));
     } catch {
       /* список занятых id не критичен для рендера */
     }
@@ -69,8 +66,8 @@ export default function AdminPage() {
 
       {mode.kind === "list" && (
         <SkuList
-          onEdit={(sku, reservedIds) =>
-            setMode({ kind: "edit", sku, reservedIds })
+          onEdit={(sku, reservedIds, lockId) =>
+            setMode({ kind: "edit", sku, reservedIds, lockId })
           }
           onCreate={() => setMode({ kind: "create" })}
         />
@@ -87,6 +84,7 @@ export default function AdminPage() {
         <SkuEditor
           initial={mode.sku}
           reservedIds={mode.reservedIds}
+          lockId={mode.lockId}
           onBack={() => {
             loadReserved();
             setMode({ kind: "list" });

@@ -1,22 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { loadCatalog } from "@/lib/catalog/loadCatalog";
-import { listModels, deleteModel, saveModel } from "@/lib/persistence/models";
+import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
+import { deleteModel, saveModel } from "@/lib/persistence/models";
 import { cloneSku } from "@/lib/admin/skuEdit";
-import { Plus, Pencil, Copy, Trash2 } from "lucide-react";
+import { Plus, Pencil, Copy, Trash2, RotateCcw } from "lucide-react";
 import type { SKU } from "@/types";
 
 interface Entry {
   sku: SKU;
   source: "seed" | "model";
+  /** Seed-карточка перекрыта сохранённой правкой (override). */
+  overridden: boolean;
+  /** Сырая строка модели (для редактора — без развёрнутых grade_rule). */
+  raw?: SKU;
 }
 
 export function SkuList({
   onEdit,
   onCreate,
 }: {
-  onEdit: (sku: SKU, reservedIds: string[]) => void;
+  onEdit: (sku: SKU, reservedIds: string[], lockId?: boolean) => void;
   onCreate: () => void;
 }) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
@@ -25,14 +29,15 @@ export function SkuList({
 
   const load = useCallback(async () => {
     try {
-      const cat = await loadCatalog();
-      const seedIds = new Set(cat.skus.map((s) => s.id));
-      const models = await listModels();
-      const seed: Entry[] = cat.skus.map((s) => ({ sku: s, source: "seed" }));
-      const custom: Entry[] = models
-        .filter((m) => !seedIds.has(m.id))
-        .map((m) => ({ sku: m, source: "model" }));
-      setEntries([...seed, ...custom]);
+      const merged = await loadMergedCatalog();
+      setEntries(
+        merged.skus.map((s) => ({
+          sku: s,
+          source: merged.seedIds.has(s.id) ? "seed" : "model",
+          overridden: merged.overriddenIds.has(s.id),
+          raw: merged.rawModels.get(s.id),
+        })),
+      );
     } catch (e) {
       setErr(String(e));
     }
@@ -69,6 +74,19 @@ export function SkuList({
     await load();
   };
 
+  // Сброс override seed-карточки: удаляем сохранённую правку — merge вернёт
+  // заводскую версию из /seed/skus.json.
+  const resetToSeed = async (sku: SKU) => {
+    if (
+      !window.confirm(
+        `Вернуть заводскую версию «${sku.name}»? Сохранённые правки карточки будут удалены.`,
+      )
+    )
+      return;
+    await deleteModel(sku.id);
+    await load();
+  };
+
   if (err) return <p className="p-4 text-red-700">Ошибка: {err}</p>;
   if (!entries) return <p className="p-4 text-gray-500">Загрузка каталога…</p>;
 
@@ -90,7 +108,7 @@ export function SkuList({
       </div>
 
       <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map(({ sku, source }) => (
+        {filtered.map(({ sku, source, overridden, raw }) => (
           <div
             key={`${source}-${sku.id}`}
             className="rounded-xl border border-line bg-white p-4 shadow-sm"
@@ -104,8 +122,16 @@ export function SkuList({
                     : "bg-blue-50 text-blue-700"
                 }`}
               >
-                {source === "seed" ? "seed" : "моя"}
+                {source === "seed" ? "база" : "моя"}
               </span>
+              {overridden && (
+                <span
+                  className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700"
+                  title="Заводская карточка перекрыта сохранёнными правками"
+                >
+                  изменена
+                </span>
+              )}
             </div>
             <div className="mt-0.5 text-xs text-gray-400">{sku.id}</div>
             <div className="mt-2 flex flex-wrap gap-1">
@@ -123,34 +149,42 @@ export function SkuList({
             </div>
 
             <div className="mt-3 flex items-center gap-2">
-              {source === "model" ? (
-                <>
-                  <button
-                    onClick={() => onEdit(sku, reservedFor(sku.id))}
-                    className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-ink hover:bg-gray-200"
-                  >
-                    <Pencil size={14} strokeWidth={1.75} /> Редактировать
-                  </button>
-                  <button
-                    onClick={() => duplicate(sku)}
-                    className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-gray-700 hover:bg-line-soft"
-                  >
-                    <Copy size={14} strokeWidth={1.75} /> Дублировать
-                  </button>
-                  <button
-                    onClick={() => onDelete(sku.id)}
-                    className="ml-auto inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 hover:text-red-600"
-                  >
-                    <Trash2 size={14} strokeWidth={1.75} /> Удалить
-                  </button>
-                </>
-              ) : (
+              {/* Редактируются ВСЕ карточки. База правится на месте:
+                  сохранение под тем же id перекрывает заводскую версию. */}
+              <button
+                onClick={() =>
+                  onEdit(raw ?? sku, reservedFor(sku.id), source === "seed")
+                }
+                title={
+                  source === "seed"
+                    ? "Правки сохранятся поверх заводской карточки (без копии)"
+                    : undefined
+                }
+                className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-ink hover:bg-gray-200"
+              >
+                <Pencil size={14} strokeWidth={1.75} /> Редактировать
+              </button>
+              <button
+                onClick={() => duplicate(sku)}
+                className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-gray-700 hover:bg-line-soft"
+              >
+                <Copy size={14} strokeWidth={1.75} /> Дублировать
+              </button>
+              {overridden && (
                 <button
-                  onClick={() => duplicate(sku)}
-                  title="Seed-лекала только для чтения — создаётся редактируемая копия"
-                  className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-ink hover:bg-gray-200"
+                  onClick={() => resetToSeed(sku)}
+                  title="Удалить правки и вернуть заводскую версию"
+                  className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-amber-700 hover:bg-amber-50"
                 >
-                  <Copy size={14} strokeWidth={1.75} /> Копия для правки
+                  <RotateCcw size={14} strokeWidth={1.75} /> Сбросить
+                </button>
+              )}
+              {source === "model" && (
+                <button
+                  onClick={() => onDelete(sku.id)}
+                  className="ml-auto inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 hover:text-red-600"
+                >
+                  <Trash2 size={14} strokeWidth={1.75} /> Удалить
                 </button>
               )}
             </div>
