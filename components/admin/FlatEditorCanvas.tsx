@@ -14,6 +14,7 @@ import {
   Transformer,
 } from "react-konva";
 import { useImage } from "@/lib/hooks/useImage";
+import { isAccessoryType } from "@/types";
 import type { FlatDraft } from "@/lib/admin/flatDraft";
 
 interface T {
@@ -81,6 +82,8 @@ export function FlatEditorCanvas({
 
   const sleeve = isSleeveKind(draft.viewKind);
   const label = draft.viewKind.startsWith("label");
+  // Аксессуар (шоппер): горловины нет — её ручка скрыта, ось остаётся.
+  const accessory = isAccessoryType(draft.type);
 
   // Калибровка: клик двух точек.
   const measureDist =
@@ -190,17 +193,19 @@ export function FlatEditorCanvas({
                 draggable={!measure}
                 onMove={(px) => onChange({ centerAxisX: t.toMmX(px.x) })}
               />
-              {/* Горловина */}
-              <Handle
-                x={t.px(draft.neckline.x)}
-                y={t.py(draft.neckline.y)}
-                color="#e11d48"
-                label="горловина"
-                draggable={!measure}
-                onMove={(px) =>
-                  onChange({ neckline: { x: t.toMmX(px.x), y: t.toMmY(px.y) } })
-                }
-              />
+              {/* Горловина (не у аксессуаров) */}
+              {!accessory && (
+                <Handle
+                  x={t.px(draft.neckline.x)}
+                  y={t.py(draft.neckline.y)}
+                  color="#e11d48"
+                  label="горловина"
+                  draggable={!measure}
+                  onMove={(px) =>
+                    onChange({ neckline: { x: t.toMmX(px.x), y: t.toMmY(px.y) } })
+                  }
+                />
+              )}
             </>
           )}
           {sleeve && (

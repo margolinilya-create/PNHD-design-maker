@@ -39,6 +39,15 @@ describe("flatDraft", () => {
     });
   });
 
+  it("draftAnchors для аксессуара (шоппер) — только ось, без горловины", () => {
+    const shopper = { ...frontDraft, type: "shopper" as const };
+    expect(draftAnchors(shopper)).toEqual({ center_axis_x: 300 });
+    expect(validateDraft(shopper)).toEqual([]);
+    expect(
+      buildSkuFromDraft(shopper).views[0].anchors.neckline_point,
+    ).toBeUndefined();
+  });
+
   it("draftAnchors для рукава — низ + центр", () => {
     const a = draftAnchors({ ...frontDraft, viewKind: "sleeve_left", sleeveBottomY: 180, sleeveCenterX: 120 });
     expect(a).toEqual({ sleeve_bottom_y: 180, sleeve_center_x: 120 });

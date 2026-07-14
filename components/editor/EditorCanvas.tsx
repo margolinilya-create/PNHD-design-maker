@@ -1144,7 +1144,8 @@ function DimensionOverlay({
     anchor.kind === "sleeve"
       ? (sizeAnchors.sleeve_center_x ?? midX)
       : anchor.kind === "panel"
-        ? zone.zx + zone.zw / 2
+        ? // Аксессуар без горловины меряется от реальной оси; этикетка — от центра зоны.
+          (sizeAnchors.center_axis_x ?? zone.zx + zone.zw / 2)
         : (sizeAnchors.center_axis_x ?? midX);
   const anchorY =
     anchor.kind === "sleeve"

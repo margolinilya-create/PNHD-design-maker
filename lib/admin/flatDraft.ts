@@ -1,5 +1,6 @@
 // Модель черновика лекала из «Редактора лекал» → запись SKU для каталога.
 import type { SKU, View, ViewKind, GarmentType, BaseSize } from "@/types";
+import { isAccessoryType } from "@/types";
 import { catalogSchema } from "@/lib/catalog/schema";
 
 export interface ZoneDraft {
@@ -31,11 +32,16 @@ export interface FlatDraft {
 const isSleeveKind = (k: ViewKind) =>
   k === "sleeve_left" || k === "sleeve_right";
 
-/** Якоря вида по типу (front/back vs sleeve). */
+/**
+ * Якоря вида по типу (front/back vs sleeve). У аксессуаров (шопперы)
+ * горловины нет — в якоря идёт только ось; поле draft.neckline при этом
+ * остаётся в черновике (round-trip при переключении типа туда-обратно).
+ */
 export function draftAnchors(d: FlatDraft) {
-  return isSleeveKind(d.viewKind)
-    ? { sleeve_bottom_y: d.sleeveBottomY, sleeve_center_x: d.sleeveCenterX }
-    : { neckline_point: { x: d.neckline.x, y: d.neckline.y }, center_axis_x: d.centerAxisX };
+  if (isSleeveKind(d.viewKind))
+    return { sleeve_bottom_y: d.sleeveBottomY, sleeve_center_x: d.sleeveCenterX };
+  if (isAccessoryType(d.type)) return { center_axis_x: d.centerAxisX };
+  return { neckline_point: { x: d.neckline.x, y: d.neckline.y }, center_axis_x: d.centerAxisX };
 }
 
 /** Печатная зона черновика → polygon_mm. */

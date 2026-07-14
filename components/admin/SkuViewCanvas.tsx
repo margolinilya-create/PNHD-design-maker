@@ -31,11 +31,14 @@ const isSleeveKind = (k: string) => k === "sleeve_left" || k === "sleeve_right";
 export function SkuViewCanvas({
   view,
   selectedZoneId,
+  accessory,
   onSelectZone,
   onChange,
 }: {
   view: View;
   selectedZoneId: string | null;
+  /** Аксессуар (шоппер): горловины нет — её ручка скрыта, ось остаётся. */
+  accessory?: boolean;
   onSelectZone: (id: string) => void;
   onChange: (patch: Partial<View>) => void;
 }) {
@@ -255,21 +258,23 @@ export function SkuViewCanvas({
                   onChange({ anchors: { ...a, center_axis_x: t.toMmX(px.x) } })
                 }
               />
-              <Handle
-                x={t.px(a.neckline_point?.x ?? 0)}
-                y={t.py(a.neckline_point?.y ?? 0)}
-                color="#e11d48"
-                label="горловина"
-                draggable={!measure}
-                onMove={(px) =>
-                  onChange({
-                    anchors: {
-                      ...a,
-                      neckline_point: { x: t.toMmX(px.x), y: t.toMmY(px.y) },
-                    },
-                  })
-                }
-              />
+              {!accessory && (
+                <Handle
+                  x={t.px(a.neckline_point?.x ?? 0)}
+                  y={t.py(a.neckline_point?.y ?? 0)}
+                  color="#e11d48"
+                  label="горловина"
+                  draggable={!measure}
+                  onMove={(px) =>
+                    onChange({
+                      anchors: {
+                        ...a,
+                        neckline_point: { x: t.toMmX(px.x), y: t.toMmY(px.y) },
+                      },
+                    })
+                  }
+                />
+              )}
             </>
           )}
           {sleeve && (
