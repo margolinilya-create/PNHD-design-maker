@@ -25,6 +25,7 @@ import {
   FlipHorizontal2,
   RotateCcw,
   RotateCw,
+  X,
 } from "lucide-react";
 
 /**
@@ -43,6 +44,7 @@ export function PlacementInspector({
   onDuplicateAll,
   onCopyToView,
   onMirror,
+  onClose,
 }: {
   placement: Placement;
   view: View | undefined;
@@ -56,6 +58,8 @@ export function PlacementInspector({
   onDuplicateAll: () => void;
   onCopyToView: (viewId: string) => void;
   onMirror: () => void;
+  /** Закрыть инспектор (снять выбор нанесения). */
+  onClose: () => void;
 }) {
   const isSleeve = view?.kind === "sleeve_left" || view?.kind === "sleeve_right";
   const otherViews = views.filter((v) => v.id !== view?.id);
@@ -146,7 +150,16 @@ export function PlacementInspector({
   };
   return (
     <section>
-      <h3 className="mb-2 font-semibold text-ink">Позиция (мм)</h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-semibold text-ink">Позиция (мм)</h3>
+        <button
+          onClick={onClose}
+          title="Закрыть инспектор (снять выбор; Esc на холсте)"
+          className="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-raised hover:text-ink"
+        >
+          <X size={15} strokeWidth={1.75} />
+        </button>
+      </div>
       <div className="mb-2 flex flex-wrap gap-1.5">
         {presets.map((pr) => (
           <button
