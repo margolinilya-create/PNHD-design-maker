@@ -33,6 +33,9 @@ import { LayerRow } from "@/components/editor/LayerRow";
 import { PlacementInspector } from "@/components/editor/PlacementInspector";
 import { X, Cloud, HardDrive, Upload } from "lucide-react";
 
+/** Пауза тишины перед автосохранением открытого проекта (мс). */
+const AUTOSAVE_MS = 3000;
+
 export function SidePanel() {
   const sku = useProjectStore((s) => s.currentSku());
   const view = useProjectStore((s) => s.currentView());
@@ -83,25 +86,41 @@ export function SidePanel() {
   const defaultProjectName = () =>
     projectName.trim() || `${sku?.name ?? "Проект"} ${orderRef}`.trim();
 
-  const persist = async (id: string, name: string, okMsg?: string) => {
-    try {
-      await saveProject(snapshot(id, name));
-      setProjectRef(id, name);
-      markSaved();
-      setPmsg(
-        okMsg ?? (isCloud() ? "Сохранено в облако" : "Сохранено локально"),
-      );
-      refreshProjects();
-    } catch (e) {
-      setPmsg(`Ошибка сохранения: ${e}`);
-    }
-  };
+  // useCallback — стабильная ссылка для эффекта автосохранения (экшены
+  // zustand и refreshProjects не меняются между рендерами).
+  const persist = useCallback(
+    async (id: string, name: string, okMsg?: string) => {
+      try {
+        await saveProject(snapshot(id, name));
+        setProjectRef(id, name);
+        markSaved();
+        setPmsg(
+          okMsg ?? (isCloud() ? "Сохранено в облако" : "Сохранено локально"),
+        );
+        refreshProjects();
+      } catch (e) {
+        setPmsg(`Ошибка сохранения: ${e}`);
+      }
+    },
+    [snapshot, setProjectRef, markSaved, refreshProjects],
+  );
   const onSaveProject = () =>
     void persist(projectId ?? newProjectId(), defaultProjectName());
   // Форк открытого проекта: новый id + «(копия)», исходный не трогаем.
   const onSaveProjectCopy = () =>
     void persist(newProjectId(), `${defaultProjectName()} (копия)`, "Сохранена копия");
   const onOpenProject = async (id: string) => {
+    // Restore перетирает текущую раскладку — при несохранённых правках
+    // спрашиваем (тот же гвард, что при смене SKU на витрине).
+    const st = useProjectStore.getState();
+    if (
+      st.dirty &&
+      st.placements.length > 0 &&
+      !window.confirm(
+        "Текущая раскладка не сохранена — открыть проект и потерять правки?",
+      )
+    )
+      return;
     const s = await loadProject(id);
     if (s) {
       restore(s); // restore сам выставляет projectId/projectName в сторе
@@ -109,10 +128,41 @@ export function SidePanel() {
     }
   };
   const onDeleteProject = async (id: string) => {
+    const name = projects.find((p) => p.id === id)?.name;
+    if (!window.confirm(`Удалить проект «${name || "без названия"}»? Действие необратимо.`))
+      return;
     await deleteProject(id);
     if (projectId === id) setProjectRef(null, projectName);
     refreshProjects();
   };
+
+  // Автосохранение открытого проекта: через AUTOSAVE_MS тишины после правки
+  // молча пересохраняем. Новые (ещё не сохранённые) раскладки не автосейвим —
+  // черновики не должны плодиться без явного «Сохранить». Каждая правка
+  // меняет deps (ссылки placements/цвет/мета) и перезаводит таймер.
+  useEffect(() => {
+    if (!projectId || !dirty) return;
+    const t = setTimeout(() => {
+      const st = useProjectStore.getState();
+      if (!st.projectId || !st.dirty) return;
+      const name =
+        st.projectName.trim() ||
+        `${st.currentSku()?.name ?? "Проект"} ${st.orderRef}`.trim();
+      void persist(st.projectId, name, "Автосохранено");
+    }, AUTOSAVE_MS);
+    return () => clearTimeout(t);
+  }, [
+    dirty,
+    projectId,
+    placements,
+    assets,
+    client,
+    orderRef,
+    status,
+    garmentColor,
+    size,
+    persist,
+  ]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -338,10 +388,25 @@ export function SidePanel() {
               >
                 <button
                   onClick={() => onOpenProject(p.id)}
-                  className="min-w-0 flex-1 truncate text-left text-ink"
+                  className="min-w-0 flex-1 text-left"
                   title={p.name}
                 >
-                  {p.name || "(без названия)"}
+                  <span className="block truncate text-ink">
+                    {p.name || "(без названия)"}
+                  </span>
+                  <span className="block truncate text-[10px] text-gray-400">
+                    {[
+                      p.client,
+                      new Date(p.savedAt).toLocaleString("ru-RU", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </button>
                 <button
                   onClick={() => onDeleteProject(p.id)}
