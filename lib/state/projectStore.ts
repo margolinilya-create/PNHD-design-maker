@@ -51,6 +51,14 @@ interface ProjectState {
   orderRef: string;
   status: ProjectStatus;
 
+  /** Открытый сохранённый проект (id/имя) — «Сохранить» перезапишет его. */
+  projectId: string | null;
+  projectName: string;
+  setProjectRef: (id: string | null, name: string) => void;
+  /** Несохранённые правки раскладки (сбрасывается restore/selectSku/markSaved). */
+  dirty: boolean;
+  markSaved: () => void;
+
   // история (undo/redo) — снимки редактируемого состояния
   past: EditableSnapshot[];
   future: EditableSnapshot[];
@@ -121,15 +129,22 @@ export const useProjectStore = create<ProjectState>((set, get) => {
   client: "",
   orderRef: "",
   status: "draft",
+  projectId: null,
+  projectName: "",
+  dirty: false,
   garmentColor: "",
   past: [],
   future: [],
+
+  setProjectRef: (projectId, projectName) => set({ projectId, projectName }),
+  markSaved: () => set({ dirty: false }),
 
   pushHistory: () => {
     lastHistoryKey = null;
     set((s) => ({
       past: [...s.past, editable(s)].slice(-HISTORY_LIMIT),
       future: [],
+      dirty: true,
     }));
   },
   undo: () =>
@@ -170,6 +185,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       placements: [],
       selectedPlacementId: null,
       garmentColor: "",
+      projectId: null,
+      projectName: "",
+      dirty: false,
       past: [],
       future: [],
     });
@@ -253,8 +271,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     set((s) => ({
       client: client ?? s.client,
       orderRef: orderRef ?? s.orderRef,
+      dirty: true,
     })),
-  setStatus: (status) => set({ status }),
+  setStatus: (status) => set({ status, dirty: true }),
   setGarmentColor: (garmentColor) => {
     pushHistoryCoalesced("garment-color");
     set({ garmentColor });
@@ -390,6 +409,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       orderRef: s.orderRef,
       status: s.status,
       garmentColor: s.garmentColor ?? "",
+      projectId: s.id,
+      projectName: s.name,
+      dirty: false,
       selectedPlacementId: null,
       past: [],
       future: [],

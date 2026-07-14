@@ -2,7 +2,10 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useProjectStore } from "./projectStore";
 
 const reset = () =>
-  useProjectStore.setState({ placements: [], assets: {}, past: [], future: [], selectedPlacementId: null });
+  useProjectStore.setState({
+    placements: [], assets: {}, past: [], future: [],
+    selectedPlacementId: null, dirty: false, projectId: null, projectName: "",
+  });
 
 const sample = {
   print_area_id: "z", asset_id: "a",
@@ -77,6 +80,24 @@ describe("projectStore undo/redo", () => {
     expect(st.placements[1].x_mm).toBe(sample.x_mm + 10);
     useProjectStore.getState().undo();
     expect(useProjectStore.getState().placements).toHaveLength(1);
+  });
+
+  it("dirty: мутации помечают, markSaved и restore сбрасывают", () => {
+    const s = useProjectStore.getState();
+    expect(useProjectStore.getState().dirty).toBe(false);
+    const id = s.addPlacement(sample);
+    expect(useProjectStore.getState().dirty).toBe(true);
+    useProjectStore.getState().markSaved();
+    expect(useProjectStore.getState().dirty).toBe(false);
+    useProjectStore.getState().updatePlacement(id, { x_mm: 5 });
+    expect(useProjectStore.getState().dirty).toBe(true);
+    const snap = useProjectStore.getState().snapshot("p1", "Проект");
+    useProjectStore.getState().restore(snap);
+    // restore выставляет ссылку на открытый проект и снимает dirty.
+    const st = useProjectStore.getState();
+    expect(st.dirty).toBe(false);
+    expect(st.projectId).toBe("p1");
+    expect(st.projectName).toBe("Проект");
   });
 
   it("snapshot/restore переносят раскладку и метаданные", () => {

@@ -57,6 +57,18 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   }, [load]);
 
   const open = (skuId: string) => {
+    // Выбор другого SKU стирает текущую раскладку — при несохранённых
+    // правках спрашиваем (раньше терялось молча).
+    const st = useProjectStore.getState();
+    if (
+      skuId !== st.skuId &&
+      st.dirty &&
+      st.placements.length > 0 &&
+      !window.confirm(
+        "В редакторе есть несохранённая раскладка — она будет потеряна. Открыть другое изделие?",
+      )
+    )
+      return;
     selectSku(skuId);
     router.push("/editor");
   };

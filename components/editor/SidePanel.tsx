@@ -93,9 +93,14 @@ export function SidePanel() {
   const garmentColor = useProjectStore((s) => s.garmentColor);
   const setGarmentColor = useProjectStore((s) => s.setGarmentColor);
 
-  // Сохранение проектов (Supabase или localStorage).
-  const [projName, setProjName] = useState("");
-  const [projId, setProjId] = useState<string | null>(null);
+  // Сохранение проектов (Supabase или localStorage). id/имя открытого проекта
+  // живут в сторе — открытие по ссылке /editor?project=… и панель видят одно
+  // и то же, «Сохранить» всегда перезаписывает именно открытый проект.
+  const projectId = useProjectStore((s) => s.projectId);
+  const projectName = useProjectStore((s) => s.projectName);
+  const setProjectRef = useProjectStore((s) => s.setProjectRef);
+  const markSaved = useProjectStore((s) => s.markSaved);
+  const dirty = useProjectStore((s) => s.dirty);
   const [projects, setProjects] = useState<ProjectSnapshot[]>([]);
   const [pmsg, setPmsg] = useState<string | null>(null);
   const refreshProjects = useCallback(() => {
@@ -105,31 +110,39 @@ export function SidePanel() {
   }, []);
   useEffect(() => refreshProjects(), [refreshProjects]);
 
-  const onSaveProject = async () => {
-    const id = projId ?? (globalThis.crypto?.randomUUID?.() ?? String(Date.now()));
-    const name = projName.trim() || `${sku?.name ?? "Проект"} ${orderRef}`.trim();
+  const newProjectId = () =>
+    globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+  const defaultProjectName = () =>
+    projectName.trim() || `${sku?.name ?? "Проект"} ${orderRef}`.trim();
+
+  const persist = async (id: string, name: string, okMsg?: string) => {
     try {
       await saveProject(snapshot(id, name));
-      setProjId(id);
-      setProjName(name);
-      setPmsg(isCloud() ? "Сохранено в облако" : "Сохранено локально");
+      setProjectRef(id, name);
+      markSaved();
+      setPmsg(
+        okMsg ?? (isCloud() ? "Сохранено в облако" : "Сохранено локально"),
+      );
       refreshProjects();
     } catch (e) {
       setPmsg(`Ошибка сохранения: ${e}`);
     }
   };
+  const onSaveProject = () =>
+    void persist(projectId ?? newProjectId(), defaultProjectName());
+  // Форк открытого проекта: новый id + «(копия)», исходный не трогаем.
+  const onSaveProjectCopy = () =>
+    void persist(newProjectId(), `${defaultProjectName()} (копия)`, "Сохранена копия");
   const onOpenProject = async (id: string) => {
     const s = await loadProject(id);
     if (s) {
-      restore(s);
-      setProjId(s.id);
-      setProjName(s.name);
+      restore(s); // restore сам выставляет projectId/projectName в сторе
       setPmsg(`Открыт «${s.name}»`);
     }
   };
   const onDeleteProject = async (id: string) => {
     await deleteProject(id);
-    if (projId === id) setProjId(null);
+    if (projectId === id) setProjectRef(null, projectName);
     refreshProjects();
   };
 
@@ -475,7 +488,14 @@ export function SidePanel() {
         {/* Сохранение проекта */}
         <div className="mt-3 border-t border-line pt-3">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs text-gray-500">Проекты</span>
+            <span className="text-xs text-gray-500">
+              Проекты
+              {dirty && (
+                <span className="ml-1.5 text-[10px] text-amber-600">
+                  ● не сохранено
+                </span>
+              )}
+            </span>
             <span className="flex items-center gap-1 text-[10px] text-gray-400">
               {isCloud() ? <Cloud size={12} strokeWidth={1.75} /> : <HardDrive size={12} strokeWidth={1.75} />}
               {isCloud() ? "облако" : "локально"}
@@ -483,17 +503,26 @@ export function SidePanel() {
           </div>
           <div className="mb-2 flex gap-2">
             <input
-              value={projName}
-              onChange={(e) => setProjName(e.target.value)}
+              value={projectName}
+              onChange={(e) => setProjectRef(projectId, e.target.value)}
               placeholder="Название проекта"
-              className="flex-1 rounded border border-line bg-white px-2 py-1.5 text-gray-900"
+              className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-gray-900"
             />
             <button
               onClick={onSaveProject}
               className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
-              {projId ? "Сохранить" : "Сохранить"}
+              Сохранить
             </button>
+            {projectId && (
+              <button
+                onClick={onSaveProjectCopy}
+                title="Сохранить как новый проект (исходный не изменится)"
+                className="rounded bg-raised px-2.5 py-1.5 text-xs text-ink hover:bg-gray-200"
+              >
+                Как копию
+              </button>
+            )}
           </div>
           {projects.length > 0 && (
             <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
@@ -501,7 +530,7 @@ export function SidePanel() {
                 <div
                   key={p.id}
                   className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
-                    p.id === projId ? "bg-raised" : "hover:bg-line-soft"
+                    p.id === projectId ? "bg-raised" : "hover:bg-line-soft"
                   }`}
                 >
                   <button

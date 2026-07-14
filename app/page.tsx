@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Shirt, Palette, Scissors } from "lucide-react";
 import { SkuPicker } from "@/components/catalog/SkuPicker";
+import { ProjectList } from "@/components/catalog/ProjectList";
 
 export default function HomePage() {
   return (
@@ -30,6 +31,9 @@ export default function HomePage() {
           </Link>
         </div>
       </header>
+
+      {/* Сохранённые проекты — открываются сразу в редакторе. */}
+      <ProjectList />
 
       {/* Первичное разделение: печать на готовом изделии / в крое. */}
       <div className="mb-6 inline-flex rounded-lg border border-line bg-white p-1 shadow-sm">
