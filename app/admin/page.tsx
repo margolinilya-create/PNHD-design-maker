@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, LogOut } from "lucide-react";
 import { SkuList } from "@/components/admin/SkuList";
 import { SkuEditor } from "@/components/admin/SkuEditor";
 import { FlatCreator } from "@/components/admin/FlatCreator";
@@ -15,6 +16,7 @@ type Mode =
   | { kind: "edit"; sku: SKU; reservedIds: string[]; lockId?: boolean };
 
 export default function AdminPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   // Занятые id (seed + модели) — для проверки уникальности при передаче из
   // создания в полноценный редактор.
@@ -69,6 +71,23 @@ export default function AdminPage() {
             список
           </button>
         )}
+        <button
+          onClick={async () => {
+            // Сбрасываем cookie-сессию и уходим на главную; middleware дальше
+            // сам не пустит в /admin без нового логина.
+            try {
+              await fetch("/api/admin/logout", { method: "POST" });
+            } catch {
+              /* сеть упала — cookie останется, но и navigation не критичен */
+            }
+            router.replace("/");
+            router.refresh();
+          }}
+          className="ml-auto inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700"
+          title="Выйти из админки"
+        >
+          <LogOut size={14} strokeWidth={1.75} /> выйти
+        </button>
       </header>
 
       {mode.kind === "list" && (
