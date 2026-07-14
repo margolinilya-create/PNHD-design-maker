@@ -555,7 +555,8 @@ export function SidePanel() {
               asset={assets[p.asset_id]}
               garmentSize={size}
               selected={p.id === selectedId}
-              onSelect={() => selectPlacement(p.id)}
+              // Повторный клик по выбранному слою снимает выбор (закрывает инспектор).
+              onSelect={() => selectPlacement(p.id === selectedId ? null : p.id)}
               onRemove={() => removePlacement(p.id)}
               onDup={() => duplicatePlacement(p.id)}
               onUp={() => reorderPlacement(p.id, 1)}
@@ -581,6 +582,7 @@ export function SidePanel() {
           onDuplicateAll={() => duplicateToAllZones(selectedPlacement.id)}
           onCopyToView={(vid) => copyPlacementToView(selectedPlacement.id, vid)}
           onMirror={() => mirrorPlacement(selectedPlacement.id)}
+          onClose={() => selectPlacement(null)}
         />
       )}
 
