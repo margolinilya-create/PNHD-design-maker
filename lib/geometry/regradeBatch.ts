@@ -1,10 +1,10 @@
 // Батч-регрейд (P1 #20): пересчёт позиций всех нанесений под целевой размер
 // (константа отступа от горловины). Чистая функция — для сборки batch-PDF.
 import type { Placement, View } from "@/types";
-import { regradePosition } from "./view";
+import { regradePosition, viewHasZone } from "./view";
 
 function viewForPlacement(views: View[], p: Placement): View | undefined {
-  return views.find((v) => v.print_areas.some((a) => a.id === p.print_area_id));
+  return views.find((v) => viewHasZone(v, p.print_area_id));
 }
 
 /**

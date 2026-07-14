@@ -1,6 +1,7 @@
 "use client";
 
 import { useProjectStore } from "@/lib/state/projectStore";
+import { viewHasZone } from "@/lib/geometry/view";
 
 const KIND_LABEL: Record<string, string> = {
   front: "Перед",
@@ -23,7 +24,7 @@ export function ViewTabs() {
     <div className="flex gap-1.5">
       {sku.views.map((v) => {
         const count = placements.filter((p) =>
-          v.print_areas.some((a) => a.id === p.print_area_id),
+          viewHasZone(v, p.print_area_id),
         ).length;
         const active = v.id === viewId;
         return (

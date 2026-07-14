@@ -23,6 +23,7 @@ import {
   fitToZone,
   yForNecklineOffset,
   positionOnAxis,
+  viewHasZone,
 } from "./view";
 
 // Эталон из seed: перед tshirt-classic.
@@ -286,6 +287,41 @@ describe("viewZone — per-size зоны печати", () => {
   });
   it("без размера — базовая", () => {
     expect(viewZone(v).zone.zw).toBe(300);
+  });
+});
+
+describe("viewHasZone — резолв «нанесение → вид» по id зоны", () => {
+  const mk = (id: string, dx = 0) => ({
+    id,
+    name: id,
+    polygon_mm: [
+      [100 + dx, 100],
+      [200 + dx, 100],
+      [200 + dx, 200],
+      [100 + dx, 200],
+    ] as [number, number][],
+    safe_inset_mm: 10,
+  });
+  const v = {
+    kind: "front",
+    print_areas: [mk("chest")],
+    // per-size набор с СОБСТВЕННЫМ id зоны (не совпадает с базовым).
+    size_print_areas: { XXL: [mk("chest-xxl", 20)] },
+  } as unknown as import("@/types").View;
+
+  it("находит базовую зону", () => {
+    expect(viewHasZone(v, "chest")).toBe(true);
+  });
+  it("находит per-size зону с отличным id (нанесение не теряется)", () => {
+    expect(viewHasZone(v, "chest-xxl")).toBe(true);
+  });
+  it("чужой id — false", () => {
+    expect(viewHasZone(v, "back")).toBe(false);
+  });
+  it("без size_print_areas работает по базовым", () => {
+    const plain = { ...v, size_print_areas: undefined } as typeof v;
+    expect(viewHasZone(plain, "chest")).toBe(true);
+    expect(viewHasZone(plain, "chest-xxl")).toBe(false);
   });
 });
 

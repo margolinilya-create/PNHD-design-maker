@@ -12,7 +12,7 @@ import type {
   SKU,
   View,
 } from "@/types";
-import { regradePosition } from "@/lib/geometry/view";
+import { regradePosition, viewHasZone } from "@/lib/geometry/view";
 import { polygonToZone } from "@/lib/geometry/coords";
 import type { ProjectSnapshot } from "@/lib/persistence/projects";
 
@@ -164,6 +164,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectView: (viewId) => set({ viewId, selectedPlacementId: null }),
 
   selectSize: (size) => {
+    // Смена размера регрейдит нанесения (мутация) — в readOnly запрещена,
+    // как и остальные правки (undo там тоже заблокирован).
+    if (get().readOnly) return;
     const { size: fromSize, placements, catalog, skuId } = get();
     if (!fromSize || fromSize === size) {
       set({ size });
@@ -178,7 +181,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     // Регрейдинг: сохраняем отступ от горловины как константу (BUILD.md §4).
     const regraded = placements.map((p) => {
       const view = sku.views.find((v) =>
-        v.print_areas.some((a) => a.id === p.print_area_id),
+        viewHasZone(v, p.print_area_id),
       ) as View | undefined;
       if (!view) return p;
       const { x_mm, y_mm } = regradePosition(view, fromSize, size, {
@@ -306,10 +309,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (st.readOnly) return;
     const view = st.currentView();
     if (!view) return;
-    const areaIds = new Set(view.print_areas.map((a) => a.id));
     const idxs = st.placements
       .map((p, i) => ({ p, i }))
-      .filter((x) => areaIds.has(x.p.print_area_id))
+      .filter((x) => viewHasZone(view, x.p.print_area_id))
       .map((x) => x.i);
     const pos = idxs.findIndex((i) => st.placements[i].id === id);
     const swapPos = pos + dir;
@@ -339,8 +341,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (st.readOnly) return;
     const src = st.placements.find((p) => p.id === id);
     const sku = st.currentSku();
-    const srcView = sku?.views.find((v) =>
-      v.print_areas.some((a) => a.id === src?.print_area_id),
+    const srcView = sku?.views.find(
+      (v) => !!src && viewHasZone(v, src.print_area_id),
     );
     if (!src || !srcView) return;
     const otherKind =

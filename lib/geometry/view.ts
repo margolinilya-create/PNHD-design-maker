@@ -238,6 +238,20 @@ export function printAreasForSize(view: View, size?: string) {
   return (size && view.size_print_areas?.[size]) || view.print_areas;
 }
 
+/**
+ * Принадлежит ли зона с этим id виду — среди базовых И любых per-size зон.
+ * Нанесение может хранить id per-size зоны (useAddArtwork берёт зону текущего
+ * размера) — резолв «нанесение → вид» не должен терять его на других размерах.
+ */
+export function viewHasZone(view: View, areaId: string): boolean {
+  if (view.print_areas.some((a) => a.id === areaId)) return true;
+  const sp = view.size_print_areas;
+  return (
+    !!sp &&
+    Object.values(sp).some((areas) => areas.some((a) => a.id === areaId))
+  );
+}
+
 /** Зона по id (для мультизонных видов); фоллбэк на первую. */
 export function findPrintArea(view: View, areaId?: string, size?: string) {
   const areas = printAreasForSize(view, size);

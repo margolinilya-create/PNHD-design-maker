@@ -24,6 +24,7 @@ import {
   anchorsForSize,
   printAreasForSize,
   flatForSize,
+  viewHasZone,
 } from "@/lib/geometry/view";
 import type { Zone } from "@/lib/geometry/coords";
 import type { Placement, View } from "@/types";
@@ -120,11 +121,10 @@ export function EditorCanvas() {
     };
   }, [size, flatMm]);
 
-  // Нанесения текущего вида.
+  // Нанесения текущего вида (id зоны может быть per-size — viewHasZone).
   const viewPlacements = useMemo(() => {
     if (!view) return [];
-    const areaIds = new Set(view.print_areas.map((a) => a.id));
-    return placements.filter((p) => areaIds.has(p.print_area_id));
+    return placements.filter((p) => viewHasZone(view, p.print_area_id));
   }, [placements, view]);
 
   const nodeRefs = useRef<Map<string, Konva.Image>>(new Map());

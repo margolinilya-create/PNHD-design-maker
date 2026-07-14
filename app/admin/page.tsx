@@ -20,17 +20,24 @@ export default function AdminPage() {
   // создания в полноценный редактор.
   const [reserved, setReserved] = useState<string[]>([]);
 
-  const loadReserved = useCallback(async () => {
-    try {
-      const merged = await loadMergedCatalog();
-      setReserved(merged.skus.map((s) => s.id));
-    } catch {
-      /* список занятых id не критичен для рендера */
-    }
-  }, []);
+  const loadReserved = useCallback(
+    async (isAlive: () => boolean = () => true) => {
+      try {
+        const merged = await loadMergedCatalog();
+        if (isAlive()) setReserved(merged.skus.map((s) => s.id));
+      } catch {
+        /* список занятых id не критичен для рендера */
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    loadReserved();
+    let alive = true;
+    loadReserved(() => alive);
+    return () => {
+      alive = false;
+    };
   }, [loadReserved]);
 
   // Создание → продолжить в полном редакторе (мультивид/per-size/этикетка).
