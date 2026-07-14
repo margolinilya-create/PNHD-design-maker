@@ -31,7 +31,6 @@ import {
   resolveMethod,
   methodAllowedInZone,
 } from "@/lib/catalog/printMethod";
-import { PANTONE_SWATCHES } from "@/lib/catalog/pantone";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
 import { buildPreviewSvg } from "@/lib/export/buildPreviewSvg";
 import { exportScenesPdf } from "@/lib/export/exportPdf";
@@ -43,7 +42,6 @@ import {
   type PreflightIssue,
 } from "@/lib/export/preflight";
 import { reviewGrading } from "@/lib/geometry/gradingReview";
-import { regradePlacementsToSize } from "@/lib/geometry/regradeBatch";
 import type { Asset, Placement, View } from "@/types";
 import { isAccessoryType } from "@/types";
 import {
@@ -65,12 +63,6 @@ import {
   Cloud,
   HardDrive,
   Upload,
-  FileDown,
-  Image as ImageIcon,
-  Ruler,
-  Layers,
-  Edit3,
-  Plus,
 } from "lucide-react";
 
 export function SidePanel() {
@@ -100,11 +92,6 @@ export function SidePanel() {
   const mirrorPlacement = useProjectStore((s) => s.mirrorPlacement);
   const garmentColor = useProjectStore((s) => s.garmentColor);
   const setGarmentColor = useProjectStore((s) => s.setGarmentColor);
-  const comments = useProjectStore((s) => s.comments);
-  const addComment = useProjectStore((s) => s.addComment);
-  const removeComment = useProjectStore((s) => s.removeComment);
-  const readOnly = useProjectStore((s) => s.readOnly);
-  const setReadOnly = useProjectStore((s) => s.setReadOnly);
 
   // Сохранение проектов (Supabase или localStorage).
   const [projName, setProjName] = useState("");
@@ -157,8 +144,6 @@ export function SidePanel() {
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   // Проверка ростовки (P1 #12): свод по всем размерам.
   const [showReview, setShowReview] = useState(false);
-  // Batch-PDF по размерам (P1 #20).
-  const [showBatch, setShowBatch] = useState(false);
 
   // Целевая зона для загрузки (мультизонные виды).
   const areas = useMemo(
@@ -215,68 +200,8 @@ export function SidePanel() {
     }
   };
 
-  // Batch-PDF: тех-листы по выбранным размерам в один файл (P1 #20).
-  const onExportBatch = async (sizesSel: string[]) => {
-    if (!sku || sizesSel.length === 0) return;
-    setShowBatch(false);
-    setBusy(true);
-    setMsg(null);
-    try {
-      const fromSize = size ?? sku.base_size;
-      const scenes: string[] = [];
-      for (const tSize of sizesSel) {
-        const pls = regradePlacementsToSize(
-          sku.views,
-          placements,
-          fromSize,
-          tSize,
-        );
-        const viewsWith = sku.views.filter((v) =>
-          pls.some((p) => viewHasZone(v, p.print_area_id)),
-        );
-        for (const v of viewsWith) {
-          const s = v.scale_mm_per_unit ?? 1;
-          const flat = await resolveFlat(flatForSize(v, tSize), s);
-          const vp = pls.filter((p) => viewHasZone(v, p.print_area_id));
-          scenes.push(
-            buildSceneSvg({
-              sku,
-              view: v,
-              flatSvgMarkup: flat.markup,
-              flatRaster: flat.rasterUrl ? { dataUrl: flat.rasterUrl } : undefined,
-              flatMm: flat.flatMm,
-              scaleMmPerUnit: s,
-              garmentColor,
-              placements: vp,
-              assets,
-              meta: {
-                client,
-                orderRef,
-                size: tSize,
-                date: new Date().toLocaleDateString("ru-RU"),
-                status,
-              },
-              variant: "minimal",
-            }),
-          );
-        }
-      }
-      if (!scenes.length) {
-        setMsg("Нет нанесений для batch");
-        return;
-      }
-      await exportScenesPdf(scenes, `${sku.id}-batch-${orderRef || "draft"}.pdf`);
-      setMsg(`Batch PDF готов (${sizesSel.length} разм.)`);
-    } catch (e) {
-      setMsg(`Ошибка batch: ${e}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Гейт перед экспортом: прогоняем чеклист, при проблемах — модалка.
   // Общий гейт: прогон preflight перед любым экспортом; при проблемах — модалка,
-  // действие запускается по подтверждению (B2 — батч и production тоже через чеклист).
+  // действие запускается по подтверждению.
   const gateExport = (action: () => void) => {
     if (!sku) return;
     const issues = preflight({
@@ -294,32 +219,6 @@ export function SidePanel() {
   };
 
   const onExport = () => gateExport(() => void runExport("minimal"));
-
-  // Гейт batch-экспорта: preflight на КАЖДЫЙ целевой размер по регрейженным
-  // позициям (нанесение может влезать на базовом, но вылетать на XXL).
-  const gateExportBatch = (sizesSel: string[]) => {
-    if (!sku || sizesSel.length === 0) return;
-    const fromSize = size ?? sku.base_size;
-    const issues = sizesSel.flatMap((tSize) =>
-      preflight({
-        views: sku.views,
-        placements: regradePlacementsToSize(
-          sku.views,
-          placements,
-          fromSize,
-          tSize,
-        ),
-        assets,
-        size: tSize,
-      }).map((i) => ({ ...i, message: `[${tSize}] ${i.message}` })),
-    );
-    if (issues.length > 0) {
-      setPendingAction(() => () => void onExportBatch(sizesSel));
-      setPreflightIssues(issues);
-      return;
-    }
-    void onExportBatch(sizesSel);
-  };
 
   const runExport = async (
     variant: "full" | "production" | "minimal" = "minimal",
@@ -391,24 +290,6 @@ export function SidePanel() {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 text-sm">
-      <div className="flex items-center justify-between rounded-lg bg-raised px-3 py-2">
-        <span className="flex items-center gap-1.5 text-xs text-gray-700">
-          {readOnly ? <Eye size={14} strokeWidth={1.75} /> : <Edit3 size={14} strokeWidth={1.75} />}
-          {readOnly ? "Просмотр (правки заблокированы)" : "Редактирование"}
-        </span>
-        <button
-          onClick={() => setReadOnly(!readOnly)}
-          className={`rounded px-2.5 py-1 text-xs ${
-            readOnly
-              ? "bg-blue-600 text-white"
-              : "bg-raised text-ink hover:bg-gray-200"
-          }`}
-        >
-          {readOnly ? "Включить правки" : "Только просмотр"}
-        </button>
-      </div>
-
-      {!readOnly && (
       <section>
         <h3 className="mb-2 font-semibold text-ink">Макет</h3>
         <input
@@ -475,7 +356,6 @@ export function SidePanel() {
           » текущего вида.
         </p>
       </section>
-      )}
 
       <section>
         <h3 className="mb-2 font-semibold text-ink">Размер (эталон)</h3>
@@ -544,7 +424,6 @@ export function SidePanel() {
               asset={assets[p.asset_id]}
               garmentSize={size}
               selected={p.id === selectedId}
-              readOnly={readOnly}
               onSelect={() => selectPlacement(p.id)}
               onRemove={() => removePlacement(p.id)}
               onDup={() => duplicatePlacement(p.id)}
@@ -558,7 +437,7 @@ export function SidePanel() {
         </div>
       </section>
 
-      {selectedPlacement && !readOnly && (
+      {selectedPlacement && (
         <PlacementInspector
           placement={selectedPlacement}
           view={findViewForPlacement(sku.views, selectedPlacement)}
@@ -602,43 +481,6 @@ export function SidePanel() {
           >
             {status === "approved" ? "Согласовано" : "Черновик"}
           </button>
-        </div>
-
-        {/* Комментарии согласования (P1 #24) */}
-        <div className="mt-3 border-t border-line pt-3">
-          <span className="mb-1 block text-xs text-gray-500">
-            Согласование ({comments.length})
-          </span>
-          <CommentBox onAdd={(role, text) => addComment({ role, text })} />
-          {comments.length > 0 && (
-            <div className="mt-2 flex max-h-44 flex-col gap-1.5 overflow-y-auto">
-              {comments.map((c) => (
-                <div
-                  key={c.id}
-                  className="rounded bg-raised px-2 py-1.5 text-xs"
-                >
-                  <div className="mb-0.5 flex items-center justify-between">
-                    <span
-                      className={`rounded px-1 text-[10px] ${
-                        c.role === "client"
-                          ? "bg-blue-50 text-blue-700"
-                          : "bg-emerald-50 text-emerald-700"
-                      }`}
-                    >
-                      {c.role === "client" ? "Клиент" : "Цех"}
-                    </span>
-                    <button
-                      onClick={() => removeComment(c.id)}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <X size={14} strokeWidth={1.75} />
-                    </button>
-                  </div>
-                  <p className="whitespace-pre-wrap text-ink">{c.text}</p>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Сохранение проекта */}
@@ -717,13 +559,6 @@ export function SidePanel() {
         >
           {busy ? "Сборка…" : "Тех-рисунок (PDF)"}
         </button>
-        <button
-          onClick={() => setShowBatch(true)}
-          disabled={busy || viewLayers.length === 0}
-          className="w-full rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-        >
-          Batch PDF (по размерам)
-        </button>
         {msg && <p className="mt-2 text-xs text-gray-500">{msg}</p>}
       </section>
 
@@ -762,17 +597,6 @@ export function SidePanel() {
         />
       )}
 
-      {showBatch && (
-        <BatchModal
-          sizes={sku.sizes}
-          baseSize={size ?? sku.base_size}
-          onClose={() => setShowBatch(false)}
-          onBuild={(sel) => {
-            setShowBatch(false);
-            gateExportBatch(sel);
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -824,79 +648,6 @@ function Modal({
         )}
       </div>
     </div>
-  );
-}
-
-/** Модалка выбора размеров для batch-PDF (P1 #20). */
-function BatchModal({
-  sizes,
-  baseSize,
-  onClose,
-  onBuild,
-}: {
-  sizes: string[];
-  baseSize: string;
-  onClose: () => void;
-  onBuild: (selected: string[]) => void;
-}) {
-  const [sel, setSel] = useState<Set<string>>(() => new Set(sizes));
-  const toggle = (sz: string) =>
-    setSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(sz)) next.delete(sz);
-      else next.add(sz);
-      return next;
-    });
-  const ordered = sizes.filter((s) => sel.has(s));
-  return (
-    <Modal
-      title="Batch PDF по размерам"
-      onClose={onClose}
-      maxW="max-w-sm"
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            className="rounded bg-raised px-3 py-1.5 text-sm text-ink hover:bg-gray-200"
-          >
-            Отмена
-          </button>
-          <button
-            onClick={() => onBuild(ordered)}
-            disabled={ordered.length === 0}
-            className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            Собрать ({ordered.length})
-          </button>
-        </>
-      }
-    >
-      <p className="mb-3 text-xs text-gray-500">
-        Один файл с тех-листами по выбранным ростовкам (позиции пересчитаны от{" "}
-        {baseSize}).
-      </p>
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {sizes.map((sz) => (
-          <button
-            key={sz}
-            onClick={() => toggle(sz)}
-            className={`rounded px-2.5 py-1 text-xs ${
-              sel.has(sz)
-                ? "bg-blue-600 text-white"
-                : "bg-raised text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {sz}
-          </button>
-        ))}
-      </div>
-      <button
-        onClick={() => setSel(new Set(sizes))}
-        className="rounded bg-raised px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-200"
-      >
-        Выбрать все
-      </button>
-    </Modal>
   );
 }
 
@@ -1071,101 +822,6 @@ function PreflightModal({
   );
 }
 
-/** Выбор spot-цветов Pantone для нанесения (P2 #6). */
-function PantonePicker({
-  selected,
-  onChange,
-}: {
-  selected: string[];
-  onChange: (codes: string[]) => void;
-}) {
-  const toggle = (code: string) =>
-    onChange(
-      selected.includes(code)
-        ? selected.filter((c) => c !== code)
-        : [...selected, code],
-    );
-  return (
-    <div className="mt-2">
-      <span className="mb-1 block text-[11px] text-gray-400">
-        Pantone (spot) {selected.length > 0 && `· ${selected.length}`}
-      </span>
-      <div className="flex flex-wrap gap-1">
-        {PANTONE_SWATCHES.map((sw) => {
-          const on = selected.includes(sw.code);
-          return (
-            <button
-              key={sw.code}
-              onClick={() => toggle(sw.code)}
-              title={sw.code}
-              className={`h-5 w-5 rounded-full border ${
-                on ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-300"
-              }`}
-              style={{ background: sw.hex }}
-            />
-          );
-        })}
-      </div>
-      {selected.length > 0 && (
-        <p className="mt-1 text-[10px] text-gray-500">{selected.join(", ")}</p>
-      )}
-    </div>
-  );
-}
-
-/** Форма добавления комментария согласования (P1 #24). */
-function CommentBox({
-  onAdd,
-}: {
-  onAdd: (role: "client" | "shop", text: string) => void;
-}) {
-  const [role, setRole] = useState<"client" | "shop">("shop");
-  const [text, setText] = useState("");
-  const submit = () => {
-    const t = text.trim();
-    if (!t) return;
-    onAdd(role, t);
-    setText("");
-  };
-  return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex gap-1.5">
-        {(["shop", "client"] as const).map((r) => (
-          <button
-            key={r}
-            onClick={() => setRole(r)}
-            className={`rounded px-2 py-0.5 text-[11px] ${
-              role === r
-                ? "bg-blue-600 text-white"
-                : "bg-raised text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            {r === "client" ? "Клиент" : "Цех"}
-          </button>
-        ))}
-      </div>
-      <div className="flex gap-1.5">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-          }}
-          placeholder="Комментарий…"
-          className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-xs"
-        />
-        <button
-          onClick={submit}
-          title="Добавить комментарий"
-          className="flex shrink-0 items-center justify-center rounded bg-blue-600 px-2.5 py-1.5 text-white hover:bg-blue-700"
-        >
-          <Plus size={14} strokeWidth={2} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function findViewForPlacement(views: View[], p: Placement): View | undefined {
   return views.find((v) => viewHasZone(v, p.print_area_id));
 }
@@ -1185,7 +841,6 @@ function LayerRow({
   asset,
   garmentSize,
   selected,
-  readOnly,
   onSelect,
   onRemove,
   onDup,
@@ -1200,7 +855,6 @@ function LayerRow({
   asset: Asset | undefined;
   garmentSize: string | null;
   selected: boolean;
-  readOnly?: boolean;
   onSelect: () => void;
   onRemove: () => void;
   onDup: () => void;
@@ -1260,7 +914,6 @@ function LayerRow({
           value={findViewForPlacementName(view, p)}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => onRename(e.target.value)}
-          readOnly={readOnly}
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none focus:rounded focus:bg-white focus:px-1"
         />
         <span
@@ -1274,16 +927,12 @@ function LayerRow({
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-0.5 text-xs">
-        {!readOnly && (
-          <>
-            <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}><ChevronUp size={14} strokeWidth={1.75} /></button>
-            <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}><ChevronDown size={14} strokeWidth={1.75} /></button>
-            <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? <EyeOff size={14} strokeWidth={1.75} /> : <Eye size={14} strokeWidth={1.75} />}</button>
-            <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? <Lock size={14} strokeWidth={1.75} /> : <LockOpen size={14} strokeWidth={1.75} />}</button>
-            <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}><Copy size={14} strokeWidth={1.75} /></button>
-            <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-600`}><X size={14} strokeWidth={1.75} /></button>
-          </>
-        )}
+        <button onClick={(e) => { e.stopPropagation(); onUp(); }} title="Выше" className={icon}><ChevronUp size={14} strokeWidth={1.75} /></button>
+        <button onClick={(e) => { e.stopPropagation(); onDown(); }} title="Ниже" className={icon}><ChevronDown size={14} strokeWidth={1.75} /></button>
+        <button onClick={(e) => { e.stopPropagation(); onToggleHidden(); }} title="Скрыть" className={icon}>{p.hidden ? <EyeOff size={14} strokeWidth={1.75} /> : <Eye size={14} strokeWidth={1.75} />}</button>
+        <button onClick={(e) => { e.stopPropagation(); onToggleLocked(); }} title="Блокировать" className={icon}>{p.locked ? <Lock size={14} strokeWidth={1.75} /> : <LockOpen size={14} strokeWidth={1.75} />}</button>
+        <button onClick={(e) => { e.stopPropagation(); onDup(); }} title="Дублировать" className={icon}><Copy size={14} strokeWidth={1.75} /></button>
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Удалить" className={`${icon} hover:text-red-600`}><X size={14} strokeWidth={1.75} /></button>
         {out && <span className="ml-auto rounded bg-red-50 px-1 text-[10px] text-red-700">за зоной</span>}
       </div>
     </div>
@@ -1548,14 +1197,6 @@ function PlacementInspector({
             Метод «{profile.label}» не входит в допустимые для зоны «
             {area?.name}».
           </p>
-        )}
-        {profile.colorMode === "spot" && (
-          <PantonePicker
-            selected={p.pantone ?? []}
-            onChange={(codes) =>
-              onChange({ pantone: codes.length ? codes : undefined })
-            }
-          />
         )}
       </div>
 

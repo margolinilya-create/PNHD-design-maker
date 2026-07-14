@@ -1,11 +1,6 @@
 // Сохранение/загрузка проектов. Бэкенд: Supabase (если настроен env),
 // иначе localStorage. API асинхронный — единый для обоих бэкендов.
-import type {
-  Asset,
-  Placement,
-  ProjectComment,
-  ProjectStatus,
-} from "@/types";
+import type { Asset, Placement, ProjectStatus } from "@/types";
 import { getSupabase, PROJECTS_TABLE } from "./supabaseClient";
 
 export interface ProjectSnapshot {
@@ -19,7 +14,6 @@ export interface ProjectSnapshot {
   placements: Placement[];
   assets: Record<string, Asset>;
   garmentColor: string;
-  comments?: ProjectComment[];
   savedAt: number;
 }
 
@@ -106,7 +100,6 @@ interface Row {
     placements: Placement[];
     assets: Record<string, Asset>;
     garmentColor?: string;
-    comments?: ProjectComment[];
   };
   saved_at: string;
 }
@@ -124,7 +117,6 @@ function snapshotToRow(s: ProjectSnapshot): Row {
       placements: s.placements,
       assets: s.assets,
       garmentColor: s.garmentColor,
-      comments: s.comments,
     },
     saved_at: new Date(s.savedAt).toISOString(),
   };
@@ -142,7 +134,6 @@ function rowToSnapshot(r: Row): ProjectSnapshot {
     placements: r.data?.placements ?? [],
     assets: r.data?.assets ?? {},
     garmentColor: r.data?.garmentColor ?? "",
-    comments: r.data?.comments ?? [],
     savedAt: new Date(r.saved_at).getTime(),
   };
 }

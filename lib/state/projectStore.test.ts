@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useProjectStore } from "./projectStore";
 
 const reset = () =>
-  useProjectStore.setState({ placements: [], assets: {}, past: [], future: [], selectedPlacementId: null, comments: [], readOnly: false });
+  useProjectStore.setState({ placements: [], assets: {}, past: [], future: [], selectedPlacementId: null });
 
 const sample = {
   print_area_id: "z", asset_id: "a",
@@ -51,45 +51,18 @@ describe("projectStore undo/redo", () => {
     expect(useProjectStore.getState().placements).toHaveLength(1);
   });
 
-  it("комментарии согласования: добавление, удаление, roundtrip snapshot", () => {
+  it("snapshot/restore переносят раскладку и метаданные", () => {
     const s = useProjectStore.getState();
-    s.addComment({ role: "client", text: "сместить выше" });
-    s.addComment({ role: "shop", text: "ок, принято" });
-    let st = useProjectStore.getState();
-    expect(st.comments).toHaveLength(2);
-    expect(st.comments[0].role).toBe("client");
-    // snapshot переносит комментарии
-    const snap = st.snapshot("p1", "Проект");
-    expect(snap.comments).toHaveLength(2);
-    // удаление
-    st.removeComment(st.comments[0].id);
-    expect(useProjectStore.getState().comments).toHaveLength(1);
-    // restore возвращает комментарии из снапшота
+    s.addPlacement(sample);
+    useProjectStore.getState().setMeta({ client: "ACME", orderRef: "42" });
+    const snap = useProjectStore.getState().snapshot("p1", "Проект");
+    expect(snap.placements).toHaveLength(1);
+    expect(snap.client).toBe("ACME");
+    reset();
     useProjectStore.getState().restore(snap);
-    expect(useProjectStore.getState().comments).toHaveLength(2);
-  });
-
-  it("режим только просмотр переключается и снимает выбор", () => {
-    const s = useProjectStore.getState();
-    const id = s.addPlacement(sample);
-    useProjectStore.getState().selectPlacement(id);
-    useProjectStore.getState().setReadOnly(true);
-    expect(useProjectStore.getState().readOnly).toBe(true);
-    expect(useProjectStore.getState().selectedPlacementId).toBeNull();
-    useProjectStore.getState().setReadOnly(false);
-    expect(useProjectStore.getState().readOnly).toBe(false);
-  });
-
-  it("readOnly блокирует правки нанесений (B1)", () => {
-    const s = useProjectStore.getState();
-    const id = s.addPlacement(sample);
-    useProjectStore.getState().setReadOnly(true);
-    useProjectStore.getState().updatePlacement(id, { x_mm: 999 });
-    expect(useProjectStore.getState().placements[0].x_mm).toBe(0); // не изменилось
-    useProjectStore.getState().removePlacement(id);
-    expect(useProjectStore.getState().placements).toHaveLength(1); // не удалено
-    useProjectStore.getState().duplicatePlacement(id);
-    expect(useProjectStore.getState().placements).toHaveLength(1); // не продублировано
+    const st = useProjectStore.getState();
+    expect(st.placements).toHaveLength(1);
+    expect(st.orderRef).toBe("42");
   });
 
   it("duplicateToAllZones копирует во все зоны всех видов, кроме исходной", () => {

@@ -110,7 +110,7 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
     expect(svg).toContain('data-layer="markup"');
   });
 
-  it("спецификация: метод/режим цвета/Pantone для шелкографии", () => {
+  it("спецификация: метод/режим цвета для шелкографии", () => {
     const svg = buildSceneSvg({
       sku,
       view,
@@ -127,7 +127,6 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
           height_mm: 100,
           rotation_deg: 0,
           method: "screenprint",
-          pantone: ["PMS 186 C"],
         },
       ],
       assets: pngAsset,
@@ -137,7 +136,6 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
     expect(svg).toContain('data-color-mode="spot"');
     expect(svg).toContain("Шелкография");
     expect(svg).toContain("spot/Pantone");
-    expect(svg).toContain("PMS 186 C");
     expect(svg).toContain('data-spec="1"');
   });
 

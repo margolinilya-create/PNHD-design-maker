@@ -15,16 +15,6 @@ export interface Zone {
   zh: number;
 }
 
-/** Перевод мм → px для рендера. */
-export function mmToPx(mm: number, pxPerMM: number, zoom = 1): number {
-  return mm * pxPerMM * zoom;
-}
-
-/** Перевод px → мм (обратное преобразование рендера). */
-export function pxToMm(px: number, pxPerMM: number, zoom = 1): number {
-  return px / (pxPerMM * zoom);
-}
-
 /** Полигон [[x,y],...] → axis-aligned bbox (мм). */
 export function polygonToZone(polygon: [number, number][]): Zone {
   const xs = polygon.map((p) => p[0]);
