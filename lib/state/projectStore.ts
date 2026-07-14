@@ -14,6 +14,10 @@ import type {
 } from "@/types";
 import { regradePosition, viewHasZone } from "@/lib/geometry/view";
 import { polygonToZone } from "@/lib/geometry/coords";
+import {
+  methodAllowedInZone,
+  resolveMethod,
+} from "@/lib/catalog/printMethod";
 import type { ProjectSnapshot } from "@/lib/persistence/projects";
 
 const HISTORY_LIMIT = 50;
@@ -282,12 +286,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const src = st.placements.find((p) => p.id === id);
     const sku = st.currentSku();
     if (!src || !sku) return;
-    // Все зоны всех видов, кроме исходной.
+    // Все зоны всех видов, кроме исходной и несовместимых по методу
+    // (проверяем метод, который будет эффективен в целевой зоне).
     const targets: { areaId: string; zone: ReturnType<typeof polygonToZone> }[] =
       [];
     for (const v of sku.views) {
       for (const a of v.print_areas) {
         if (a.id === src.print_area_id) continue;
+        if (!methodAllowedInZone(a, resolveMethod(src.method, a.default_method)))
+          continue;
         targets.push({ areaId: a.id, zone: polygonToZone(a.polygon_mm) });
       }
     }
@@ -332,7 +339,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     if (!src || !target) return;
     get().pushHistory();
     const nid = nextId("placement");
-    const copy = { ...src, id: nid, print_area_id: target.print_areas[0].id };
+    // Первая зона целевого вида, совместимая с методом нанесения;
+    // нет совместимых — фоллбэк на первую (конфликт подсветит preflight).
+    const area =
+      target.print_areas.find((a) =>
+        methodAllowedInZone(a, resolveMethod(src.method, a.default_method)),
+      ) ?? target.print_areas[0];
+    const copy = { ...src, id: nid, print_area_id: area.id };
     set({ placements: [...st.placements, copy], selectedPlacementId: nid });
   },
 

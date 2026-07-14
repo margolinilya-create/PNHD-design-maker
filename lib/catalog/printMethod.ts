@@ -69,3 +69,15 @@ export function resolveMethod(
 ): PrintMethod {
   return placementMethod ?? areaDefault ?? DEFAULT_PRINT_METHOD;
 }
+
+/**
+ * Допустим ли метод в зоне: `methods` отсутствует/пуст = допустимы все.
+ * Не блокирует жёстко — потребители показывают предупреждение (preflight/инспектор).
+ */
+export function methodAllowedInZone(
+  area: { methods?: PrintMethod[] } | undefined,
+  method: PrintMethod,
+): boolean {
+  const ms = area?.methods;
+  return !ms || ms.length === 0 || ms.includes(method);
+}

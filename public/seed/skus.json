@@ -46,16 +46,7 @@
               ],
               "safe_inset_mm": 20
             }
-          ],
-          "mockup": {
-            "photo": "/seed/mockups/freefit-front.jpg",
-            "print": {
-              "x": 0.37,
-              "y": 0.25,
-              "w": 0.26
-            },
-            "mask": "/seed/mockups/freefit-front-mask.png"
-          }
+          ]
         },
         {
           "id": "freefit-back",
@@ -116,16 +107,7 @@
               ],
               "safe_inset_mm": 6
             }
-          ],
-          "mockup": {
-            "photo": "/seed/mockups/freefit-back.jpg",
-            "print": {
-              "x": 0.35,
-              "y": 0.225,
-              "w": 0.3
-            },
-            "mask": "/seed/mockups/freefit-back-mask.png"
-          }
+          ]
         }
       ]
     },

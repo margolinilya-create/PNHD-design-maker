@@ -144,6 +144,59 @@ describe("preflight", () => {
     expect(issues.some((i) => i.message.includes("меньше минимума"))).toBe(true);
   });
 
+  it("метод вне допустимых для зоны → warn; допустимый/без ограничений — нет", () => {
+    const dtfOnly: View = {
+      ...view,
+      print_areas: [{ ...view.print_areas[0], methods: ["dtf"] }],
+    };
+    // Шелкография в зоне «только DTF» → warn.
+    const bad = preflight({
+      views: [dtfOnly],
+      placements: [basePlacement({ method: "screenprint" })],
+      assets: { a1: goodPng },
+    });
+    expect(bad.some((i) => i.message.includes("не входит в допустимые"))).toBe(
+      true,
+    );
+    expect(bad.every((i) => i.level === "warn")).toBe(true);
+    // Совместимый метод — чисто.
+    const ok = preflight({
+      views: [dtfOnly],
+      placements: [basePlacement({ method: "dtf" })],
+      assets: { a1: goodPng },
+    });
+    expect(ok.some((i) => i.message.includes("не входит в допустимые"))).toBe(
+      false,
+    );
+    // Без ограничений (methods нет) — как раньше.
+    const legacy = preflight({
+      views: [view],
+      placements: [basePlacement({ method: "embroidery" })],
+      assets: { a1: goodPng },
+    });
+    expect(
+      legacy.some((i) => i.message.includes("не входит в допустимые")),
+    ).toBe(false);
+  });
+
+  it("методы per-size зоны учитываются для текущего размера", () => {
+    const perSize: View = {
+      ...view,
+      size_print_areas: {
+        L: [{ ...view.print_areas[0], methods: ["embroidery"] }],
+      },
+    };
+    const issues = preflight({
+      views: [perSize],
+      placements: [basePlacement({ method: "dtf" })],
+      assets: { a1: goodPng },
+      size: "L",
+    });
+    expect(
+      issues.some((i) => i.message.includes("не входит в допустимые")),
+    ).toBe(true);
+  });
+
   it("оценочный размер → warn", () => {
     const estPng: Asset = { ...goodPng, size_estimated: true };
     const issues = preflight({

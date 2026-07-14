@@ -86,9 +86,41 @@ describe("skuEdit", () => {
     const a = updateZone(sku, "v-front", "chest", {
       name: "Центр",
       default_method: "screenprint",
+      methods: ["screenprint", "dtf"],
     });
     expect(a.views[0].print_areas[0].name).toBe("Центр");
     expect(a.views[0].print_areas[0].default_method).toBe("screenprint");
+    expect(a.views[0].print_areas[0].methods).toEqual(["screenprint", "dtf"]);
+  });
+
+  it("updateZone доносит мету (имя/методы) до per-size зон, геометрию — нет", () => {
+    const withSize: SKU = {
+      ...sku,
+      views: [
+        {
+          ...sku.views[0],
+          size_print_areas: {
+            L: [rectZone("chest", "Грудь", 45, 65, 230, 290, 10)],
+          },
+        },
+      ],
+    };
+    const a = updateZone(withSize, "v-front", "chest", {
+      name: "Центр",
+      methods: ["dtf"],
+      default_method: "dtf",
+      safe_inset_mm: 20,
+    });
+    const sized = a.views[0].size_print_areas!.L[0];
+    // Мета донеслась.
+    expect(sized.name).toBe("Центр");
+    expect(sized.methods).toEqual(["dtf"]);
+    expect(sized.default_method).toBe("dtf");
+    // Геометрия per-size осталась своей.
+    expect(sized.safe_inset_mm).toBe(10);
+    expect(zoneRect(sized)).toEqual({ x: 45, y: 65, w: 230, h: 290 });
+    // База получила весь патч.
+    expect(a.views[0].print_areas[0].safe_inset_mm).toBe(20);
   });
 
   it("zoneRect ↔ rectZone round-trip", () => {
@@ -144,6 +176,12 @@ describe("skuEdit", () => {
     // per-size ремапнут на новые id
     const copySizeIds = copy.size_print_areas!.L.map((a) => a.id);
     expect(copySizeIds).toEqual(copy.print_areas.map((a) => a.id));
+    // Допустимые методы зоны переживают дубль.
+    const dm = duplicateView(
+      updateZone(s, "v-front", "chest", { methods: ["dtf"] }),
+      "v-front",
+    );
+    expect(dm.views[1].print_areas[0].methods).toEqual(["dtf"]);
     // изоляция: правка копии не трогает оригинал
     copy.print_areas[0].polygon_mm[0][0] = 999;
     expect(orig.print_areas[0].polygon_mm[0][0]).not.toBe(999);
@@ -167,10 +205,11 @@ describe("skuEdit", () => {
           size_anchors: {
             L: { sleeve_bottom_y: 290, sleeve_center_x: 110 },
           },
-          print_areas: [rectZone("sl", "Рукав", 40, 60, 120, 90, 10)],
+          print_areas: [
+            { ...rectZone("sl", "Рукав", 40, 60, 120, 90, 10), methods: ["embroidery"] },
+          ],
           size_print_areas: { L: [rectZone("sl", "Рукав", 50, 70, 120, 90, 10)] },
           grade_rule: { sleeve_bottom_dy: 4, sleeve_center_dx: 3 },
-          mockup: { photo: "p.jpg", print: { x: 0.1, y: 0.1, w: 0.5 } },
         },
       ],
     };
@@ -193,14 +232,15 @@ describe("skuEdit", () => {
       expect(Math.min(...ys)).toBe(60);
     });
 
-    it("per-size якоря/зоны зеркалятся, grade_rule dx негируется, мокап не копируется", () => {
+    it("per-size якоря/зоны зеркалятся, grade_rule dx негируется", () => {
       const m = mirrorSleeveView(sleeve, "v-sl", W).views[1];
       expect(m.size_anchors?.L.sleeve_center_x).toBe(W - 110);
       const xsL = m.size_print_areas!.L[0].polygon_mm.map((p) => p[0]);
       expect(Math.min(...xsL)).toBe(W - 170); // 50+120=170
       expect(m.grade_rule?.sleeve_center_dx).toBe(-3);
       expect(m.grade_rule?.sleeve_bottom_dy).toBe(4);
-      expect(m.mockup).toBeUndefined();
+      // Допустимые методы зоны переживают зеркалирование.
+      expect(m.print_areas[0].methods).toEqual(["embroidery"]);
     });
 
     it("id зон новые и уникальные в SKU; обратное направление работает", () => {

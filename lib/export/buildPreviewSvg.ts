@@ -1,5 +1,6 @@
 // Чистое клиентское превью вида: флэт (+цвет ткани) + макеты, замаскированные
 // по зонам. Без тех-линий (зон/обвязки/сетки/рамки). Фон прозрачный.
+// Превью всегда строится на том же флэте, что и карточка каталога.
 import type { Asset, Placement, View } from "@/types";
 import { viewZone } from "@/lib/geometry/view";
 import { recolorGarment } from "./flatMarkup";
@@ -15,87 +16,6 @@ export interface PreviewInput {
   size?: string;
   placements: Placement[];
   assets: Record<string, Asset>;
-  /** Фото-мокап: фото (data URL) + его размеры + положение зоны на фото. */
-  mockup?: {
-    dataUrl: string;
-    imgW: number;
-    imgH: number;
-    print: { x: number; y: number; w: number };
-    /** Маска ткани (data URL, white=ткань) для перекраски под цвет изделия. */
-    maskDataUrl?: string;
-  };
-}
-
-/** Превью на фото изделия: фото-подложка + макет в печатной зоне (multiply). */
-function buildMockupSvg(input: PreviewInput): string {
-  const { view, placements, assets, size, mockup, garmentColor } = input;
-  const { dataUrl, imgW, imgH, print, maskDataUrl } = mockup!;
-
-  const placementSvg = placements
-    .map((p, i) => {
-      const asset = assets[p.asset_id];
-      if (!asset?.data_url || p.hidden) return "";
-      const { zone } = viewZone(view, size, p.print_area_id);
-      const scale = (print.w * imgW) / zone.zw; // px фото на мм
-      const ox = print.x * imgW;
-      const oy = print.y * imgH;
-      const PX = ox + (p.x_mm - zone.zx) * scale;
-      const PY = oy + (p.y_mm - zone.zy) * scale;
-      const PW = p.width_mm * scale;
-      const PH = p.height_mm * scale;
-      const cx = PX + PW / 2;
-      const cy = PY + PH / 2;
-      const sx = p.flip_h ? -1 : 1;
-      const sy = p.flip_v ? -1 : 1;
-      const href = escAttr(asset.data_url);
-      // Клип по зоне на фото, чтобы макет не вылезал на рукава/ворот.
-      const clip = `<clipPath id="mk-${i}"><rect x="${ox}" y="${oy}" width="${zone.zw * scale}" height="${zone.zh * scale}"/></clipPath>`;
-      // Обычное наложение (надёжно и для светлых принтов на тёмной ткани).
-      return {
-        clip,
-        body: `<g clip-path="url(#mk-${i})"><g transform="rotate(${p.rotation_deg} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sx} ${sy}) translate(${-cx} ${-cy})">
-          <image href="${href}" xlink:href="${href}" x="${PX}" y="${PY}" width="${PW}" height="${PH}" preserveAspectRatio="none"/>
-        </g></g>`,
-      };
-    })
-    .filter(Boolean) as { clip: string; body: string }[];
-
-  const bgHref = escAttr(dataUrl);
-
-  // Перекраска ткани под цвет изделия в пределах маски (white=ткань).
-  // Ткань нормализуется в светло-серый (feColorMatrix saturate 0 +
-  // feComponentTransfer поднимает уровни), сохраняя складки/тени, и красится
-  // multiply под выбранный цвет — поэтому работает и на ТЁМНОЙ базе (иначе
-  // multiply поверх тёмного фото просто затемнял бы). isolation:isolate —
-  // чтобы multiply смешивался только с нормализованной тканью, не с фоном.
-  // Без маски/цвета — фото как есть.
-  const recolor =
-    garmentColor && maskDataUrl
-      ? {
-          defs: `<mask id="garment-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="${imgW}" height="${imgH}">
-            <image href="${escAttr(maskDataUrl)}" xlink:href="${escAttr(maskDataUrl)}" x="0" y="0" width="${imgW}" height="${imgH}"/>
-          </mask>
-          <filter id="garment-normalize" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-            <feColorMatrix type="saturate" values="0"/>
-            <feComponentTransfer>
-              <feFuncR type="linear" slope="2" intercept="0.32"/>
-              <feFuncG type="linear" slope="2" intercept="0.32"/>
-              <feFuncB type="linear" slope="2" intercept="0.32"/>
-            </feComponentTransfer>
-          </filter>`,
-          body: `<g mask="url(#garment-mask)" style="isolation:isolate">
-            <image href="${bgHref}" xlink:href="${bgHref}" x="0" y="0" width="${imgW}" height="${imgH}" filter="url(#garment-normalize)"/>
-            <rect x="0" y="0" width="${imgW}" height="${imgH}" fill="${escAttr(garmentColor)}" style="mix-blend-mode:multiply"/>
-          </g>`,
-        }
-      : null;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${imgW}" height="${imgH}" viewBox="0 0 ${imgW} ${imgH}">
-  <defs>${recolor?.defs ?? ""}${placementSvg.map((x) => x.clip).join("")}</defs>
-  <image href="${bgHref}" xlink:href="${bgHref}" x="0" y="0" width="${imgW}" height="${imgH}"/>
-  ${recolor?.body ?? ""}
-  ${placementSvg.map((x) => x.body).join("")}
-</svg>`;
 }
 
 const escAttr = (s: string) =>
@@ -108,7 +28,6 @@ function innerSvg(markup: string): string {
 
 /** SVG чистого превью (для растеризации в PNG). */
 export function buildPreviewSvg(input: PreviewInput): string {
-  if (input.mockup) return buildMockupSvg(input);
   const { view, flatMm, placements, assets, size } = input;
   const W = flatMm.w;
   const H = flatMm.h;

@@ -43,7 +43,7 @@ The **canvas palette** (see `tokens/colors.css` → “Canvas”) is the brand h
 
 **Spacing & shape.** Tight rhythm — `gap-1.5` (6 px) between chips/buttons, ~14 px panel padding, `gap` 18–20 px between sections. Radii are **crisp / engineering-leaning**: `sm` 3 px (chips/inputs), `md` 4 px (toolbar/icons), `lg` 5 px (buttons/rows), `xl` 6 px (cards/modals), `full` reserved for color swatches only. Borders are 1 px; `2 px` signals an out-of-zone alarm.
 
-**Backgrounds.** Flat fills only — **no gradients, no textures behind UI**. The shell is one flat gray; panels are flat white. The only “image” surfaces are the garment flat (vector, on the canvas) and photo mockups (in client-preview exports). Modals dim the page with `rgba(17,24,39,.45)`.
+**Backgrounds.** Flat fills only — **no gradients, no textures behind UI**. The shell is one flat gray; panels are flat white. The only “image” surface is the garment flat (vector, on the canvas and in client-preview exports). Modals dim the page with `rgba(17,24,39,.45)`.
 
 **Cards & elevation.** A card = 1 px gray-200 border on white, `rounded-xl` (6 px), with a soft `--shadow-sm`. Interactive cards (catalog tiles, layer rows) gain a blue border on hover and a pale-blue (`--blue-50`) fill when selected. Shadows are soft and low-contrast (Linear/Vercel-grade): `sm` for resting cards, `lg` for popovers, `xl` for modals.
 
@@ -61,7 +61,7 @@ The redesign adopts **Lucide** as PINHEAD's single icon set — thin **1.75 px*
 
 Common names in use: `chevron-left/up/down`, `undo-2`, `redo-2`, `upload`, `file-down`, `eye` / `eye-off`, `lock` / `lock-open`, `copy`, `trash-2`, `ruler`, `scan-search`, `layers`, `shirt`, `layout-grid`, `settings`, `triangle-alert`, `check`, `plus`, `x`.
 
-The garment **flats** (`assets/flat-*.svg`) and **photo mockups** (`assets/garment-*.jpg`) are real seed assets from the app, used on the canvas and in previews.
+The garment **flats** (`assets/flat-*.svg`) are real seed assets from the app, used on the canvas and in previews. The **photo mockups** (`assets/garment-*.jpg`) remain as design-system reference imagery only — the app itself no longer uses photo mockups (client previews render the vector flat).
 
 ---
 
@@ -89,6 +89,6 @@ Each has a `.jsx` (implementation), `.d.ts` (props + JSDoc), `.prompt.md` (one-l
 
 **Specimen cards** (`guidelines/`) — the small HTML cards that populate the Design System tab (Colors, Type, Spacing, Brand).
 
-**Assets** (`assets/`) — `flat-front.svg`, `flat-back.svg`, `flat-sleeve.svg` (vector garment flats), `garment-front.jpg`, `garment-back.jpg` (photo mockups).
+**Assets** (`assets/`) — `flat-front.svg`, `flat-back.svg`, `flat-sleeve.svg` (vector garment flats), `garment-front.jpg`, `garment-back.jpg` (photo reference; not used by the app).
 
 **`SKILL.md`** — makes this folder usable as an Agent Skill in Claude Code.

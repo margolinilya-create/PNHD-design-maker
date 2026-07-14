@@ -180,7 +180,7 @@ const cloneSuffix = () =>
 /**
  * Дубликат вида: новый view.id и НОВЫЕ id всех зон (id зон уникальны
  * в рамках SKU — по ним резолвится вид у нанесений/preflight), карта
- * старый→новый применяется и к per-size наборам. Мокап копируется.
+ * старый→новый применяется и к per-size наборам.
  */
 export function duplicateView(sku: SKU, viewId: string): SKU {
   const v = sku.views.find((x) => x.id === viewId);
@@ -213,8 +213,8 @@ export function duplicateView(sku: SKU, viewId: string): SKU {
  * отражена по вертикальной оси флэта (x' = W − x, всё в ММ: якоря, оси и
  * polygon_mm хранятся в мм → W = ширина флэта в мм, т.е. naturalWidth ×
  * scale_mm_per_unit). Флэт переиспользуется как есть — предполагаем
- * симметричный рукав (асимметрию доводят на холсте). Мокап не копируется
- * (фото стороны ≠ фото другой стороны). id зон новые (уникальны в рамках SKU).
+ * симметричный рукав (асимметрию доводят на холсте). id зон новые
+ * (уникальны в рамках SKU).
  */
 export function mirrorSleeveView(
   sku: SKU,
@@ -292,7 +292,6 @@ export function mirrorSleeveView(
             : undefined,
         }
       : undefined,
-    mockup: undefined,
   };
 
   const i = sku.views.findIndex((x) => x.id === viewId);
@@ -322,7 +321,14 @@ export function removeZone(sku: SKU, viewId: string, areaId: string): SKU {
   });
 }
 
-/** Обновить зону вида по id. */
+/** Мета-поля зоны — общие для базы и per-size снапшотов (геометрия — своя). */
+const ZONE_META_KEYS = ["name", "default_method", "methods"] as const;
+
+/**
+ * Обновить зону вида по id. Мета-часть патча (имя/методы) доносится и до
+ * per-size копий зоны с тем же id: снапшоты copy-on-write замораживают мету,
+ * а состав зон (id/имя/метод) по конвенции остаётся общим на вид.
+ */
 export function updateZone(
   sku: SKU,
   viewId: string,
@@ -331,10 +337,27 @@ export function updateZone(
 ): SKU {
   const v = sku.views.find((x) => x.id === viewId);
   if (!v) return sku;
+  const meta: Partial<PrintArea> = {};
+  for (const k of ZONE_META_KEYS) {
+    if (k in patch) (meta as Record<string, unknown>)[k] = patch[k];
+  }
+  const hasMeta = Object.keys(meta).length > 0;
+  const sizePatch =
+    hasMeta && v.size_print_areas
+      ? {
+          size_print_areas: Object.fromEntries(
+            Object.entries(v.size_print_areas).map(([size, areas]) => [
+              size,
+              areas.map((a) => (a.id === areaId ? { ...a, ...meta } : a)),
+            ]),
+          ),
+        }
+      : undefined;
   return updateView(sku, viewId, {
     print_areas: v.print_areas.map((a) =>
       a.id === areaId ? { ...a, ...patch } : a,
     ),
+    ...sizePatch,
   });
 }
 
