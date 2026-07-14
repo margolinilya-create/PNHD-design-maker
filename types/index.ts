@@ -70,7 +70,13 @@ export const skuCategory = (sku: Pick<SKU, "type">): ProductCategory =>
  * (лекало). Первичное разделение каталога; отсутствие поля = "finished".
  */
 export type ProductKind = "finished" | "cut";
-export type BaseSize = "M" | "L";
+export type BaseSize = "M" | "L" | "ONE SIZE";
+/**
+ * Безразмерная маркировка (аксессуары: шопперы и т.п.). Латиница обязательна —
+ * минимальный тех-лист печатает метку размера, а стандартные шрифты jsPDF
+ * не знают кириллицу.
+ */
+export const ONE_SIZE: BaseSize = "ONE SIZE";
 export type ViewKind =
   | "front"
   | "back"

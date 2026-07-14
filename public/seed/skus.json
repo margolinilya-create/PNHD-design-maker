@@ -2844,9 +2844,9 @@
       "name": "Шоппер Classic",
       "type": "shopper",
       "product_kind": "finished",
-      "base_size": "M",
+      "base_size": "ONE SIZE",
       "sizes": [
-        "M"
+        "ONE SIZE"
       ],
       "views": [
         {
@@ -2890,9 +2890,9 @@
       "name": "Шоппер Composite",
       "type": "shopper",
       "product_kind": "finished",
-      "base_size": "M",
+      "base_size": "ONE SIZE",
       "sizes": [
-        "M"
+        "ONE SIZE"
       ],
       "views": [
         {
@@ -2936,9 +2936,9 @@
       "name": "Шоппер Horizontal",
       "type": "shopper",
       "product_kind": "finished",
-      "base_size": "M",
+      "base_size": "ONE SIZE",
       "sizes": [
-        "M"
+        "ONE SIZE"
       ],
       "views": [
         {

@@ -441,11 +441,13 @@ export function buildSceneSvg(input: SceneInput): string {
     </g>
   </g>`;
 
-  // Minimal: под изделием — крупная буква размера (как на лекалах) + шкала.
+  // Minimal: под изделием — крупная метка размера (как на лекалах) + шкала.
+  // Кегль адаптивный: буква (M/L) — 34, длинная метка (ONE SIZE) — 20.
   const sizeY = PAD + drawH + 30;
+  const sizeFs = meta.size.length <= 3 ? 34 : 20;
   const sizeBlock = isMin
     ? `<g data-size-label="${escAttr(meta.size)}">
-    <text x="${W / 2}" y="${sizeY + 4}" font-size="34" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc(meta.size)}</text>
+    <text x="${W / 2}" y="${sizeY + 4}" font-size="${sizeFs}" font-weight="800" fill="${C.ink}" text-anchor="middle">${esc(meta.size)}</text>
   </g>
   ${calibrationBar(W - PAD - 100, sizeY - 4, true)}`
     : "";

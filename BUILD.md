@@ -54,7 +54,7 @@
 ## 3. Модель данных
 
 ```
-SKU            id, name, type(tshirt|sweatshirt|hoodie|shopper), base_size(M|L), sizes[], views[]
+SKU            id, name, type(tshirt|sweatshirt|hoodie|shopper), base_size(M|L|ONE SIZE), sizes[], views[]  # ONE SIZE — аксессуары (безразмер)
 View           id, kind(front|back|sleeve_left|sleeve_right), flat_svg, scale_mm_per_unit,
                anchors{ neckline_point{x,y}, center_axis_x, sleeve_bottom_y?, sleeve_center_x? },
                print_areas[]

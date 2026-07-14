@@ -102,7 +102,7 @@ export const skuSchema = z
     ]),
     product_kind: z.enum(["finished", "cut"]).optional(),
     hidden: z.boolean().optional(),
-    base_size: z.enum(["M", "L"]),
+    base_size: z.enum(["M", "L", "ONE SIZE"]),
     sizes: z.array(z.string()).min(1),
     views: z.array(viewSchema).min(1),
   })

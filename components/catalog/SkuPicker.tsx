@@ -12,6 +12,7 @@ import {
   GARMENT_TYPE_LABELS,
   PRODUCT_CATEGORY_LABELS,
   skuCategory,
+  ONE_SIZE,
 } from "@/types";
 
 export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
@@ -175,8 +176,10 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
                 )}
               </div>
               <div className="mt-1 text-sm text-gray-500">
-                {GARMENT_TYPE_LABELS[sku.type] ?? sku.type} · эталон{" "}
-                {sku.base_size}
+                {GARMENT_TYPE_LABELS[sku.type] ?? sku.type} ·{" "}
+                {sku.base_size === ONE_SIZE
+                  ? "one size"
+                  : `эталон ${sku.base_size}`}
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {sku.views.map((v) => (
