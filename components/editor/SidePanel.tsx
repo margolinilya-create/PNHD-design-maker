@@ -218,11 +218,9 @@ export function SidePanel() {
     action();
   };
 
-  const onExport = () => gateExport(() => void runExport("minimal"));
+  const onExport = () => gateExport(() => void runExport());
 
-  const runExport = async (
-    variant: "full" | "production" | "minimal" = "minimal",
-  ) => {
+  const runExport = async () => {
     if (!sku) return;
     setPreflightIssues(null);
     setBusy(true);
@@ -258,22 +256,13 @@ export function SidePanel() {
               orderRef,
               size: size ?? sku.base_size,
               date: new Date().toLocaleDateString("ru-RU"),
-                status,
+              status,
             },
-            variant,
           }),
         );
       }
-      const suffix = variant === "production" ? "-цех" : "";
-      await exportScenesPdf(
-        scenes,
-        `${sku.id}-${orderRef || "draft"}${suffix}.pdf`,
-      );
-      setMsg(
-        variant === "production"
-          ? "PDF для цеха готов"
-          : "Тех-рисунок (PDF) готов",
-      );
+      await exportScenesPdf(scenes, `${sku.id}-${orderRef || "draft"}.pdf`);
+      setMsg("Тех-рисунок (PDF) готов");
     } catch (e) {
       setMsg(`Ошибка экспорта: ${e}`);
     } finally {
