@@ -990,6 +990,50 @@ function ZoneEditor({
               </select>
             </label>
           </div>
+          {/* Допустимые методы зоны: сняты все/отмечены все = без ограничений. */}
+          <div className="mt-1.5">
+            <div className="mb-1 text-[10px] text-gray-400">
+              Допустимые методы (все отмечены = без ограничений)
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {PRINT_METHOD_LIST.map((m) => {
+                const all = PRINT_METHOD_LIST.map((x) => x.id);
+                const cur = area.methods?.length ? area.methods : all;
+                const toggle = () => {
+                  const next = cur.includes(m.id)
+                    ? cur.filter((x) => x !== m.id)
+                    : [...cur, m.id];
+                  // Пусто или полный набор → без ограничений (undefined).
+                  const methods =
+                    next.length === 0 || next.length === all.length
+                      ? undefined
+                      : next;
+                  onMeta({
+                    methods,
+                    // Дефолтный метод не может выпасть из допустимых.
+                    ...(area.default_method &&
+                    methods &&
+                    !methods.includes(area.default_method)
+                      ? { default_method: undefined }
+                      : {}),
+                  });
+                };
+                return (
+                  <label
+                    key={m.id}
+                    className="flex items-center gap-1 text-xs text-gray-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={cur.includes(m.id)}
+                      onChange={toggle}
+                    />
+                    {m.short}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
           {/* Лимиты размера печати — preflight предупреждает при выходе. */}
           <div className="mt-1.5">
             <div className="mb-1 text-[10px] text-gray-400">

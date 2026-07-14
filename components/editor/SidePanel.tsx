@@ -21,6 +21,7 @@ import {
   positionOnAxis,
   anchorsForSize,
   viewHasZone,
+  findPrintArea,
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
@@ -28,6 +29,7 @@ import {
   PRINT_METHOD_LIST,
   printMethodProfile,
   resolveMethod,
+  methodAllowedInZone,
 } from "@/lib/catalog/printMethod";
 import { PANTONE_SWATCHES } from "@/lib/catalog/pantone";
 import { buildSceneSvg } from "@/lib/export/buildSceneSvg";
@@ -427,6 +429,13 @@ export function SidePanel() {
                 <button
                   key={a.id}
                   onClick={() => setTargetAreaId(a.id)}
+                  title={
+                    a.methods?.length
+                      ? `Методы: ${a.methods
+                          .map((m) => printMethodProfile(m).label)
+                          .join(", ")}`
+                      : undefined
+                  }
                   className={`rounded px-2.5 py-1 text-xs ${
                     a.id === activeAreaId
                       ? "bg-blue-600 text-white"
@@ -434,6 +443,18 @@ export function SidePanel() {
                   }`}
                 >
                   {a.name}
+                  {/* Бейдж допустимых методов зоны (если ограничены). */}
+                  {!!a.methods?.length && (
+                    <span
+                      className={`ml-1 text-[9px] ${
+                        a.id === activeAreaId ? "text-blue-200" : "text-gray-400"
+                      }`}
+                    >
+                      {a.methods
+                        .map((m) => printMethodProfile(m).short)
+                        .join("+")}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1199,10 +1220,11 @@ function LayerRow({
         : false,
     [view, p.x_mm, p.y_mm, p.width_mm, p.height_mm, p.rotation_deg, p.print_area_id, garmentSize],
   );
-  const areaDefault = view?.print_areas.find(
-    (a) => a.id === p.print_area_id,
-  )?.default_method;
-  const method = resolveMethod(p.method, areaDefault);
+  // Зона с учётом per-size набора текущего размера.
+  const area = view
+    ? findPrintArea(view, p.print_area_id, garmentSize ?? undefined)
+    : undefined;
+  const method = resolveMethod(p.method, area?.default_method);
   const profile = printMethodProfile(method);
   const { quality, dpi } = printQuality(asset, p.width_mm, method);
   const dpiColor =
@@ -1294,11 +1316,13 @@ function PlacementInspector({
 }) {
   const isSleeve = view?.kind === "sleeve_left" || view?.kind === "sleeve_right";
   const otherViews = views.filter((v) => v.id !== view?.id);
-  const areaDefault = view?.print_areas.find(
-    (a) => a.id === p.print_area_id,
-  )?.default_method;
-  const method = resolveMethod(p.method, areaDefault);
+  // Зона с учётом per-size набора текущего размера.
+  const area = view
+    ? findPrintArea(view, p.print_area_id, garmentSize ?? undefined)
+    : undefined;
+  const method = resolveMethod(p.method, area?.default_method);
   const profile = printMethodProfile(method);
+  const methodConflict = !methodAllowedInZone(area, method);
   const applyPreset = (preset: PositionPreset) => {
     if (!view) return;
     const pos = presetPosition(
@@ -1490,21 +1514,35 @@ function PlacementInspector({
           </span>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {PRINT_METHOD_LIST.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => onChange({ method: m.id })}
-              title={m.label}
-              className={`rounded px-2.5 py-1 text-xs ${
-                m.id === method
-                  ? "bg-blue-600 text-white"
-                  : "bg-raised text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
+          {PRINT_METHOD_LIST.map((m) => {
+            // Недопустимые для зоны методы затемняем, но не блокируем —
+            // решение за оператором (preflight предупредит).
+            const allowed = methodAllowedInZone(area, m.id);
+            return (
+              <button
+                key={m.id}
+                onClick={() => onChange({ method: m.id })}
+                title={
+                  allowed ? m.label : `${m.label} — недопустим в этой зоне`
+                }
+                className={`rounded px-2.5 py-1 text-xs ${
+                  m.id === method
+                    ? "bg-blue-600 text-white"
+                    : "bg-raised text-gray-700 hover:bg-gray-200"
+                } ${allowed ? "" : "opacity-40"}`}
+              >
+                {m.label}
+              </button>
+            );
+          })}
         </div>
+        {methodConflict && (
+          <p className="mt-1.5 flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+            <TriangleAlert size={12} strokeWidth={2} className="shrink-0" />
+            Метод «{profile.label}» не входит в допустимые для зоны «
+            {area?.name}».
+          </p>
+        )}
         {profile.colorMode === "spot" && (
           <PantonePicker
             selected={p.pantone ?? []}

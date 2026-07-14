@@ -9,7 +9,11 @@ import {
   printAreasForSize,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
-import { resolveMethod, printMethodProfile } from "@/lib/catalog/printMethod";
+import {
+  resolveMethod,
+  printMethodProfile,
+  methodAllowedInZone,
+} from "@/lib/catalog/printMethod";
 
 export type PreflightLevel = "error" | "warn";
 
@@ -126,6 +130,15 @@ export function preflight(input: PreflightInput): PreflightIssue[] {
         message: `«${label}»: размер ${Math.round(p.width_mm)}×${Math.round(
           p.height_mm,
         )} меньше минимума зоны ${mn.width}×${mn.height} мм.`,
+      });
+    }
+
+    // Метод недопустим в зоне (у зоны задан список methods).
+    if (!methodAllowedInZone(area, method)) {
+      issues.push({
+        level: "warn",
+        placementId: p.id,
+        message: `«${label}»: метод «${profile.label}» не входит в допустимые для зоны.`,
       });
     }
 

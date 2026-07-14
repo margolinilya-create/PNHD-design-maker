@@ -12,19 +12,36 @@ export const viewKindSchema = z.enum([
 
 export const printMethodSchema = z.enum(["dtf", "screenprint", "embroidery"]);
 
-export const printAreaSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  polygon_mm: z.array(z.tuple([z.number(), z.number()])).min(3),
-  safe_inset_mm: z.number().nonnegative(),
-  default_method: printMethodSchema.optional(),
-  max_print_mm: z
-    .object({ width: z.number().positive(), height: z.number().positive() })
-    .optional(),
-  min_print_mm: z
-    .object({ width: z.number().positive(), height: z.number().positive() })
-    .optional(),
-});
+export const printAreaSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    polygon_mm: z.array(z.tuple([z.number(), z.number()])).min(3),
+    safe_inset_mm: z.number().nonnegative(),
+    default_method: printMethodSchema.optional(),
+    // Допустимые методы зоны; отсутствие/пусто = все методы.
+    methods: z.array(printMethodSchema).optional(),
+    max_print_mm: z
+      .object({ width: z.number().positive(), height: z.number().positive() })
+      .optional(),
+    min_print_mm: z
+      .object({ width: z.number().positive(), height: z.number().positive() })
+      .optional(),
+  })
+  .superRefine((a, ctx) => {
+    // Инвариант: дефолтный метод обязан входить в список допустимых.
+    if (
+      a.default_method &&
+      a.methods?.length &&
+      !a.methods.includes(a.default_method)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["default_method"],
+        message: `default_method «${a.default_method}» не входит в methods зоны «${a.id}»`,
+      });
+    }
+  });
 
 export const anchorsSchema = z.object({
   neckline_point: z.object({ x: z.number(), y: z.number() }).optional(),
