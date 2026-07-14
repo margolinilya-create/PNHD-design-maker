@@ -72,6 +72,10 @@ describe("buildDimensionLines — обвязка как объект", () => {
     expect(find(moved, "left").value).toBe(100); // 250−150 (было 50)
   });
 
+  it("anchorKind = neckline для одежды", () => {
+    expect(scene.anchorKind).toBe("neckline");
+  });
+
   it("выход за зону → danger на соответствующей линии", () => {
     const out = buildDimensionLines(
       view,
@@ -83,5 +87,46 @@ describe("buildDimensionLines — обвязка как объект", () => {
     expect(find(out, "left").value).toBeLessThan(0);
     expect(find(out, "left").danger).toBe(true);
     expect(find(out, "right").danger).toBe(false);
+  });
+});
+
+describe("buildDimensionLines — аксессуар без горловины (панель)", () => {
+  // Ось намеренно смещена от центра зоны (центр зоны = 300, ось = 280).
+  const shopperView: View = {
+    ...view,
+    anchors: { center_axis_x: 280 },
+  };
+  const scene = buildDimensionLines(
+    shopperView,
+    { x: 200, y: 200, w: 100, h: 100 },
+    0,
+    undefined,
+    "chest",
+  );
+
+  it("anchorKind = panel, отсчёт от верха зоны и оси изделия", () => {
+    expect(scene.anchorKind).toBe("panel");
+    expect(scene.anchorY).toBe(140); // верх зоны
+    expect(scene.centerX).toBe(280); // ось изделия, не центр зоны
+    expect(find(scene, "vertical-anchor").value).toBe(60); // 200 − 140
+    expect(find(scene, "horizontal-anchor").value).toBe(-30); // 250 − 280
+  });
+
+  it("этикетка без оси — по-прежнему центр зоны", () => {
+    const label = {
+      ...view,
+      kind: "label_neck_inner",
+      anchors: {},
+    } as unknown as View;
+    const s = buildDimensionLines(
+      label,
+      { x: 200, y: 200, w: 100, h: 100 },
+      0,
+      undefined,
+      "chest",
+    );
+    expect(s.anchorKind).toBe("panel");
+    expect(s.centerX).toBe(300); // центр зоны
+    expect(s.anchorY).toBe(140);
   });
 });

@@ -1,5 +1,6 @@
 // Zod-схема каталога (BUILD.md §3). Источник правды метрики — skus.json.
 import { z } from "zod";
+import { isAccessoryType } from "@/types";
 
 export const viewKindSchema = z.enum([
   "front",
@@ -132,8 +133,10 @@ export const skuSchema = z
             });
           }
         } else {
-          // front / back
-          if (a.neckline_point === undefined) {
+          // front / back. У аксессуаров (шопперы) горловины нет —
+          // neckline_point не требуется (присутствие не запрещаем: легаси-
+          // модели срезаются нормализацией в mergeCatalog / при сохранении).
+          if (a.neckline_point === undefined && !isAccessoryType(sku.type)) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               path: [...path, "neckline_point"],

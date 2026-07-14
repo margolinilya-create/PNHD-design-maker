@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { mergeCatalog, overrideDiffersFromSeed } from "./mergedCatalog";
+import {
+  mergeCatalog,
+  overrideDiffersFromSeed,
+  stripAccessoryNeckline,
+} from "./mergedCatalog";
 import type { SKU } from "@/types";
 
 const mkSku = (id: string, name = id, extra: Partial<SKU> = {}): SKU => ({
@@ -88,6 +92,57 @@ describe("mergeCatalog — override-семантика", () => {
     const m1 = mergeCatalog(seed, [mkSku("b", "B2"), mkSku("z")]);
     const m2 = mergeCatalog(m1.skus, []);
     expect(m2.skus.map((s) => s.id)).toEqual(m1.skus.map((s) => s.id));
+  });
+});
+
+describe("stripAccessoryNeckline — у аксессуаров нет горловины", () => {
+  // Легаси-шоппер, сохранённый до разделения категорий: фиктивная горловина
+  // в базовых якорях, per-size якорях и grade_rule.
+  const legacyShopper = (): SKU =>
+    mkSku("sh", "Шоппер", {
+      type: "shopper",
+      sizes: ["M", "L"],
+      views: [
+        {
+          ...mkSku("sh").views[0],
+          size_anchors: {
+            L: { neckline_point: { x: 100, y: 55 }, center_axis_x: 100 },
+          },
+          grade_rule: { neckline: { dy: 5 }, center_axis_dx: 2 },
+        },
+      ],
+    });
+
+  it("срезает neckline из якорей, per-size и grade_rule; ось остаётся", () => {
+    const s = stripAccessoryNeckline(legacyShopper());
+    const v = s.views[0];
+    expect(v.anchors.neckline_point).toBeUndefined();
+    expect(v.anchors.center_axis_x).toBe(100);
+    expect(v.size_anchors?.L?.neckline_point).toBeUndefined();
+    expect(v.size_anchors?.L?.center_axis_x).toBe(100);
+    expect(v.grade_rule?.neckline).toBeUndefined();
+    expect(v.grade_rule?.center_axis_dx).toBe(2);
+  });
+
+  it("одежда проходит по identity (не трогаем)", () => {
+    const tee = mkSku("t");
+    expect(stripAccessoryNeckline(tee)).toBe(tee);
+  });
+
+  it("аксессуар без горловины проходит по identity", () => {
+    const clean = stripAccessoryNeckline(legacyShopper());
+    expect(stripAccessoryNeckline(clean)).toBe(clean);
+  });
+
+  it("mergeCatalog срезает горловину легаси-модели, rawModels — нет", () => {
+    const legacy = legacyShopper();
+    const m = mergeCatalog([], [legacy]);
+    const merged = m.skus.find((s) => s.id === "sh")!;
+    expect(merged.views[0].anchors.neckline_point).toBeUndefined();
+    // grade_rule успел развернуться в size_anchors — они тоже чистые.
+    expect(merged.views[0].size_anchors?.L?.neckline_point).toBeUndefined();
+    // Сырая строка для редактора — нетронутая.
+    expect(m.rawModels.get("sh")?.views[0].anchors.neckline_point).toBeDefined();
   });
 });
 

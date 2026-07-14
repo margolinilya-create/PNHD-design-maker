@@ -3,7 +3,8 @@
 // с id seed-карточки ПЕРЕКРЫВАЕТ её на месте (порядок seed сохраняется);
 // «Сбросить к заводской» = deleteModel(id) → merge снова отдаёт seed.
 // hidden здесь НЕ фильтруется — админке нужны скрытые; фильтруют потребители.
-import type { SKU } from "@/types";
+import type { SKU, View, ViewAnchors } from "@/types";
+import { isAccessoryType } from "@/types";
 import { loadCatalog } from "./loadCatalog";
 import { listModels } from "@/lib/persistence/models";
 import { expandCatalogGradeRules } from "@/lib/geometry/gradeRule";
@@ -24,6 +25,58 @@ export interface MergedCatalog {
   rawModels: Map<string, SKU>;
   /** Заводские версии по id (для сравнения override ↔ seed). */
   seedById: Map<string, SKU>;
+}
+
+/**
+ * Аксессуары (шопперы) не имеют горловины: срезать neckline_point из якорей
+ * (базовых и per-size) и grade_rule.neckline. Нормализация runtime-инварианта
+ * «у аксессуара нет горловины» для легаси-моделей, сохранённых до разделения
+ * категорий. Возвращает тот же объект, если срезать нечего.
+ */
+export function stripAccessoryNeckline(sku: SKU): SKU {
+  if (!isAccessoryType(sku.type)) return sku;
+
+  const stripAnchors = (a: ViewAnchors): ViewAnchors => {
+    const { neckline_point: _, ...rest } = a;
+    return rest;
+  };
+
+  let changed = false;
+  const views: View[] = sku.views.map((v) => {
+    const isFrontBack = v.kind === "front" || v.kind === "back";
+    if (!isFrontBack) return v;
+
+    let viewChanged = false;
+    let anchors = v.anchors;
+    if (anchors.neckline_point !== undefined) {
+      anchors = stripAnchors(anchors);
+      viewChanged = true;
+    }
+
+    let sizeAnchors = v.size_anchors;
+    if (sizeAnchors) {
+      const entries = Object.entries(sizeAnchors);
+      if (entries.some(([, a]) => a.neckline_point !== undefined)) {
+        sizeAnchors = Object.fromEntries(
+          entries.map(([size, a]) => [size, stripAnchors(a)]),
+        );
+        viewChanged = true;
+      }
+    }
+
+    let gradeRule = v.grade_rule;
+    if (gradeRule?.neckline !== undefined) {
+      const { neckline: _, ...rest } = gradeRule;
+      gradeRule = rest;
+      viewChanged = true;
+    }
+
+    if (!viewChanged) return v;
+    changed = true;
+    return { ...v, anchors, size_anchors: sizeAnchors, grade_rule: gradeRule };
+  });
+
+  return changed ? { ...sku, views } : sku;
 }
 
 /** Чистый merge (юнит-тестируемый): override по id + разворачивание правил. */
@@ -51,7 +104,12 @@ export function mergeCatalog(seedSkus: SKU[], models: SKU[]): MergedCatalog {
   // Один проход разворачивания grade_rule: для seed идемпотентен (правила
   // уже раскрыты в loadCatalog / отсутствуют), моделям с grade_rule наконец
   // строит per-size якоря (раньше кастомные модели текли сырыми).
-  const expanded = expandCatalogGradeRules({ skus: merged }).skus;
+  // Затем — срез горловины у аксессуаров (ПОСЛЕ экспансии: она могла запечь
+  // neckline легаси-модели в size_anchors). rawModels не трогаем — редактор
+  // работает с сырой строкой и срезает сам при сохранении.
+  const expanded = expandCatalogGradeRules({ skus: merged }).skus.map(
+    stripAccessoryNeckline,
+  );
 
   return {
     skus: expanded,

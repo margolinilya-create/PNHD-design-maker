@@ -29,6 +29,43 @@ export const GARMENT_TYPE_LABELS: Record<GarmentType, string> = {
   shopper: "шоппер",
 };
 /**
+ * Категория товара: одежда или аксессуар (шопперы и т.п.). Не хранится в
+ * данных — выводится из GarmentType через GARMENT_TYPE_CATEGORY. У аксессуаров
+ * нет горловины: neckline_point не требуется схемой и отключён в редакторах.
+ */
+export type ProductCategory = "clothing" | "accessory";
+
+export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
+  clothing: "Одежда",
+  accessory: "Аксессуары",
+};
+
+/**
+ * Категория каждого типа изделия. Record<GarmentType, …> заставит компилятор
+ * дополнить карту при новом типе (zod-enum в lib/catalog/schema.ts — нет,
+ * его синхронизировать вручную).
+ */
+export const GARMENT_TYPE_CATEGORY: Record<GarmentType, ProductCategory> = {
+  tshirt: "clothing",
+  polo: "clothing",
+  longsleeve: "clothing",
+  sweatshirt: "clothing",
+  hoodie: "clothing",
+  zip_hoodie: "clothing",
+  half_zip: "clothing",
+  bomber: "clothing",
+  olympic: "clothing",
+  pants: "clothing",
+  shopper: "accessory",
+};
+
+export const isAccessoryType = (t: GarmentType): boolean =>
+  GARMENT_TYPE_CATEGORY[t] === "accessory";
+
+export const skuCategory = (sku: Pick<SKU, "type">): ProductCategory =>
+  GARMENT_TYPE_CATEGORY[sku.type];
+
+/**
  * Вид продукта: печать на готовом изделии (визуалка) или на крое до пошива
  * (лекало). Первичное разделение каталога; отсутствие поля = "finished".
  */

@@ -489,6 +489,36 @@ describe("этикетка — панельный вид", () => {
   });
 });
 
+describe("аксессуар (шоппер) — панельный отсчёт без горловины", () => {
+  // Front-вид без neckline_point, ось НАМЕРЕННО не в центре зоны:
+  // горизонталь должна меряться от оси изделия, а не от центра зоны.
+  const v = {
+    kind: "front",
+    anchors: { center_axis_x: 190 },
+    print_areas: [
+      {
+        id: "front", name: "Перёд",
+        polygon_mm: [[100, 200], [300, 200], [300, 500], [100, 500]] as [number, number][],
+        safe_inset_mm: 20,
+      },
+    ],
+  } as unknown as import("@/types").View;
+
+  it("anchor.kind = panel: вертикаль от верха зоны, горизонталь от оси", () => {
+    const info = placementInfo(v, { x: 150, y: 260, w: 100, h: 80 }, 0);
+    expect(info.anchor.kind).toBe("panel");
+    expect(info.anchor.vertical).toBe(60); // 260 − zone.zy(200)
+    expect(info.anchor.horizontal).toBe(10); // центр макета 200 − ось 190
+  });
+
+  it("этикеточное поведение не изменилось: без оси — от центра зоны", () => {
+    const noAxis = { ...v, anchors: {} } as unknown as import("@/types").View;
+    const info = placementInfo(noAxis, { x: 150, y: 260, w: 100, h: 80 }, 0);
+    expect(info.anchor.kind).toBe("panel");
+    expect(info.anchor.horizontal).toBe(0); // центр макета 200 = центр зоны 200
+  });
+});
+
 describe("rotatedAabb", () => {
   it("поворот на 90° меняет местами ширину и высоту", () => {
     const bbox: Bbox = { x: 100, y: 100, w: 200, h: 100 };
