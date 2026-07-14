@@ -45,6 +45,7 @@ import {
 import { reviewGrading } from "@/lib/geometry/gradingReview";
 import { regradePlacementsToSize } from "@/lib/geometry/regradeBatch";
 import type { Asset, Placement, View } from "@/types";
+import { isAccessoryType } from "@/types";
 import {
   ChevronUp,
   ChevronDown,
@@ -494,8 +495,9 @@ export function SidePanel() {
           ))}
         </div>
         <p className="mt-1 text-xs text-gray-400">
-          Отступ от горловины — константа на всех размерах (регрейдинг по
-          per-size якорям).
+          {isAccessoryType(sku.type)
+            ? "Отступ от верха печатной зоны — константа на всех размерах."
+            : "Отступ от горловины — константа на всех размерах (регрейдинг по per-size якорям)."}
         </p>
       </section>
 
@@ -561,6 +563,7 @@ export function SidePanel() {
           placement={selectedPlacement}
           view={findViewForPlacement(sku.views, selectedPlacement)}
           views={sku.views}
+          accessory={isAccessoryType(sku.type)}
           garmentSize={size}
           asset={assets[selectedPlacement.asset_id]}
           onChange={(patch) => updatePlacement(selectedPlacement.id, patch)}
@@ -1295,6 +1298,7 @@ function PlacementInspector({
   placement: p,
   view,
   views,
+  accessory,
   garmentSize,
   asset,
   onChange,
@@ -1306,6 +1310,8 @@ function PlacementInspector({
   placement: Placement;
   view: View | undefined;
   views: View[];
+  /** Аксессуар (шоппер): нет горловины — пресеты «от горловины» скрыты. */
+  accessory: boolean;
   garmentSize: string | null;
   asset: Asset | undefined;
   onChange: (patch: Partial<Placement>) => void;
@@ -1379,8 +1385,8 @@ function PlacementInspector({
     { key: "center-zone", label: "Центр зоны" },
     { key: "top", label: "Вверх" },
     { key: "bottom", label: "Вниз" },
-    // Стандарты от горловины — только для front/back.
-    ...(isFrontBack
+    // Стандарты от горловины — только для front/back одежды (не аксессуаров).
+    ...(isFrontBack && !accessory
       ? ([
           { key: "chest-standard", label: "Грудь (3″)" },
           { key: "left-chest", label: "Лев. грудь" },

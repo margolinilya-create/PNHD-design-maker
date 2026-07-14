@@ -198,6 +198,44 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
     expect(svg).toContain("от шва горловины");
   });
 
+  it("аксессуар (шоппер) без горловины — формулировки «от верха зоны»", () => {
+    const shopperView: View = {
+      ...view,
+      anchors: { center_axis_x: 300 },
+    };
+    const shopperSku: SKU = {
+      ...sku,
+      id: "shopper-classic",
+      name: "Шоппер",
+      type: "shopper",
+      views: [shopperView],
+    };
+    const svg = buildSceneSvg({
+      sku: shopperSku,
+      view: shopperView,
+      flatSvgMarkup: '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+      flatMm: { w: 600, h: 760 },
+      placements: [
+        {
+          id: "p1",
+          print_area_id: "chest",
+          asset_id: "a1",
+          x_mm: 200,
+          y_mm: 200,
+          width_mm: 100,
+          height_mm: 100,
+          rotation_deg: 0,
+          method: "dtf",
+        },
+      ],
+      assets: pngAsset,
+      meta: { client: "", orderRef: "", size: "L", date: "16.06.2026" },
+    });
+    expect(svg).toContain("Отступ от верха зоны");
+    expect(svg).toContain("Отсчёт от верха зоны");
+    expect(svg).not.toContain("горловины");
+  });
+
   it("легенда конвенций линий присутствует", () => {
     const svg = scene();
     expect(svg).toContain('data-legend="1"');

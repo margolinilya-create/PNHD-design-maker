@@ -20,8 +20,12 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import type { GarmentType, SKU } from "@/types";
-import { GARMENT_TYPE_LABELS } from "@/types";
+import type { GarmentType, ProductCategory, SKU } from "@/types";
+import {
+  GARMENT_TYPE_LABELS,
+  PRODUCT_CATEGORY_LABELS,
+  skuCategory,
+} from "@/types";
 
 interface Entry {
   sku: SKU;
@@ -157,6 +161,15 @@ export function SkuList({
   if (err) return <p className="p-4 text-red-700">Ошибка: {err}</p>;
   if (!entries) return <p className="p-4 text-gray-500">Загрузка каталога…</p>;
 
+  // Секции «Одежда / Аксессуары»: поиск и чипы типов работают сквозь обе.
+  // Заголовки показываем, только когда непустых секций больше одной.
+  const groups = (Object.keys(PRODUCT_CATEGORY_LABELS) as ProductCategory[])
+    .map((c) => ({
+      category: c,
+      items: filtered.filter((e) => skuCategory(e.sku) === c),
+    }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col p-4">
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -188,8 +201,17 @@ export function SkuList({
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map(({ sku, source, overridden, changed, raw }) => {
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {groups.map(({ category, items }) => (
+          <section key={category} className="mb-6">
+            {groups.length > 1 && (
+              <h3 className="mb-2 text-sm font-semibold text-gray-500">
+                {PRODUCT_CATEGORY_LABELS[category]}{" "}
+                <span className="font-normal opacity-70">{items.length}</span>
+              </h3>
+            )}
+            <div className="grid content-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map(({ sku, source, overridden, changed, raw }) => {
           const preview =
             sku.views.find((v) => v.kind === "front")?.flat_svg ||
             sku.views[0]?.flat_svg;
@@ -317,8 +339,11 @@ export function SkuList({
               )}
             </div>
           </div>
-          );
-        })}
+              );
+              })}
+            </div>
+          </section>
+        ))}
         {filtered.length === 0 && (
           <p className="text-sm text-gray-400">Ничего не найдено.</p>
         )}

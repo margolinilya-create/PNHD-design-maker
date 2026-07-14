@@ -61,7 +61,8 @@ import type {
   View,
   ViewKind,
 } from "@/types";
-import { GARMENT_TYPE_LABELS } from "@/types";
+import { GARMENT_TYPE_LABELS, isAccessoryType } from "@/types";
+import { stripAccessoryNeckline } from "@/lib/catalog/mergedCatalog";
 
 const inp = "w-full rounded border border-line bg-shell px-2 py-1.5 text-sm";
 const resetBtn =
@@ -213,12 +214,15 @@ export function SkuEditor({
 
   const save = async () => {
     if (errors.length || idErr) return;
+    // У аксессуаров горловины нет: срезаем перед сохранением (самоизлечение
+    // легаси-моделей и чистка после переключения типа «одежда → шоппер»).
+    const toSave = stripAccessoryNeckline(sku);
     // Снимок предыдущего состояния в историю (первый override базовой кладёт
     // заводскую версию первой ревизией). best-effort — не блокирует сохранение.
-    if (JSON.stringify(baseline) !== JSON.stringify(sku)) {
+    if (JSON.stringify(baseline) !== JSON.stringify(toSave)) {
       await pushRevision(sku.id, baseline).catch(() => {});
     }
-    await saveModel(sku);
+    await saveModel(toSave);
     // Переименование id: убрать старую запись модели и её историю.
     if (sku.id !== initial.id) {
       await deleteModel(initial.id);
@@ -242,6 +246,8 @@ export function SkuEditor({
   const isSleeve =
     view?.kind === "sleeve_left" || view?.kind === "sleeve_right";
   const isLabel = view?.kind.startsWith("label");
+  // Аксессуар (шоппер): горловины нет — её поля/ручки/дельты скрыты.
+  const accessory = isAccessoryType(sku.type);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -660,21 +666,23 @@ export function SkuEditor({
                     </>
                   ) : (
                     <>
-                      <NumField
-                        label="горловина Y"
-                        value={effView.anchors.neckline_point?.y ?? 0}
-                        onChange={(n) =>
-                          setSku(
-                            setSizeAnchors(sku, view.id, editSize, base, {
-                              ...effView.anchors,
-                              neckline_point: {
-                                x: effView.anchors.neckline_point?.x ?? 0,
-                                y: n,
-                              },
-                            }),
-                          )
-                        }
-                      />
+                      {!accessory && (
+                        <NumField
+                          label="горловина Y"
+                          value={effView.anchors.neckline_point?.y ?? 0}
+                          onChange={(n) =>
+                            setSku(
+                              setSizeAnchors(sku, view.id, editSize, base, {
+                                ...effView.anchors,
+                                neckline_point: {
+                                  x: effView.anchors.neckline_point?.x ?? 0,
+                                  y: n,
+                                },
+                              }),
+                            )
+                          }
+                        />
+                      )}
                       <NumField
                         label="ось центра X"
                         value={effView.anchors.center_axis_x ?? 0}
@@ -815,6 +823,7 @@ export function SkuEditor({
                 <GradeRuleEditor
                   rule={view.grade_rule}
                   isSleeve={!!isSleeve}
+                  accessory={accessory}
                   onChange={(r) => setSku(setGradeRule(sku, view.id, r))}
                 />
                 <p className="text-[11px] text-gray-400">
@@ -862,6 +871,7 @@ export function SkuEditor({
               key={`${effView.id}-${editSize}`}
               view={effView}
               selectedZoneId={selectedZoneId}
+              accessory={accessory}
               onSelectZone={setSelectedZoneId}
               onChange={onCanvasChange}
             />
@@ -1071,10 +1081,13 @@ function ZoneEditor({
 function GradeRuleEditor({
   rule,
   isSleeve,
+  accessory,
   onChange,
 }: {
   rule: GradeRule | undefined;
   isSleeve: boolean;
+  /** Аксессуар: дельты горловины не показываем (горловины нет). */
+  accessory?: boolean;
   onChange: (r: GradeRule | undefined) => void;
 }) {
   const set = (patch: Partial<GradeRule>) => {
@@ -1104,16 +1117,20 @@ function GradeRuleEditor({
         </>
       ) : (
         <>
-          <NumField
-            label="Δ горловина Y"
-            value={rule?.neckline?.dy ?? 0}
-            onChange={(n) => set({ neckline: { ...rule?.neckline, dy: n } })}
-          />
-          <NumField
-            label="Δ горловина X"
-            value={rule?.neckline?.dx ?? 0}
-            onChange={(n) => set({ neckline: { ...rule?.neckline, dx: n } })}
-          />
+          {!accessory && (
+            <>
+              <NumField
+                label="Δ горловина Y"
+                value={rule?.neckline?.dy ?? 0}
+                onChange={(n) => set({ neckline: { ...rule?.neckline, dy: n } })}
+              />
+              <NumField
+                label="Δ горловина X"
+                value={rule?.neckline?.dx ?? 0}
+                onChange={(n) => set({ neckline: { ...rule?.neckline, dx: n } })}
+              />
+            </>
+          )}
           <NumField
             label="Δ ось центра X"
             value={rule?.center_axis_dx ?? 0}

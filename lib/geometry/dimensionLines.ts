@@ -32,6 +32,8 @@ export interface DimensionScene {
   centerX: number;
   /** Точка отсчёта по вертикали (горловина / низ рукава / верх зоны). */
   anchorY: number;
+  /** Вид якоря отсчёта — определяет формулировку подписи (экспорт). */
+  anchorKind: "neckline" | "sleeve" | "panel";
   printWidth: number;
   printHeight: number;
   lines: DimensionLine[];
@@ -58,7 +60,8 @@ export function buildDimensionLines(
     anchor.kind === "sleeve"
       ? (anchors.sleeve_center_x ?? midX)
       : anchor.kind === "panel"
-        ? zone.zx + zone.zw / 2
+        ? // Аксессуар без горловины имеет реальную ось; этикетка — центр зоны.
+          (anchors.center_axis_x ?? zone.zx + zone.zw / 2)
         : (anchors.center_axis_x ?? midX);
   const anchorY =
     anchor.kind === "sleeve"
@@ -117,6 +120,7 @@ export function buildDimensionLines(
     zone,
     centerX,
     anchorY,
+    anchorKind: anchor.kind,
     printWidth: d.printWidth,
     printHeight: d.printHeight,
     lines,

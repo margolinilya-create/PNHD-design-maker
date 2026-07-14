@@ -2855,10 +2855,6 @@
           "flat_svg": "/seed/flats/shopper-classic-front.svg",
           "scale_mm_per_unit": 1,
           "anchors": {
-            "neckline_point": {
-              "x": 175.0,
-              "y": 65.5
-            },
             "center_axis_x": 175.0
           },
           "print_areas": [
@@ -2905,10 +2901,6 @@
           "flat_svg": "/seed/flats/shopper-composite-front.svg",
           "scale_mm_per_unit": 1,
           "anchors": {
-            "neckline_point": {
-              "x": 225.0,
-              "y": 61.0
-            },
             "center_axis_x": 225.0
           },
           "print_areas": [
@@ -2955,10 +2947,6 @@
           "flat_svg": "/seed/flats/shopper-horizontal-front.svg",
           "scale_mm_per_unit": 1,
           "anchors": {
-            "neckline_point": {
-              "x": 275.0,
-              "y": 62.5
-            },
             "center_axis_x": 275.0
           },
           "print_areas": [

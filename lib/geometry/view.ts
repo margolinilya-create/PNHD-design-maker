@@ -285,22 +285,6 @@ export function placementInfo(
   const check = checkZone(aabb, zone, safeInsetMm);
   const anchors = size ? anchorsForSize(view, size) : view.anchors;
 
-  if (isLabel(view)) {
-    // Этикетка — панельный вид: отсчёт от верха и центра зоны.
-    return {
-      aabb,
-      zone,
-      safeInsetMm,
-      dimensions,
-      check,
-      anchor: {
-        kind: "panel",
-        vertical: aabb.y - zone.zy,
-        horizontal: aabb.x + aabb.w / 2 - (zone.zx + zone.zw / 2),
-      },
-    };
-  }
-
   if (isSleeve(view)) {
     const sb = anchors.sleeve_bottom_y ?? zone.zy + zone.zh;
     const sc = anchors.sleeve_center_x ?? zone.zx + zone.zw / 2;
@@ -318,8 +302,26 @@ export function placementInfo(
     };
   }
 
-  const neckY = anchors.neckline_point?.y ?? zone.zy;
   const centerX = anchors.center_axis_x ?? zone.zx + zone.zw / 2;
+
+  if (isLabel(view) || anchors.neckline_point == null) {
+    // Панельный отсчёт: этикетка или изделие без горловины (аксессуары —
+    // шопперы). Вертикаль — от верха зоны; горизонталь — от оси изделия,
+    // а при её отсутствии (этикетки) — от центра зоны.
+    return {
+      aabb,
+      zone,
+      safeInsetMm,
+      dimensions,
+      check,
+      anchor: {
+        kind: "panel",
+        vertical: aabb.y - zone.zy,
+        horizontal: horizontalFromCenter(aabb, centerX),
+      },
+    };
+  }
+
   return {
     aabb,
     zone,
@@ -328,7 +330,7 @@ export function placementInfo(
     check,
     anchor: {
       kind: "neckline",
-      vertical: verticalFromNeckline(aabb, neckY),
+      vertical: verticalFromNeckline(aabb, anchors.neckline_point.y),
       horizontal: horizontalFromCenter(aabb, centerX),
     },
   };
