@@ -44,7 +44,7 @@ lib/catalog/mergedCatalog.ts  ← lib/persistence/models.ts (Supabase | localSto
 
 **Per-size override заменяет объект ЦЕЛИКОМ** (`size_anchors[size]`, `size_print_areas[size]`, `size_flats[size]`): оси/зоны в override нужно повторять, merge полей нет.
 
-**Экспорт PDF:** `lib/export/buildSceneSvg.ts` (варианты full/production/minimal; из UI доступен только minimal) → `exportScenesPdf` (jsPDF + svg2pdf, страницы в мм 1:1). Стандартные шрифты jsPDF не знают кириллицу → на minimal-листе подписи latin-safe («mm», «scale 1:1»). Перед любым экспортом — `lib/export/preflight.ts`.
+**Экспорт PDF:** `lib/export/buildSceneSvg.ts` (единственный вариант — минимальный лист: шапка заказа + рисунок 1:1 + метка размера + шкала; full/production удалены в PR #58) → `exportScenesPdf` (jsPDF + svg2pdf, страницы в мм 1:1). Кириллица: LiberationSans из `public/fonts/` лениво регистрируется в jsPDF (`PDF_FONT_FAMILY` на корне SVG); технические подписи остаются latin-safe на случай фоллбэка. Перед любым экспортом — `lib/export/preflight.ts`.
 
 **Загрузка PDF/AI:** `lib/catalog/loadPdf.ts` через pdfjs-dist@4 legacy; worker НЕ бандлится — копируется postinstall-скриптом в `public/pdf.worker.min.mjs` (в .gitignore). Не убирать postinstall и не пытаться импортировать worker через webpack — он не парсится.
 
