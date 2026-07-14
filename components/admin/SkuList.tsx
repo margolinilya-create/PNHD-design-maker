@@ -123,12 +123,12 @@ export function SkuList({
   const reservedFor = (id: string) =>
     (entries ?? []).filter((e) => e.sku.id !== id).map((e) => e.sku.id);
 
-  const duplicate = async (sku: SKU) => {
+  // Копия НЕ пресохраняется: попадает в БД только по «Сохранить» в редакторе
+  // (выход без сохранения не оставляет орфанов).
+  const duplicate = (sku: SKU) => {
     const newId = `${sku.id}-copy-${Date.now().toString(36).slice(-4)}`;
     const copy = cloneSku(sku, newId, `${sku.name} (копия)`);
-    await saveModel(copy);
     const reserved = (entries ?? []).map((e) => e.sku.id);
-    await load();
     onEdit(copy, reserved);
   };
 

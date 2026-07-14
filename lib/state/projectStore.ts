@@ -88,7 +88,29 @@ interface ProjectState {
   currentView: () => View | null;
 }
 
-export const useProjectStore = create<ProjectState>((set, get) => ({
+// Коалесинг undo-истории: непрерывные однотипные правки (стрелки на холсте,
+// протяжка палитры color-input) сливаются в один снимок, чтобы не вымывать
+// лимит HISTORY_LIMIT за секунды.
+const COALESCE_MS = 800;
+let lastHistoryKey: string | null = null;
+let lastHistoryTs = 0;
+
+export const useProjectStore = create<ProjectState>((set, get) => {
+  // Снимок с коалесингом: тот же ключ в пределах окна не плодит снимков.
+  // Любой прямой pushHistory (другая мутация) сбрасывает ключ — цепочка
+  // «стрелки → дубль → стрелки» даёт три снимка, как и ожидает оператор.
+  const pushHistoryCoalesced = (key: string) => {
+    const now = Date.now();
+    if (key === lastHistoryKey && now - lastHistoryTs < COALESCE_MS) {
+      lastHistoryTs = now;
+      return;
+    }
+    get().pushHistory(); // обнуляет lastHistoryKey — выставляем ключ после
+    lastHistoryKey = key;
+    lastHistoryTs = now;
+  };
+
+  return {
   catalog: null,
   skuId: null,
   size: null,
@@ -103,14 +125,17 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   past: [],
   future: [],
 
-  pushHistory: () =>
+  pushHistory: () => {
+    lastHistoryKey = null;
     set((s) => ({
       past: [...s.past, editable(s)].slice(-HISTORY_LIMIT),
       future: [],
-    })),
+    }));
+  },
   undo: () =>
     set((s) => {
       if (!s.past.length) return s;
+      lastHistoryKey = null;
       const prev = s.past[s.past.length - 1];
       return {
         ...prev,
@@ -122,6 +147,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   redo: () =>
     set((s) => {
       if (!s.future.length) return s;
+      lastHistoryKey = null;
       const next = s.future[0];
       return {
         ...next,
@@ -203,7 +229,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updatePlacement: (id, patch) => {
-    get().pushHistory();
+    // Ключ = нанесение + набор полей: серия стрелок/протяжка ползунка —
+    // один снимок; смена другого поля или паузa >COALESCE_MS — новый.
+    pushHistoryCoalesced(`upd:${id}:${Object.keys(patch).sort().join(",")}`);
     set((s) => ({
       placements: s.placements.map((p) =>
         p.id === id ? { ...p, ...patch } : p,
@@ -228,7 +256,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     })),
   setStatus: (status) => set({ status }),
   setGarmentColor: (garmentColor) => {
-    get().pushHistory();
+    pushHistoryCoalesced("garment-color");
     set({ garmentColor });
   },
 
@@ -377,4 +405,5 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     const { viewId } = get();
     return sku?.views.find((v) => v.id === viewId) ?? null;
   },
-}));
+  };
+});

@@ -8,6 +8,7 @@ import {
   viewHasZone,
   printAreasForSize,
 } from "@/lib/geometry/view";
+import { rotatedAabb } from "@/lib/geometry/coords";
 import { printQuality } from "@/lib/catalog/dpi";
 import {
   resolveMethod,
@@ -112,16 +113,24 @@ export function preflight(input: PreflightInput): PreflightIssue[] {
     const area =
       printAreasForSize(view, size).find((a) => a.id === p.print_area_id) ??
       areaById(view, p.print_area_id);
+    // Максимум зоны — по занимаемой площади (повёрнутый AABB, как и out_of_zone):
+    // повёрнутый макет занимает больше места, чем его сырые Ш×В.
+    const occ = rotatedAabb(
+      { x: p.x_mm, y: p.y_mm, w: p.width_mm, h: p.height_mm },
+      p.rotation_deg,
+    );
     const mx = area?.max_print_mm;
-    if (mx && (p.width_mm > mx.width || p.height_mm > mx.height)) {
+    if (mx && (occ.w > mx.width || occ.h > mx.height)) {
       issues.push({
         level: "warn",
         placementId: p.id,
-        message: `«${label}»: размер ${Math.round(p.width_mm)}×${Math.round(
-          p.height_mm,
-        )} превышает максимум зоны ${mx.width}×${mx.height} мм.`,
+        message: `«${label}»: занимает ${Math.round(occ.w)}×${Math.round(
+          occ.h,
+        )} мм (с поворотом) — превышает максимум зоны ${mx.width}×${mx.height} мм.`,
       });
     }
+    // Минимум — по сырым Ш×В макета (слишком мелкая печать не «лечится»
+    // поворотом: AABB растёт, а сам принт остаётся мелким).
     const mn = area?.min_print_mm;
     if (mn && (p.width_mm < mn.width || p.height_mm < mn.height)) {
       issues.push({
