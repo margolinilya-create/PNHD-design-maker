@@ -23,9 +23,17 @@ export function useColoredFlat(src: string | null, color: string): string | null
       setOut(src);
       return;
     }
+    // Растровый флэт (PNG/JPG data URL) перекрасить нельзя — regex-замена
+    // вернула бы мусор, и <img> не загрузился бы. Отдаём исходник как есть.
+    if (src.startsWith("data:") && !src.startsWith("data:image/svg")) {
+      setOut(src);
+      return;
+    }
     resolveFlatMarkup(src)
       .then((svg) => {
-        if (active) setOut(svgToDataUrl(recolorGarment(svg, color)));
+        if (!active) return;
+        // Страховка для сетевых URL: перекрашиваем только настоящий SVG.
+        setOut(/<svg[\s>]/i.test(svg) ? svgToDataUrl(recolorGarment(svg, color)) : src);
       })
       .catch(() => {
         if (active) setOut(src);

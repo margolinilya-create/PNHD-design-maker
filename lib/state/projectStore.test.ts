@@ -31,6 +31,34 @@ describe("projectStore undo/redo", () => {
     expect(useProjectStore.getState().placements[0].x_mm).toBe(0);
   });
 
+  it("серия быстрых правок одного поля коалесцируется в один снимок", () => {
+    const s = useProjectStore.getState();
+    const id = s.addPlacement(sample); // снимок 1 (пустое состояние)
+    for (let i = 1; i <= 5; i++) {
+      useProjectStore.getState().updatePlacement(id, { x_mm: i });
+    }
+    // 5 стрелок подряд → один снимок (2 всего), а не 6.
+    expect(useProjectStore.getState().past).toHaveLength(2);
+    expect(useProjectStore.getState().placements[0].x_mm).toBe(5);
+    // Один undo откатывает всю серию.
+    useProjectStore.getState().undo();
+    expect(useProjectStore.getState().placements[0].x_mm).toBe(0);
+  });
+
+  it("другая мутация разрывает коалесинг", () => {
+    const s = useProjectStore.getState();
+    const id = s.addPlacement(sample); // снимок 1
+    useProjectStore.getState().updatePlacement(id, { x_mm: 1 }); // снимок 2
+    useProjectStore.getState().duplicatePlacement(id); // снимок 3 (прямой push)
+    useProjectStore.getState().updatePlacement(id, { x_mm: 2 }); // снимок 4 — НЕ коалесцируется со снимком 2
+    expect(useProjectStore.getState().past).toHaveLength(4);
+    useProjectStore.getState().undo();
+    // Откатился только последний сдвиг; дубль остался.
+    const st = useProjectStore.getState();
+    expect(st.placements[0].x_mm).toBe(1);
+    expect(st.placements).toHaveLength(2);
+  });
+
   it("новое действие очищает future", () => {
     const s = useProjectStore.getState();
     s.addPlacement(sample);

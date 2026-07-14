@@ -127,6 +127,63 @@ describe("preflight", () => {
     );
   });
 
+  it("max_print_mm учитывает поворот: 45° раздувает занимаемый AABB", () => {
+    const viewMax: View = {
+      ...view,
+      print_areas: [
+        { ...view.print_areas[0], max_print_mm: { width: 200, height: 200 } },
+      ],
+    };
+    // Сырые 180×180 проходят, но AABB при 45° ≈ 254×254 > 200.
+    const issues = preflight({
+      views: [viewMax],
+      placements: [
+        basePlacement({
+          method: "dtf",
+          width_mm: 180,
+          height_mm: 180,
+          rotation_deg: 45,
+        }),
+      ],
+      assets: { a1: goodPng },
+    });
+    expect(issues.some((i) => i.message.includes("превышает максимум"))).toBe(
+      true,
+    );
+    // Без поворота тот же макет проходит.
+    const ok = preflight({
+      views: [viewMax],
+      placements: [
+        basePlacement({ method: "dtf", width_mm: 180, height_mm: 180 }),
+      ],
+      assets: { a1: goodPng },
+    });
+    expect(ok.some((i) => i.message.includes("превышает максимум"))).toBe(false);
+  });
+
+  it("min_print_mm меряется по сырым Ш×В: поворот не «лечит» мелкий принт", () => {
+    const viewMin: View = {
+      ...view,
+      print_areas: [
+        { ...view.print_areas[0], min_print_mm: { width: 50, height: 50 } },
+      ],
+    };
+    // AABB при 45° ≈ 42×42 > 50? нет: сырые 30×30 всё равно меньше минимума.
+    const issues = preflight({
+      views: [viewMin],
+      placements: [
+        basePlacement({
+          method: "dtf",
+          width_mm: 30,
+          height_mm: 30,
+          rotation_deg: 45,
+        }),
+      ],
+      assets: { a1: goodPng },
+    });
+    expect(issues.some((i) => i.message.includes("меньше минимума"))).toBe(true);
+  });
+
   it("меньше min_print_mm зоны → warn", () => {
     const viewMin: View = {
       ...view,

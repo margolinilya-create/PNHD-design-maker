@@ -28,8 +28,14 @@ const UNIT_TO_MM: Record<string, number> = {
   pt: 0.352778,
 };
 
-/** Парсит число с единицей (например "210mm", "595.3pt", "300") → мм. */
-function lengthToMm(raw: string | null): number | null {
+/**
+ * Парсит число с единицей (например "210mm", "595.3pt", "300") → мм.
+ * `physical: true` — единица физическая (mm/cm/pt); px и unitless (=px)
+ * пересчитываются через 96dpi, но это лишь конвенция CSS, а не метрика файла.
+ */
+function lengthToMm(
+  raw: string | null,
+): { mm: number; physical: boolean } | null {
   if (!raw) return null;
   const m = raw.trim().match(/^([\d.]+)\s*(mm|cm|px|pt)?$/i);
   if (!m) return null;
@@ -38,7 +44,7 @@ function lengthToMm(raw: string | null): number | null {
   const unit = (m[2] ?? "px").toLowerCase();
   const factor = UNIT_TO_MM[unit];
   if (factor === undefined) return null;
-  return value * factor;
+  return { mm: value * factor, physical: unit !== "px" };
 }
 
 function readAsDataUrl(file: File): Promise<string> {
@@ -51,22 +57,29 @@ function readAsDataUrl(file: File): Promise<string> {
 }
 
 /**
- * Размер SVG в мм. Сначала viewBox (предполагаем 1 unit = 1 мм),
- * иначе — атрибуты width/height с единицами (mm/cm/px/pt).
+ * Размер SVG в мм. Достоверный источник — width/height с физическими
+ * единицами (mm/cm/pt). px/unitless пересчитываем через 96dpi, но помечаем
+ * оценкой; viewBox-only трактуем как 1 unit = 1 мм — тоже ДОГАДКА (юниты
+ * viewBox почти всегда произвольны). `estimated: true` включает предупреждение
+ * preflight/инспектора «размер оценочно — уточните Ш×В».
  */
-function parseSvgSizeMm(svgText: string): { w: number; h: number } | null {
-  const vb = svgText.match(/viewBox\s*=\s*["']\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)/i);
-  if (vb) {
-    const w = parseFloat(vb[3]);
-    const h = parseFloat(vb[4]);
-    if (w > 0 && h > 0) return { w, h };
-  }
-  // Нет viewBox — пробуем width/height с единицами.
+export function parseSvgSizeMm(
+  svgText: string,
+): { w: number; h: number; estimated: boolean } | null {
   const wAttr = svgText.match(/<svg[^>]*\bwidth\s*=\s*["']([^"']+)["']/i);
   const hAttr = svgText.match(/<svg[^>]*\bheight\s*=\s*["']([^"']+)["']/i);
   const w = lengthToMm(wAttr?.[1] ?? null);
   const h = lengthToMm(hAttr?.[1] ?? null);
-  if (w !== null && h !== null) return { w, h };
+  if (w !== null && h !== null) {
+    return { w: w.mm, h: h.mm, estimated: !(w.physical && h.physical) };
+  }
+
+  const vb = svgText.match(/viewBox\s*=\s*["']\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)/i);
+  if (vb) {
+    const vw = parseFloat(vb[3]);
+    const vh = parseFloat(vb[4]);
+    if (vw > 0 && vh > 0) return { w: vw, h: vh, estimated: true };
+  }
   return null;
 }
 
@@ -138,8 +151,8 @@ export async function loadAsset(file: File): Promise<LoadedAsset> {
       intrinsic_size_mm: { width, height },
       naturalWidth,
       naturalHeight,
-      // Реальный размер выведен только если в SVG нашлись метрики.
-      size_estimated: mm === null,
+      // Достоверно только из width/height с единицами; viewBox-only — оценка.
+      size_estimated: mm === null || mm.estimated,
     };
   }
 
