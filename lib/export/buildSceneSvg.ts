@@ -207,6 +207,9 @@ function specPanel(
 ): string {
   let cy = y + 4;
   const blocks: string[] = [];
+  // Вид якоря отсчёта (горловина/рукав/панель) — для формулировок таблицы,
+  // легенды и инфо-плашки. Все нанесения листа принадлежат одному виду.
+  let anchorKind: DimScene["anchorKind"] = "neckline";
   for (const p of placements) {
     const scene = buildDimensionLines(
       view,
@@ -216,6 +219,7 @@ function specPanel(
       p.print_area_id,
     );
     const get = (k: string) => scene.lines.find((l) => l.kind === k)!;
+    anchorKind = scene.anchorKind;
     const profile = placementMethod(view, p);
     const areaName =
       view.print_areas.find((a) => a.id === p.print_area_id)?.name ?? "зона";
@@ -241,7 +245,13 @@ function specPanel(
           p.tolerance_mm ? ` ±${p.tolerance_mm}` : ""
         }`,
       ],
-      ["Отступ от горловины", `${Math.round(get("vertical-anchor").value)} мм`],
+      [
+        // Панельный якорь (этикетка, аксессуар без горловины) — от верха зоны.
+        scene.anchorKind === "panel"
+          ? "Отступ от верха зоны"
+          : "Отступ от горловины",
+        `${Math.round(get("vertical-anchor").value)} мм`,
+      ],
       ["От оси (центр)", `${Math.round(get("horizontal-anchor").value)} мм`],
       [
         "Отступы зоны (Л/П/В/Н)",
@@ -271,7 +281,11 @@ function specPanel(
     [C.zone, "dash", "Печатная зона"],
     [C.safe, "dash", "Safe-зона"],
     [C.dim, "solid", "Размерная линия (мм)"],
-    [C.anchor, "dash", "Отсчёт от горловины"],
+    [
+      C.anchor,
+      "dash",
+      anchorKind === "panel" ? "Отсчёт от верха зоны" : "Отсчёт от горловины",
+    ],
   ] as const;
   let legend = `<g data-legend="1"><text x="${x}" y="${cy}" font-size="6" font-weight="700" fill="${C.hint}" letter-spacing="0.3">КОНВЕНЦИИ ЛИНИЙ</text>`;
   cy += 7;
@@ -284,8 +298,12 @@ function specPanel(
 
   // Инфо-плашка
   cy += 3;
+  const infoLine1 =
+    anchorKind === "panel"
+      ? "Положение отсчитывается от верха печатной зоны —"
+      : "Положение пересчитывается от горловины —";
   const info = `<rect x="${x}" y="${cy}" width="${w}" height="18" rx="2.5" fill="${C.blue50}" stroke="${C.blue100}" stroke-width="0.5"/>
-    <text x="${x + 5}" y="${cy + 7.5}" font-size="6" fill="${C.blue700}">Положение пересчитывается от горловины —</text>
+    <text x="${x + 5}" y="${cy + 7.5}" font-size="6" fill="${C.blue700}">${infoLine1}</text>
     <text x="${x + 5}" y="${cy + 14}" font-size="6" fill="${C.blue700}">отступ постоянен на всех ростовках.</text>`;
 
   return `<g data-spec="1">${blocks.join("\n")}${legend}${info}</g>`;
