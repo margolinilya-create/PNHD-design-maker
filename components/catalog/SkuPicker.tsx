@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cloud, HardDrive, X } from "lucide-react";
 import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
+import { sortSkusByFit } from "@/lib/catalog/fitOrder";
 import { deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
 import { useProjectStore } from "@/lib/state/projectStore";
@@ -23,8 +24,6 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   const [error, setError] = useState<string | null>(null);
   // id моделей, добавленных пользователем (можно удалить).
   const [customIds, setCustomIds] = useState<Set<string>>(new Set());
-  // Раздел каталога: одежда / аксессуары (шопперы).
-  const [category, setCategory] = useState<ProductCategory>("clothing");
   // Фильтр по группе товаров (null = все группы).
   const [typeFilter, setTypeFilter] = useState<GarmentType | null>(null);
 
@@ -101,29 +100,31 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
       </p>
     );
 
-  // Разделы «Одежда / Аксессуары»: считаем по всем видимым SKU, дальше
-  // работаем внутри активного раздела. Пустой раздел недоступен (кламп).
-  const categoryCounts = new Map<ProductCategory, number>();
-  for (const s of skus) {
-    const c = skuCategory(s);
-    categoryCounts.set(c, (categoryCounts.get(c) ?? 0) + 1);
-  }
-  const categories = (
-    Object.keys(PRODUCT_CATEGORY_LABELS) as ProductCategory[]
-  ).filter((c) => categoryCounts.has(c));
-  const activeCategory = categoryCounts.has(category) ? category : categories[0];
-  const inCategory = skus.filter((s) => skuCategory(s) === activeCategory);
-
-  // Группы товаров, присутствующие в разделе (в порядке словаря типов).
+  // Группы товаров, присутствующие в каталоге (в порядке словаря типов).
   const typeCounts = new Map<GarmentType, number>();
-  for (const s of inCategory)
-    typeCounts.set(s.type, (typeCounts.get(s.type) ?? 0) + 1);
+  for (const s of skus) typeCounts.set(s.type, (typeCounts.get(s.type) ?? 0) + 1);
   const types = (Object.keys(GARMENT_TYPE_LABELS) as GarmentType[]).filter(
     (t) => typeCounts.has(t),
   );
-  // Выбранная группа могла исчезнуть (удалили модель / сменили раздел) — «все».
+  // Выбранная группа могла исчезнуть (удалили модель) — «все».
   const active = typeFilter && typeCounts.has(typeFilter) ? typeFilter : null;
-  const shown = active ? inCategory.filter((s) => s.type === active) : inCategory;
+  const visible = active ? skus.filter((s) => s.type === active) : skus;
+
+  // Секции «Одежда / Аксессуары» → подгруппы по типу → SKU по посадке
+  // (Classic → Regular → Free → Oversize, см. lib/catalog/fitOrder).
+  const sections = (Object.keys(PRODUCT_CATEGORY_LABELS) as ProductCategory[])
+    .map((c) => ({
+      category: c,
+      groups: types
+        .map((t) => ({
+          type: t,
+          items: sortSkusByFit(
+            visible.filter((s) => s.type === t && skuCategory(s) === c),
+          ),
+        }))
+        .filter((g) => g.items.length > 0),
+    }))
+    .filter((sec) => sec.groups.length > 0);
 
   const chip = (on: boolean) =>
     `rounded-md px-3 py-1.5 text-sm transition ${
@@ -132,42 +133,8 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
         : "border border-line bg-white text-gray-700 hover:border-blue-500"
     }`;
 
-  return (
-    <div>
-      {categories.length > 1 && (
-        <div className="mb-4 inline-flex rounded-lg border border-line bg-white p-1 shadow-sm">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm transition ${
-                c === activeCategory
-                  ? "bg-blue-600 font-medium text-white"
-                  : "text-gray-700 hover:text-blue-700"
-              }`}
-            >
-              {PRODUCT_CATEGORY_LABELS[c]}{" "}
-              <span className="opacity-60">{categoryCounts.get(c)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {types.length > 1 && (
-        <div className="mb-5 flex flex-wrap gap-1.5">
-          <button onClick={() => setTypeFilter(null)} className={chip(active === null)}>
-            Все <span className="opacity-60">{inCategory.length}</span>
-          </button>
-          {types.map((t) => (
-            <button key={t} onClick={() => setTypeFilter(t)} className={chip(active === t)}>
-              {GARMENT_TYPE_LABELS[t]}{" "}
-              <span className="opacity-60">{typeCounts.get(t)}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {shown.map((sku) => {
-        const custom = customIds.has(sku.id);
+  const card = (sku: (typeof skus)[number]) => {
+    const custom = customIds.has(sku.id);
         return (
           <div
             key={sku.id}
@@ -215,8 +182,41 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
             )}
           </div>
         );
-      })}
-      </div>
+  };
+
+  return (
+    <div>
+      {types.length > 1 && (
+        <div className="mb-5 flex flex-wrap gap-1.5">
+          <button onClick={() => setTypeFilter(null)} className={chip(active === null)}>
+            Все <span className="opacity-60">{skus.length}</span>
+          </button>
+          {types.map((t) => (
+            <button key={t} onClick={() => setTypeFilter(t)} className={chip(active === t)}>
+              {GARMENT_TYPE_LABELS[t]}{" "}
+              <span className="opacity-60">{typeCounts.get(t)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {sections.map((sec) => (
+        <section key={sec.category} className="mb-8">
+          <h2 className="mb-4 border-b border-line pb-2 text-lg font-bold text-ink">
+            {PRODUCT_CATEGORY_LABELS[sec.category]}
+          </h2>
+          {sec.groups.map((g) => (
+            <div key={g.type} className="mb-6">
+              <h3 className="mb-2.5 text-sm font-semibold text-gray-600">
+                {GARMENT_TYPE_LABELS[g.type]}{" "}
+                <span className="font-normal text-gray-400">{g.items.length}</span>
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {g.items.map(card)}
+              </div>
+            </div>
+          ))}
+        </section>
+      ))}
     </div>
   );
 }
