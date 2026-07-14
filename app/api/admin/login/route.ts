@@ -2,8 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   ADMIN_COOKIE,
   ADMIN_COOKIE_MAX_AGE,
-  checkAdminCredentials,
-  expectedAdminToken,
+  loginAdmin,
 } from "@/lib/auth/adminAuth";
 
 // POST /api/admin/login — проверка логина/пароля, выдача cookie-сессии.
@@ -18,12 +17,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 
-  if (!(await checkAdminCredentials(login.trim(), password))) {
+  const token = await loginAdmin(login.trim(), password);
+  if (!token) {
     return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(ADMIN_COOKIE, await expectedAdminToken(), {
+  res.cookies.set(ADMIN_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

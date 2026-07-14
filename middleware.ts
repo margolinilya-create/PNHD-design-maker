@@ -5,10 +5,15 @@ import {
   safeNextPath,
 } from "@/lib/auth/adminAuth";
 
-// Гейт админки: без валидного cookie — на форму логина. Сам /admin/login
-// открыт (иначе некуда логиниться), залогиненного с него уводим в админку.
+// Гейт админки: страницы /admin* и API /api/admin/* — только с валидным
+// cookie. Открыты сама форма логина и login/logout (иначе некуда логиниться).
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  if (pathname === "/api/admin/login" || pathname === "/api/admin/logout") {
+    return NextResponse.next();
+  }
+
   const authed = await isValidAdminToken(req.cookies.get(ADMIN_COOKIE)?.value);
 
   if (pathname === "/admin/login") {
@@ -22,6 +27,10 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!authed) {
+    // API отвечает статусом, страницы — редиректом на форму логина.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
     const url = req.nextUrl.clone();
     url.pathname = "/admin/login";
     url.search = "";
@@ -33,5 +42,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/admin"],
+  matcher: ["/admin/:path*", "/admin", "/api/admin/:path*"],
 };

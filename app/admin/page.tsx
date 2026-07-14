@@ -7,6 +7,7 @@ import { ChevronLeft, LogOut } from "lucide-react";
 import { SkuList } from "@/components/admin/SkuList";
 import { SkuEditor } from "@/components/admin/SkuEditor";
 import { FlatCreator } from "@/components/admin/FlatCreator";
+import { UsersPanel } from "@/components/admin/UsersPanel";
 import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
 import type { SKU } from "@/types";
 
@@ -15,8 +16,11 @@ type Mode =
   | { kind: "create" }
   | { kind: "edit"; sku: SKU; reservedIds: string[]; lockId?: boolean };
 
+type Tab = "sku" | "users";
+
 export default function AdminPage() {
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>("sku");
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   // Занятые id (seed + модели) — для проверки уникальности при передаче из
   // создания в полноценный редактор.
@@ -59,8 +63,42 @@ export default function AdminPage() {
         >
           <ChevronLeft size={16} strokeWidth={1.75} /> PINHEAD
         </Link>
-        <span className="text-sm font-semibold text-ink">Админка · SKU</span>
-        {mode.kind !== "list" && (
+        <span className="text-sm font-semibold text-ink">Админка</span>
+        <nav className="inline-flex rounded-lg border border-line bg-sunken p-0.5">
+          {(
+            [
+              ["sku", "SKU"],
+              ["users", "Пользователи"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => {
+                // Уход со вкладки SKU размонтирует открытый редактор карточки.
+                if (
+                  key !== "sku" &&
+                  tab === "sku" &&
+                  mode.kind !== "list" &&
+                  !window.confirm(
+                    "Открыт редактор карточки — несохранённые правки потеряются. Перейти?",
+                  )
+                )
+                  return;
+                if (key !== "sku" && mode.kind !== "list")
+                  setMode({ kind: "list" });
+                setTab(key);
+              }}
+              className={
+                tab === key
+                  ? "rounded-md bg-white px-3 py-1 text-xs font-medium text-ink shadow-sm"
+                  : "rounded-md px-3 py-1 text-xs text-gray-500 hover:text-ink"
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        {tab === "sku" && mode.kind !== "list" && (
           <button
             onClick={() => {
               loadReserved();
@@ -90,7 +128,13 @@ export default function AdminPage() {
         </button>
       </header>
 
-      {mode.kind === "list" && (
+      {tab === "users" && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <UsersPanel />
+        </div>
+      )}
+
+      {tab === "sku" && mode.kind === "list" && (
         <SkuList
           onEdit={(sku, reservedIds, lockId) =>
             setMode({ kind: "edit", sku, reservedIds, lockId })
@@ -99,14 +143,14 @@ export default function AdminPage() {
         />
       )}
 
-      {mode.kind === "create" && (
+      {tab === "sku" && mode.kind === "create" && (
         <FlatCreator
           onBack={() => setMode({ kind: "list" })}
           onContinue={continueInEditor}
         />
       )}
 
-      {mode.kind === "edit" && (
+      {tab === "sku" && mode.kind === "edit" && (
         <SkuEditor
           initial={mode.sku}
           reservedIds={mode.reservedIds}
