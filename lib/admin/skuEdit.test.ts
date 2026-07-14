@@ -20,6 +20,10 @@ import {
   clearSizeOverride,
   clearSizeAnchors,
   clearSizeZones,
+  moveView,
+  moveZone,
+  duplicateView,
+  mirrorSleeveView,
 } from "./skuEdit";
 import type { SKU } from "@/types";
 
@@ -90,6 +94,141 @@ describe("skuEdit", () => {
   it("zoneRect ↔ rectZone round-trip", () => {
     const z = rectZone("z", "z", 10, 20, 100, 80);
     expect(zoneRect(z)).toEqual({ x: 10, y: 20, w: 100, h: 80 });
+  });
+
+  it("moveView переставляет виды; no-op на краях", () => {
+    const two = addView(sku, "back");
+    const ids = two.views.map((v) => v.id);
+    const up = moveView(two, ids[1], -1);
+    expect(up.views.map((v) => v.id)).toEqual([ids[1], ids[0]]);
+    expect(moveView(two, ids[0], -1)).toBe(two); // край — без изменений
+    expect(moveView(two, ids[1], 1)).toBe(two);
+  });
+
+  it("moveZone двигает зону в базе и во всех per-size наборах", () => {
+    let s = addZone(sku, "v-front"); // chest + zone-2
+    const zid = s.views[0].print_areas[1].id;
+    // per-size набор для L с тем же порядком
+    s = {
+      ...s,
+      views: [
+        {
+          ...s.views[0],
+          size_print_areas: { L: s.views[0].print_areas.map((a) => ({ ...a })) },
+        },
+      ],
+    };
+    const moved = moveZone(s, "v-front", zid, -1);
+    expect(moved.views[0].print_areas[0].id).toBe(zid);
+    expect(moved.views[0].size_print_areas?.L[0].id).toBe(zid);
+    expect(moveZone(moved, "v-front", zid, -1)).toBe(moved); // край
+  });
+
+  it("duplicateView: копия рядом, новые уникальные id вида и зон, ремап per-size", () => {
+    let s = addZone(sku, "v-front");
+    s = {
+      ...s,
+      views: [
+        {
+          ...s.views[0],
+          size_print_areas: { L: s.views[0].print_areas.map((a) => ({ ...a })) },
+        },
+      ],
+    };
+    const d = duplicateView(s, "v-front");
+    expect(d.views).toHaveLength(2);
+    const [orig, copy] = d.views;
+    expect(copy.id).not.toBe(orig.id);
+    const allZoneIds = d.views.flatMap((v) => v.print_areas.map((a) => a.id));
+    expect(new Set(allZoneIds).size).toBe(allZoneIds.length); // уникальны в SKU
+    // per-size ремапнут на новые id
+    const copySizeIds = copy.size_print_areas!.L.map((a) => a.id);
+    expect(copySizeIds).toEqual(copy.print_areas.map((a) => a.id));
+    // изоляция: правка копии не трогает оригинал
+    copy.print_areas[0].polygon_mm[0][0] = 999;
+    expect(orig.print_areas[0].polygon_mm[0][0]).not.toBe(999);
+    expect(validateSku(d)).toEqual([]);
+  });
+
+  describe("mirrorSleeveView", () => {
+    const sleeve: SKU = {
+      ...sku,
+      views: [
+        {
+          id: "v-sl",
+          kind: "sleeve_left",
+          flat_svg: "s.svg",
+          scale_mm_per_unit: 1,
+          anchors: {
+            sleeve_bottom_y: 280,
+            sleeve_center_x: 100,
+            axes: [{ id: "ax1", name: "шов", x: 60 }],
+          },
+          size_anchors: {
+            L: { sleeve_bottom_y: 290, sleeve_center_x: 110 },
+          },
+          print_areas: [rectZone("sl", "Рукав", 40, 60, 120, 90, 10)],
+          size_print_areas: { L: [rectZone("sl", "Рукав", 50, 70, 120, 90, 10)] },
+          grade_rule: { sleeve_bottom_dy: 4, sleeve_center_dx: 3 },
+          mockup: { photo: "p.jpg", print: { x: 0.1, y: 0.1, w: 0.5 } },
+        },
+      ],
+    };
+    const W = 400;
+
+    it("kind swap, X-зеркало якорей/осей/зон, Y без изменений", () => {
+      const d = mirrorSleeveView(sleeve, "v-sl", W);
+      expect(d.views).toHaveLength(2);
+      const m = d.views[1];
+      expect(m.kind).toBe("sleeve_right");
+      expect(m.anchors.sleeve_center_x).toBe(W - 100);
+      expect(m.anchors.sleeve_bottom_y).toBe(280);
+      expect(m.anchors.axes?.[0].x).toBe(W - 60);
+      // Зона 40..160 → 240..360 (AABB)
+      const xs = m.print_areas[0].polygon_mm.map((p) => p[0]);
+      expect(Math.min(...xs)).toBe(W - 160);
+      expect(Math.max(...xs)).toBe(W - 40);
+      // Y координаты сохранены
+      const ys = m.print_areas[0].polygon_mm.map((p) => p[1]);
+      expect(Math.min(...ys)).toBe(60);
+    });
+
+    it("per-size якоря/зоны зеркалятся, grade_rule dx негируется, мокап не копируется", () => {
+      const m = mirrorSleeveView(sleeve, "v-sl", W).views[1];
+      expect(m.size_anchors?.L.sleeve_center_x).toBe(W - 110);
+      const xsL = m.size_print_areas!.L[0].polygon_mm.map((p) => p[0]);
+      expect(Math.min(...xsL)).toBe(W - 170); // 50+120=170
+      expect(m.grade_rule?.sleeve_center_dx).toBe(-3);
+      expect(m.grade_rule?.sleeve_bottom_dy).toBe(4);
+      expect(m.mockup).toBeUndefined();
+    });
+
+    it("id зон новые и уникальные в SKU; обратное направление работает", () => {
+      const d = mirrorSleeveView(sleeve, "v-sl", W);
+      const ids = d.views.flatMap((v) => v.print_areas.map((a) => a.id));
+      expect(new Set(ids).size).toBe(ids.length);
+      const back = mirrorSleeveView(d, d.views[1].id, W);
+      expect(back.views[2].kind).toBe("sleeve_left");
+      expect(back.views[2].anchors.sleeve_center_x).toBe(100); // дважды = исходный X
+      expect(validateSku(back)).toEqual([]);
+    });
+
+    it("no-op на не-рукаве и нулевой ширине", () => {
+      expect(mirrorSleeveView(sku, "v-front", W)).toBe(sku);
+      expect(mirrorSleeveView(sleeve, "v-sl", 0)).toBe(sleeve);
+    });
+  });
+
+  it("validateSku принимает флаг hidden", () => {
+    expect(validateSku({ ...sku, hidden: true })).toEqual([]);
+  });
+
+  it("validateSku принимает лимиты печати min/max", () => {
+    const withLimits = updateZone(sku, "v-front", "chest", {
+      max_print_mm: { width: 300, height: 400 },
+      min_print_mm: { width: 50, height: 50 },
+    });
+    expect(validateSku(withLimits)).toEqual([]);
   });
 
   it("emptySku валиден по схеме", () => {

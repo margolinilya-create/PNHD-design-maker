@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cloud, HardDrive, X } from "lucide-react";
-import { loadCatalog } from "@/lib/catalog/loadCatalog";
-import { listModels, deleteModel } from "@/lib/persistence/models";
+import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
+import { deleteModel } from "@/lib/persistence/models";
 import { isCloud } from "@/lib/persistence/projects";
 import { useProjectStore } from "@/lib/state/projectStore";
 import type { GarmentType, ProductKind } from "@/types";
@@ -23,32 +23,22 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
 
   const load = useCallback(async () => {
     try {
-      const cat = await loadCatalog();
-      // Пользовательские модели из облака — best-effort: недоступный или
-      // зависший Supabase не должен блокировать seed-каталог (таймаут 5 с).
-      let models: Awaited<ReturnType<typeof listModels>> = [];
-      try {
-        models = await Promise.race([
-          listModels(),
-          new Promise<never>((_, rej) =>
-            setTimeout(() => rej(new Error("cloud timeout")), 5000),
-          ),
-        ]);
-      } catch {
-        /* облако недоступно — работаем на seed */
-      }
-      const ids = new Set(cat.skus.map((s) => s.id));
-      const custom = models.filter((m) => !ids.has(m.id));
-      setCustomIds(new Set(custom.map((m) => m.id)));
-      setCatalog({ skus: [...cat.skus, ...custom] });
+      // Merge seed + модели (override по id) — единая логика с админкой.
+      const merged = await loadMergedCatalog();
+      // «X» (удаление с главной) — только у собственных моделей; override
+      // seed-карточек сбрасывается в админке кнопкой «Сбросить к заводской».
+      setCustomIds(merged.customIds);
+      setCatalog({ skus: merged.skus });
     } catch (e) {
       setError(String(e));
     }
   }, [setCatalog]);
 
+  // SWR: грузим на каждый заход (правки из админки должны подтянуться при
+  // SPA-навигации), кэш из стора рендерится, пока идёт загрузка.
   useEffect(() => {
-    if (!catalog) load();
-  }, [catalog, load]);
+    load();
+  }, [load]);
 
   const open = (skuId: string) => {
     selectSku(skuId);
@@ -70,9 +60,9 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   if (!catalog)
     return <p className="text-gray-500">Загрузка каталога…</p>;
 
-  // Первичное разделение каталога: готовое изделие / крой.
+  // Первичное разделение каталога: готовое изделие / крой; скрытые — только в админке.
   const skus = catalog.skus.filter(
-    (sku) => (sku.product_kind ?? "finished") === kind,
+    (sku) => !sku.hidden && (sku.product_kind ?? "finished") === kind,
   );
   if (!skus.length)
     return (

@@ -128,6 +128,177 @@ export function removeView(sku: SKU, viewId: string): SKU {
   return { ...sku, views: sku.views.filter((v) => v.id !== viewId) };
 }
 
+/** Сдвинуть массив-элемент на dir (без выхода за края). */
+function moveItem<T>(list: T[], index: number, dir: -1 | 1): T[] {
+  const j = index + dir;
+  if (index < 0 || j < 0 || j >= list.length) return list;
+  const next = [...list];
+  [next[index], next[j]] = [next[j], next[index]];
+  return next;
+}
+
+/** Переставить вид вверх/вниз (порядок вкладок в редакторе и страниц PDF). */
+export function moveView(sku: SKU, viewId: string, dir: -1 | 1): SKU {
+  const i = sku.views.findIndex((v) => v.id === viewId);
+  if (i < 0) return sku;
+  const views = moveItem(sku.views, i, dir);
+  return views === sku.views ? sku : { ...sku, views };
+}
+
+/**
+ * Переставить зону вверх/вниз — синхронно в базовых `print_areas`
+ * и в каждом per-size наборе (порядок по id общий для всех размеров).
+ */
+export function moveZone(
+  sku: SKU,
+  viewId: string,
+  areaId: string,
+  dir: -1 | 1,
+): SKU {
+  const v = sku.views.find((x) => x.id === viewId);
+  if (!v) return sku;
+  const i = v.print_areas.findIndex((a) => a.id === areaId);
+  if (i < 0) return sku;
+  const print_areas = moveItem(v.print_areas, i, dir);
+  if (print_areas === v.print_areas) return sku;
+  let size_print_areas = v.size_print_areas;
+  if (size_print_areas) {
+    size_print_areas = Object.fromEntries(
+      Object.entries(size_print_areas).map(([size, areas]) => {
+        const j = areas.findIndex((a) => a.id === areaId);
+        return [size, j < 0 ? areas : moveItem(areas, j, dir)];
+      }),
+    );
+  }
+  return updateView(sku, viewId, { print_areas, size_print_areas });
+}
+
+/** Суффикс для новых id при клонировании. */
+const cloneSuffix = () => Math.random().toString(36).slice(2, 6);
+
+/**
+ * Дубликат вида: новый view.id и НОВЫЕ id всех зон (id зон уникальны
+ * в рамках SKU — по ним резолвится вид у нанесений/preflight), карта
+ * старый→новый применяется и к per-size наборам. Мокап копируется.
+ */
+export function duplicateView(sku: SKU, viewId: string): SKU {
+  const v = sku.views.find((x) => x.id === viewId);
+  if (!v) return sku;
+  const suffix = cloneSuffix();
+  const cloned = structuredClone(v);
+  const remap = (areas: PrintArea[]): PrintArea[] =>
+    areas.map((a) => ({ ...a, id: `${a.id}-copy-${suffix}` }));
+  const copy: View = {
+    ...cloned,
+    id: `${v.id}-copy-${suffix}`,
+    print_areas: remap(cloned.print_areas),
+    size_print_areas: cloned.size_print_areas
+      ? Object.fromEntries(
+          Object.entries(cloned.size_print_areas).map(([s, areas]) => [
+            s,
+            remap(areas),
+          ]),
+        )
+      : undefined,
+  };
+  const i = sku.views.findIndex((x) => x.id === viewId);
+  const views = [...sku.views];
+  views.splice(i + 1, 0, copy);
+  return { ...sku, views };
+}
+
+/**
+ * Зеркальная копия рукава L↔R: новый вид с противоположным kind, геометрия
+ * отражена по вертикальной оси флэта (x' = W − x, в ЕДИНИЦАХ вида).
+ * Флэт переиспользуется как есть — предполагаем симметричный рукав
+ * (асимметрию доводят на холсте). Мокап не копируется (фото стороны ≠ фото
+ * другой стороны). id зон новые (уникальны в рамках SKU).
+ */
+export function mirrorSleeveView(
+  sku: SKU,
+  viewId: string,
+  flatWidthUnits: number,
+): SKU {
+  const v = sku.views.find((x) => x.id === viewId);
+  if (!v || !(v.kind === "sleeve_left" || v.kind === "sleeve_right")) return sku;
+  if (!(flatWidthUnits > 0)) return sku;
+  const W = flatWidthUnits;
+  const kind: ViewKind = v.kind === "sleeve_left" ? "sleeve_right" : "sleeve_left";
+  const suffix = cloneSuffix();
+
+  const mirrorAnchors = (a: View["anchors"]): View["anchors"] => ({
+    ...a,
+    sleeve_center_x:
+      a.sleeve_center_x === undefined ? undefined : W - a.sleeve_center_x,
+    center_axis_x:
+      a.center_axis_x === undefined ? undefined : W - a.center_axis_x,
+    neckline_point: a.neckline_point
+      ? { x: W - a.neckline_point.x, y: a.neckline_point.y }
+      : undefined,
+    axes: a.axes?.map((ax) => ({ ...ax, x: W - ax.x })),
+  });
+  const mirrorAreas = (areas: PrintArea[]): PrintArea[] =>
+    areas.map((a) => ({
+      ...structuredClone(a),
+      id: `${a.id}-mir-${suffix}`,
+      polygon_mm: a.polygon_mm.map(([x, y]) => [W - x, y] as [number, number]),
+    }));
+
+  const cloned = structuredClone(v);
+  const mirrored: View = {
+    ...cloned,
+    id: `${v.id}-mir-${suffix}`,
+    kind,
+    anchors: mirrorAnchors(cloned.anchors),
+    size_anchors: cloned.size_anchors
+      ? Object.fromEntries(
+          Object.entries(cloned.size_anchors).map(([s, a]) => [
+            s,
+            mirrorAnchors(a),
+          ]),
+        )
+      : undefined,
+    print_areas: mirrorAreas(cloned.print_areas),
+    size_print_areas: cloned.size_print_areas
+      ? Object.fromEntries(
+          Object.entries(cloned.size_print_areas).map(([s, areas]) => [
+            s,
+            mirrorAreas(areas),
+          ]),
+        )
+      : undefined,
+    // Правило ростовки: горизонтальные дельты меняют знак.
+    grade_rule: cloned.grade_rule
+      ? {
+          ...cloned.grade_rule,
+          sleeve_center_dx:
+            cloned.grade_rule.sleeve_center_dx === undefined
+              ? undefined
+              : -cloned.grade_rule.sleeve_center_dx,
+          center_axis_dx:
+            cloned.grade_rule.center_axis_dx === undefined
+              ? undefined
+              : -cloned.grade_rule.center_axis_dx,
+          neckline: cloned.grade_rule.neckline
+            ? {
+                ...cloned.grade_rule.neckline,
+                dx:
+                  cloned.grade_rule.neckline.dx === undefined
+                    ? undefined
+                    : -cloned.grade_rule.neckline.dx,
+              }
+            : undefined,
+        }
+      : undefined,
+    mockup: undefined,
+  };
+
+  const i = sku.views.findIndex((x) => x.id === viewId);
+  const views = [...sku.views];
+  views.splice(i + 1, 0, mirrored);
+  return { ...sku, views };
+}
+
 /** Добавить зону в вид. */
 export function addZone(sku: SKU, viewId: string): SKU {
   const v = sku.views.find((x) => x.id === viewId);

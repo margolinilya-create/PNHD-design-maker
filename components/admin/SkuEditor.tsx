@@ -29,10 +29,30 @@ import {
   clearSizeAnchors,
   clearSizeZones,
   clearSizeFlat,
+  moveView,
+  moveZone,
+  duplicateView,
+  mirrorSleeveView,
 } from "@/lib/admin/skuEdit";
 import { saveModel, deleteModel } from "@/lib/persistence/models";
+import {
+  listRevisions,
+  pushRevision,
+  deleteRevisions,
+  REVISION_CAP,
+  type ModelRevision,
+} from "@/lib/persistence/modelRevisions";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
-import { ChevronLeft, X, TriangleAlert, Check } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronUp,
+  ChevronDown,
+  Copy,
+  FlipHorizontal2,
+  X,
+  TriangleAlert,
+  Check,
+} from "lucide-react";
 import type {
   BaseSize,
   GarmentType,
@@ -79,11 +99,14 @@ const VIEW_KINDS: { value: ViewKind; label: string }[] = [
 export function SkuEditor({
   initial,
   reservedIds = [],
+  lockId = false,
   onBack,
   onSaved,
 }: {
   initial: SKU;
   reservedIds?: string[];
+  /** Правка базовой (seed) карточки: id зафиксирован, сохранение = override. */
+  lockId?: boolean;
   onBack: () => void;
   onSaved: (id: string) => void;
 }) {
@@ -100,6 +123,18 @@ export function SkuEditor({
   const [maskThreshold, setMaskThreshold] = useState(150);
   const [maskInvert, setMaskInvert] = useState(false);
   const [maskBusy, setMaskBusy] = useState(false);
+  // История версий карточки (best-effort из облака/LS).
+  const [revisions, setRevisions] = useState<ModelRevision[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    listRevisions(initial.id)
+      .then((r) => alive && setRevisions(r))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [initial.id]);
 
   // editSize всегда должен быть среди размеров (напр. после удаления размера).
   useEffect(() => {
@@ -171,9 +206,10 @@ export function SkuEditor({
   };
 
   const errors = useMemo(() => validateSku(sku), [sku]);
+  // При lockId id неизменяем — проверка занятости не нужна (это override).
   const idErr = useMemo(
-    () => idError(sku.id, reservedIds),
-    [sku.id, reservedIds],
+    () => (lockId ? null : idError(sku.id, reservedIds)),
+    [sku.id, reservedIds, lockId],
   );
   const view = sku.views.find((v) => v.id === activeViewId) ?? sku.views[0];
   const base = sku.base_size;
@@ -203,13 +239,57 @@ export function SkuEditor({
     }
   };
 
+  // Зеркальная копия рукава: ширина флэта в ЕДИНИЦАХ вида = naturalWidth
+  // (anchors/полигоны хранятся в единицах SVG; мм = unit × scale).
+  const mirrorSleeve = async (viewId: string) => {
+    const v = sku.views.find((x) => x.id === viewId);
+    if (!v?.flat_svg) return;
+    try {
+      const width = await new Promise<number>((res, rej) => {
+        const img = new window.Image();
+        img.onload = () => res(img.naturalWidth || 0);
+        img.onerror = () => rej(new Error("не прочитать флэт"));
+        img.src = effFlat(v, base, base);
+      });
+      const next = mirrorSleeveView(sku, viewId, width);
+      if (next === sku) return;
+      const i = next.views.findIndex((x) => x.id === viewId);
+      const copy = next.views[i + 1];
+      setSku(next);
+      if (copy) {
+        setActiveViewId(copy.id);
+        setSelectedZoneId(copy.print_areas[0]?.id ?? null);
+      }
+    } catch {
+      setMsg("Не удалось прочитать флэт для зеркала");
+    }
+  };
+
   const save = async () => {
     if (errors.length || idErr) return;
+    // Снимок предыдущего состояния в историю (первый override базовой кладёт
+    // заводскую версию первой ревизией). best-effort — не блокирует сохранение.
+    if (JSON.stringify(initial) !== JSON.stringify(sku)) {
+      await pushRevision(sku.id, initial).catch(() => {});
+    }
     await saveModel(sku);
-    // Переименование id: убрать старую запись модели, чтобы не плодить дубли.
-    if (sku.id !== initial.id) await deleteModel(initial.id);
+    // Переименование id: убрать старую запись модели и её историю.
+    if (sku.id !== initial.id) {
+      await deleteModel(initial.id);
+      await deleteRevisions(initial.id).catch(() => {});
+    }
     setMsg("Сохранено");
     onSaved(sku.id);
+  };
+
+  const restoreRevision = async (rev: ModelRevision) => {
+    if (!window.confirm("Восстановить эту версию карточки?")) return;
+    // Текущее состояние — в историю, затем применяем ревизию.
+    await pushRevision(sku.id, sku).catch(() => {});
+    await saveModel(rev.sku);
+    setSku(rev.sku);
+    setRevisions(await listRevisions(sku.id).catch(() => []));
+    setMsg("Версия восстановлена");
   };
 
   const isSleeve =
@@ -230,12 +310,23 @@ export function SkuEditor({
           id:
           <input
             value={sku.id}
+            disabled={lockId}
+            title={
+              lockId
+                ? "id базовой карточки зафиксирован — правки сохраняются поверх заводской версии"
+                : undefined
+            }
             onChange={(e) => setSku({ ...sku, id: e.target.value.trim() })}
-            className={`w-44 rounded border bg-shell px-2 py-1 text-xs ${
+            className={`w-44 rounded border bg-shell px-2 py-1 text-xs disabled:opacity-60 ${
               idErr ? "border-red-600 text-red-700" : "border-line text-ink"
             }`}
           />
         </label>
+        {lockId && (
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+            правка базовой — сохранится поверх заводской
+          </span>
+        )}
         {idErr && <span className="text-xs text-red-600">{idErr}</span>}
         <button
           onClick={save}
@@ -351,10 +442,10 @@ export function SkuEditor({
 
           <Section title="Виды">
             <div className="flex flex-col gap-1.5">
-              {sku.views.map((v) => (
+              {sku.views.map((v, vi) => (
                 <div
                   key={v.id}
-                  className={`flex items-center justify-between rounded border px-2 py-1.5 text-sm ${
+                  className={`flex items-center justify-between gap-1 rounded border px-2 py-1.5 text-sm ${
                     v.id === activeViewId
                       ? "border-blue-500 bg-raised"
                       : "border-line bg-white"
@@ -376,6 +467,38 @@ export function SkuEditor({
                         <TriangleAlert size={10} strokeWidth={2} /> нет флэта
                       </span>
                     )}
+                  </button>
+                  {/* Порядок видов = порядок вкладок редактора и страниц PDF. */}
+                  <button
+                    onClick={() => setSku(moveView(sku, v.id, -1))}
+                    disabled={vi === 0}
+                    title="Выше"
+                    className="text-gray-400 hover:text-ink disabled:opacity-30"
+                  >
+                    <ChevronUp size={14} strokeWidth={1.75} />
+                  </button>
+                  <button
+                    onClick={() => setSku(moveView(sku, v.id, 1))}
+                    disabled={vi === sku.views.length - 1}
+                    title="Ниже"
+                    className="text-gray-400 hover:text-ink disabled:opacity-30"
+                  >
+                    <ChevronDown size={14} strokeWidth={1.75} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const next = duplicateView(sku, v.id);
+                      const copy = next.views[vi + 1];
+                      setSku(next);
+                      if (copy) {
+                        setActiveViewId(copy.id);
+                        setSelectedZoneId(copy.print_areas[0]?.id ?? null);
+                      }
+                    }}
+                    title="Дублировать вид (с зонами и якорями)"
+                    className="text-gray-400 hover:text-ink"
+                  >
+                    <Copy size={14} strokeWidth={1.75} />
                   </button>
                   {sku.views.length > 1 && (
                     <button
@@ -542,6 +665,22 @@ export function SkuEditor({
                 />
               </label>
 
+              {isSleeve && (
+                <button
+                  onClick={() => mirrorSleeve(view.id)}
+                  disabled={!view.flat_svg}
+                  title={
+                    view.flat_svg
+                      ? "Создать противоположный рукав: геометрия отражается по оси флэта"
+                      : "Нужен флэт вида"
+                  }
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded border border-line bg-white px-2 py-1.5 text-xs text-ink hover:border-blue-500 disabled:opacity-50"
+                >
+                  <FlipHorizontal2 size={14} strokeWidth={1.75} />
+                  Зеркальная копия L↔R
+                </button>
+              )}
+
               {/* Якоря (per-size: пишем под выбранный размер) */}
               {!isLabel && (
                 <div className="grid grid-cols-2 gap-2">
@@ -692,12 +831,14 @@ export function SkuEditor({
             </Section>
 
             <Section title="Печатные зоны">
-              {effView.print_areas.map((a) => (
+              {effView.print_areas.map((a, ai) => (
                 <ZoneEditor
                   key={a.id}
                   area={a}
                   perSize={perSize}
                   canRemove={!perSize && effView.print_areas.length > 1}
+                  canMoveUp={ai > 0}
+                  canMoveDown={ai < effView.print_areas.length - 1}
                   selected={a.id === selectedZoneId}
                   onSelect={() => setSelectedZoneId(a.id)}
                   onRect={(rect) =>
@@ -709,6 +850,7 @@ export function SkuEditor({
                     setSku(updateZone(sku, view.id, a.id, patch))
                   }
                   onRemove={() => setSku(removeZone(sku, view.id, a.id))}
+                  onMove={(dir) => setSku(moveZone(sku, view.id, a.id, dir))}
                 />
               ))}
               {!perSize && (
@@ -906,6 +1048,32 @@ export function SkuEditor({
             </Section>
           </div>
           )}
+
+          {revisions.length > 0 && (
+            <Section title={`История версий (${revisions.length})`}>
+              <div className="flex flex-col gap-1">
+                {revisions.map((r, i) => (
+                  <div
+                    key={`${r.saved_at}-${i}`}
+                    className="flex items-center justify-between gap-2 rounded border border-line bg-white px-2 py-1 text-xs"
+                  >
+                    <span className="text-gray-600">
+                      {new Date(r.saved_at).toLocaleString("ru-RU")}
+                    </span>
+                    <button
+                      onClick={() => restoreRevision(r)}
+                      className="rounded bg-raised px-2 py-0.5 text-[11px] text-ink hover:bg-gray-200"
+                    >
+                      Восстановить
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Хранятся последние {REVISION_CAP} версий.
+              </p>
+            </Section>
+          )}
         </aside>
 
         {/* Холст активного вида */}
@@ -929,24 +1097,45 @@ function ZoneEditor({
   area,
   perSize,
   canRemove,
+  canMoveUp,
+  canMoveDown,
   selected,
   onSelect,
   onRect,
   onMeta,
   onRemove,
+  onMove,
 }: {
   area: PrintArea;
   perSize: boolean;
   canRemove: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   selected: boolean;
   onSelect: () => void;
   onRect: (rect: { x: number; y: number; w: number; h: number }) => void;
   onMeta: (patch: Partial<PrintArea>) => void;
   onRemove: () => void;
+  onMove: (dir: -1 | 1) => void;
 }) {
   const r = zoneRect(area);
   const setRect = (p: Partial<{ x: number; y: number; w: number; h: number }>) =>
     onRect({ ...r, ...p });
+  // Лимиты печати: 0/пусто = нет ограничения (в схеме поля positive-optional).
+  const setLimit = (
+    key: "max_print_mm" | "min_print_mm",
+    axis: "width" | "height",
+    n: number,
+  ) => {
+    const cur = area[key];
+    const next = { width: cur?.width ?? 0, height: cur?.height ?? 0, [axis]: n };
+    onMeta({
+      [key]:
+        next.width > 0 && next.height > 0
+          ? { width: next.width, height: next.height }
+          : undefined,
+    });
+  };
   return (
     <div
       onClick={onSelect}
@@ -954,13 +1143,33 @@ function ZoneEditor({
         selected ? "border-blue-500" : "border-line"
       }`}
     >
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-1.5">
         <input
           value={area.name}
           onChange={(e) => onMeta({ name: e.target.value })}
           disabled={perSize}
           className="flex-1 rounded border border-line bg-shell px-2 py-1 text-sm disabled:opacity-60"
         />
+        {!perSize && (
+          <>
+            <button
+              onClick={() => onMove(-1)}
+              disabled={!canMoveUp}
+              title="Выше"
+              className="text-gray-400 hover:text-ink disabled:opacity-30"
+            >
+              <ChevronUp size={14} strokeWidth={1.75} />
+            </button>
+            <button
+              onClick={() => onMove(1)}
+              disabled={!canMoveDown}
+              title="Ниже"
+              className="text-gray-400 hover:text-ink disabled:opacity-30"
+            >
+              <ChevronDown size={14} strokeWidth={1.75} />
+            </button>
+          </>
+        )}
         {canRemove && (
           <button onClick={onRemove} className="text-gray-400 hover:text-red-600">
             <X size={14} strokeWidth={1.75} />
@@ -974,33 +1183,63 @@ function ZoneEditor({
         <NumField label="В" value={r.h} onChange={(n) => setRect({ h: Math.max(1, n) })} />
       </div>
       {!perSize && (
-        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-          <NumField
-            label="safe-inset"
-            value={area.safe_inset_mm}
-            onChange={(n) => onMeta({ safe_inset_mm: Math.max(0, n) })}
-          />
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] text-gray-400">метод по умолч.</span>
-            <select
-              value={area.default_method ?? ""}
-              onChange={(e) =>
-                onMeta({
-                  default_method: (e.target.value || undefined) as
-                    | PrintArea["default_method"],
-                })
-              }
-              className="rounded border border-line bg-shell px-1.5 py-1 text-xs"
-            >
-              <option value="">— нет —</option>
-              {PRINT_METHOD_LIST.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <>
+          <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <NumField
+              label="safe-inset"
+              value={area.safe_inset_mm}
+              onChange={(n) => onMeta({ safe_inset_mm: Math.max(0, n) })}
+            />
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] text-gray-400">метод по умолч.</span>
+              <select
+                value={area.default_method ?? ""}
+                onChange={(e) =>
+                  onMeta({
+                    default_method: (e.target.value || undefined) as
+                      | PrintArea["default_method"],
+                  })
+                }
+                className="rounded border border-line bg-shell px-1.5 py-1 text-xs"
+              >
+                <option value="">— нет —</option>
+                {PRINT_METHOD_LIST.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {/* Лимиты размера печати — preflight предупреждает при выходе. */}
+          <div className="mt-1.5">
+            <div className="mb-1 text-[10px] text-gray-400">
+              Лимиты печати (мм), 0 = без ограничения
+            </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              <NumField
+                label="макс Ш"
+                value={area.max_print_mm?.width ?? 0}
+                onChange={(n) => setLimit("max_print_mm", "width", Math.max(0, n))}
+              />
+              <NumField
+                label="макс В"
+                value={area.max_print_mm?.height ?? 0}
+                onChange={(n) => setLimit("max_print_mm", "height", Math.max(0, n))}
+              />
+              <NumField
+                label="мин Ш"
+                value={area.min_print_mm?.width ?? 0}
+                onChange={(n) => setLimit("min_print_mm", "width", Math.max(0, n))}
+              />
+              <NumField
+                label="мин В"
+                value={area.min_print_mm?.height ?? 0}
+                onChange={(n) => setLimit("min_print_mm", "height", Math.max(0, n))}
+              />
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
