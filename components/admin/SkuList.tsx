@@ -1,17 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
+import {
+  loadMergedCatalog,
+  overrideDiffersFromSeed,
+} from "@/lib/catalog/mergedCatalog";
 import { deleteModel, saveModel } from "@/lib/persistence/models";
 import { cloneSku } from "@/lib/admin/skuEdit";
-import { Plus, Pencil, Copy, Trash2, RotateCcw } from "lucide-react";
-import type { SKU } from "@/types";
+import {
+  Plus,
+  Pencil,
+  Copy,
+  Trash2,
+  RotateCcw,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import type { GarmentType, SKU } from "@/types";
+import { GARMENT_TYPE_LABELS } from "@/types";
 
 interface Entry {
   sku: SKU;
   source: "seed" | "model";
   /** Seed-карточка перекрыта сохранённой правкой (override). */
   overridden: boolean;
+  /** Правки затрагивают не только флаг hidden (для бейджа «изменена»). */
+  changed: boolean;
   /** Сырая строка модели (для редактора — без развёрнутых grade_rule). */
   raw?: SKU;
 }
@@ -31,12 +45,22 @@ export function SkuList({
     try {
       const merged = await loadMergedCatalog();
       setEntries(
-        merged.skus.map((s) => ({
-          sku: s,
-          source: merged.seedIds.has(s.id) ? "seed" : "model",
-          overridden: merged.overriddenIds.has(s.id),
-          raw: merged.rawModels.get(s.id),
-        })),
+        merged.skus.map((s) => {
+          const overridden = merged.overriddenIds.has(s.id);
+          const seedOrig = merged.seedById.get(s.id);
+          const raw = merged.rawModels.get(s.id);
+          return {
+            sku: s,
+            source: merged.seedIds.has(s.id) ? "seed" : "model",
+            overridden,
+            // «изменена» — если правки не сводятся к скрытию.
+            changed:
+              overridden && !!seedOrig && !!raw
+                ? overrideDiffersFromSeed(seedOrig, raw)
+                : false,
+            raw,
+          };
+        }),
       );
     } catch (e) {
       setErr(String(e));
@@ -47,15 +71,44 @@ export function SkuList({
     load();
   }, [load]);
 
+  // Фильтр по группе товаров (как на главной) — работает вместе с поиском.
+  const [typeFilter, setTypeFilter] = useState<GarmentType | null>(null);
+
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    if (!t || !entries) return entries ?? [];
-    return entries.filter(
+    return (entries ?? []).filter(
       (e) =>
-        e.sku.name.toLowerCase().includes(t) ||
-        e.sku.id.toLowerCase().includes(t),
+        (!typeFilter || e.sku.type === typeFilter) &&
+        (!t ||
+          e.sku.name.toLowerCase().includes(t) ||
+          e.sku.id.toLowerCase().includes(t)),
     );
-  }, [entries, q]);
+  }, [entries, q, typeFilter]);
+
+  const typeCounts = useMemo(() => {
+    const m = new Map<GarmentType, number>();
+    for (const e of entries ?? []) m.set(e.sku.type, (m.get(e.sku.type) ?? 0) + 1);
+    return m;
+  }, [entries]);
+  const types = (Object.keys(GARMENT_TYPE_LABELS) as GarmentType[]).filter((t) =>
+    typeCounts.has(t),
+  );
+  const activeType = typeFilter && typeCounts.has(typeFilter) ? typeFilter : null;
+
+  const chip = (on: boolean) =>
+    `rounded-md px-2.5 py-1 text-xs transition ${
+      on
+        ? "bg-blue-600 font-medium text-white"
+        : "border border-line bg-white text-gray-700 hover:border-blue-500"
+    }`;
+
+  // Скрыть/показать в клиентском каталоге. Для базовой карточки скрытие
+  // сохраняется как override (только с флагом hidden).
+  const toggleHidden = async (entry: Entry) => {
+    const src = entry.raw ?? entry.sku;
+    await saveModel({ ...src, hidden: !src.hidden });
+    await load();
+  };
 
   const reservedFor = (id: string) =>
     (entries ?? []).filter((e) => e.sku.id !== id).map((e) => e.sku.id);
@@ -92,7 +145,7 @@ export function SkuList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col p-4">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -107,13 +160,46 @@ export function SkuList({
         </button>
       </div>
 
+      {types.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          <button onClick={() => setTypeFilter(null)} className={chip(activeType === null)}>
+            Все <span className="opacity-60">{entries.length}</span>
+          </button>
+          {types.map((t) => (
+            <button key={t} onClick={() => setTypeFilter(t)} className={chip(activeType === t)}>
+              {GARMENT_TYPE_LABELS[t]}{" "}
+              <span className="opacity-60">{typeCounts.get(t)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map(({ sku, source, overridden, raw }) => (
+        {filtered.map(({ sku, source, overridden, changed, raw }) => {
+          const preview =
+            sku.views.find((v) => v.kind === "front")?.flat_svg ||
+            sku.views[0]?.flat_svg;
+          return (
           <div
             key={`${source}-${sku.id}`}
-            className="rounded-xl border border-line bg-white p-4 shadow-sm"
+            className={`rounded-xl border border-line bg-white p-4 shadow-sm ${
+              sku.hidden ? "opacity-60" : ""
+            }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="mb-2 flex h-24 items-center justify-center overflow-hidden rounded bg-shell">
+              {preview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <span className="text-[11px] text-gray-400">нет флэта</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-ink">{sku.name}</span>
               <span
                 className={`rounded px-1.5 py-0.5 text-[10px] ${
@@ -124,12 +210,20 @@ export function SkuList({
               >
                 {source === "seed" ? "база" : "моя"}
               </span>
-              {overridden && (
+              {changed && (
                 <span
                   className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700"
                   title="Заводская карточка перекрыта сохранёнными правками"
                 >
                   изменена
+                </span>
+              )}
+              {sku.hidden && (
+                <span
+                  className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500"
+                  title="Скрыта из клиентского каталога"
+                >
+                  скрыта
                 </span>
               )}
             </div>
@@ -179,6 +273,23 @@ export function SkuList({
                   <RotateCcw size={14} strokeWidth={1.75} /> Сбросить
                 </button>
               )}
+              <button
+                onClick={() => toggleHidden({ sku, source, overridden, changed, raw })}
+                title={
+                  sku.hidden
+                    ? "Показать в клиентском каталоге"
+                    : "Скрыть из клиентского каталога"
+                }
+                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-gray-100 ${
+                  source === "model" ? "" : "ml-auto"
+                } text-gray-500`}
+              >
+                {sku.hidden ? (
+                  <EyeOff size={14} strokeWidth={1.75} />
+                ) : (
+                  <Eye size={14} strokeWidth={1.75} />
+                )}
+              </button>
               {source === "model" && (
                 <button
                   onClick={() => onDelete(sku.id)}
@@ -189,7 +300,8 @@ export function SkuList({
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && (
           <p className="text-sm text-gray-400">Ничего не найдено.</p>
         )}

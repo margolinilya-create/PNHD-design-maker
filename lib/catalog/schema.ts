@@ -90,6 +90,7 @@ export const skuSchema = z
       "shopper",
     ]),
     product_kind: z.enum(["finished", "cut"]).optional(),
+    hidden: z.boolean().optional(),
     base_size: z.enum(["M", "L"]),
     sizes: z.array(z.string()).min(1),
     views: z.array(viewSchema).min(1),

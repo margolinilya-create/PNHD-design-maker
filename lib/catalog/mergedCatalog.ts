@@ -22,6 +22,8 @@ export interface MergedCatalog {
    * size_anchors «запекутся» и правки grade_rule перестанут действовать.
    */
   rawModels: Map<string, SKU>;
+  /** Заводские версии по id (для сравнения override ↔ seed). */
+  seedById: Map<string, SKU>;
 }
 
 /** Чистый merge (юнит-тестируемый): override по id + разворачивание правил. */
@@ -51,7 +53,14 @@ export function mergeCatalog(seedSkus: SKU[], models: SKU[]): MergedCatalog {
   // строит per-size якоря (раньше кастомные модели текли сырыми).
   const expanded = expandCatalogGradeRules({ skus: merged }).skus;
 
-  return { skus: expanded, seedIds, overriddenIds, customIds, rawModels };
+  return {
+    skus: expanded,
+    seedIds,
+    overriddenIds,
+    customIds,
+    rawModels,
+    seedById: new Map(seedSkus.map((s) => [s.id, s] as const)),
+  };
 }
 
 /**

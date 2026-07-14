@@ -153,6 +153,8 @@ export interface SKU {
   type: GarmentType;
   /** Вид продукта: готовое изделие / крой. Отсутствие = "finished". */
   product_kind?: ProductKind;
+  /** Скрыта из клиентского каталога (в админке остаётся видимой). */
+  hidden?: boolean;
   base_size: BaseSize;
   sizes: string[];
   views: View[];

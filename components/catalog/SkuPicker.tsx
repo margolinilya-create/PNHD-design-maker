@@ -60,9 +60,9 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   if (!catalog)
     return <p className="text-gray-500">Загрузка каталога…</p>;
 
-  // Первичное разделение каталога: готовое изделие / крой.
+  // Первичное разделение каталога: готовое изделие / крой; скрытые — только в админке.
   const skus = catalog.skus.filter(
-    (sku) => (sku.product_kind ?? "finished") === kind,
+    (sku) => !sku.hidden && (sku.product_kind ?? "finished") === kind,
   );
   if (!skus.length)
     return (

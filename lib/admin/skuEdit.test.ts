@@ -219,6 +219,10 @@ describe("skuEdit", () => {
     });
   });
 
+  it("validateSku принимает флаг hidden", () => {
+    expect(validateSku({ ...sku, hidden: true })).toEqual([]);
+  });
+
   it("validateSku принимает лимиты печати min/max", () => {
     const withLimits = updateZone(sku, "v-front", "chest", {
       max_print_mm: { width: 300, height: 400 },
