@@ -62,7 +62,10 @@ import type {
   ViewKind,
 } from "@/types";
 import { GARMENT_TYPE_LABELS, isAccessoryType } from "@/types";
-import { stripAccessoryNeckline } from "@/lib/catalog/mergedCatalog";
+import {
+  stripAccessoryNeckline,
+  normalizeAccessorySizes,
+} from "@/lib/catalog/mergedCatalog";
 
 const inp = "w-full rounded border border-line bg-shell px-2 py-1.5 text-sm";
 const resetBtn =
@@ -214,9 +217,9 @@ export function SkuEditor({
 
   const save = async () => {
     if (errors.length || idErr) return;
-    // У аксессуаров горловины нет: срезаем перед сохранением (самоизлечение
-    // легаси-моделей и чистка после переключения типа «одежда → шоппер»).
-    const toSave = stripAccessoryNeckline(sku);
+    // Аксессуары нормализуются перед сохранением: горловины нет + ONE SIZE
+    // (самоизлечение легаси-моделей и чистка после смены типа «одежда → шоппер»).
+    const toSave = normalizeAccessorySizes(stripAccessoryNeckline(sku));
     // Снимок предыдущего состояния в историю (первый override базовой кладёт
     // заводскую версию первой ревизией). best-effort — не блокирует сохранение.
     if (JSON.stringify(baseline) !== JSON.stringify(toSave)) {
