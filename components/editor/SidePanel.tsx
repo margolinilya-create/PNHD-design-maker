@@ -191,22 +191,7 @@ export function SidePanel() {
       const s = view.scale_mm_per_unit ?? 1;
       const flat = await resolveFlat(flatForSize(view, size ?? undefined), s);
       const vp = placements.filter((p) => viewHasZone(view, p.print_area_id));
-      // Фото-мокап (если у вида есть фото), иначе — чистый флэт.
-      let mockup;
-      if (view.mockup) {
-        const ph = await loadPhoto(view.mockup.photo);
-        // Маска ткани для перекраски под цвет (если задана).
-        const maskDataUrl = view.mockup.mask
-          ? (await loadPhoto(view.mockup.mask)).dataUrl
-          : undefined;
-        mockup = {
-          dataUrl: ph.dataUrl,
-          imgW: ph.w,
-          imgH: ph.h,
-          print: view.mockup.print,
-          maskDataUrl,
-        };
-      }
+      // Превью всегда на том же флэте, что и карточка каталога (с цветом ткани).
       const svg = buildPreviewSvg({
         view,
         flatSvgMarkup: flat.markup,
@@ -217,14 +202,9 @@ export function SidePanel() {
         size: size ?? undefined,
         placements: vp,
         assets,
-        mockup,
       });
-      await exportSvgAsPng(
-        svg,
-        `${sku.id}-${view.kind}-preview.png`,
-        mockup ? 1 : 3,
-      );
-      setMsg(mockup ? "Фото-мокап готов" : "PNG-превью готов");
+      await exportSvgAsPng(svg, `${sku.id}-${view.kind}-preview.png`, 3);
+      setMsg("PNG-превью готов");
     } catch (e) {
       setMsg(`Ошибка превью: ${e}`);
     } finally {
@@ -1673,24 +1653,4 @@ function MmField({
 /** Округление до 0.1 мм в строку (для поля ввода). */
 function round1(v: number): string {
   return String(Math.round(v * 10) / 10);
-}
-
-/** Загрузить фото (URL) → data URL + натуральные размеры. */
-async function loadPhoto(
-  src: string,
-): Promise<{ dataUrl: string; w: number; h: number }> {
-  const blob = await fetch(src).then((r) => r.blob());
-  const dataUrl = await new Promise<string>((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result as string);
-    r.onerror = () => rej(r.error);
-    r.readAsDataURL(blob);
-  });
-  const dims = await new Promise<{ w: number; h: number }>((res, rej) => {
-    const img = new window.Image();
-    img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
-    img.onerror = () => rej(new Error("Не удалось загрузить фото"));
-    img.src = dataUrl;
-  });
-  return { dataUrl, ...dims };
 }

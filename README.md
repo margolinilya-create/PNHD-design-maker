@@ -47,12 +47,12 @@ lib/                 # бизнес-логика (без UI), покрыта т�
   catalog/           # каталог SKU, seed-валидация (zod), DPI, методы печати, Pantone
   export/            # сборка сцены SVG → векторный PDF, preflight-чеклист
   import/            # парсинг DXF → SKU
-  admin/             # модель редактора лекал (флэт, авто-маска, геометрия мокапа)
+  admin/             # модель редактора лекал (флэт, геометрия карточки)
   state/             # zustand-стор проекта
   persistence/       # save/load проектов и моделей (Supabase | localStorage)
   hooks/             # React-хуки (useImage, useColoredFlat, ...)
 types/               # общие типы модели данных (единый источник)
-public/seed/         # эталонные данные: skus.json, флэты, мокапы (SKU FreeFit)
+public/seed/         # эталонные данные: skus.json, флэты (SKU FreeFit)
 design-system/       # «Студия» — источник правды по токенам/паттернам (референс, не импортируется)
 scripts/             # Python: DXF → флэт/SKU (dxf_analyze, dxf_build_sku, dxf_to_flat)
 docs/                # ROADMAP, PLAN, COMPETITOR-BRIEF

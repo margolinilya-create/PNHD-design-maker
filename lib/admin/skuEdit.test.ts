@@ -170,7 +170,6 @@ describe("skuEdit", () => {
           print_areas: [rectZone("sl", "Рукав", 40, 60, 120, 90, 10)],
           size_print_areas: { L: [rectZone("sl", "Рукав", 50, 70, 120, 90, 10)] },
           grade_rule: { sleeve_bottom_dy: 4, sleeve_center_dx: 3 },
-          mockup: { photo: "p.jpg", print: { x: 0.1, y: 0.1, w: 0.5 } },
         },
       ],
     };
@@ -193,14 +192,13 @@ describe("skuEdit", () => {
       expect(Math.min(...ys)).toBe(60);
     });
 
-    it("per-size якоря/зоны зеркалятся, grade_rule dx негируется, мокап не копируется", () => {
+    it("per-size якоря/зоны зеркалятся, grade_rule dx негируется", () => {
       const m = mirrorSleeveView(sleeve, "v-sl", W).views[1];
       expect(m.size_anchors?.L.sleeve_center_x).toBe(W - 110);
       const xsL = m.size_print_areas!.L[0].polygon_mm.map((p) => p[0]);
       expect(Math.min(...xsL)).toBe(W - 170); // 50+120=170
       expect(m.grade_rule?.sleeve_center_dx).toBe(-3);
       expect(m.grade_rule?.sleeve_bottom_dy).toBe(4);
-      expect(m.mockup).toBeUndefined();
     });
 
     it("id зон новые и уникальные в SKU; обратное направление работает", () => {

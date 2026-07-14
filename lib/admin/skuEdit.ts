@@ -180,7 +180,7 @@ const cloneSuffix = () =>
 /**
  * Дубликат вида: новый view.id и НОВЫЕ id всех зон (id зон уникальны
  * в рамках SKU — по ним резолвится вид у нанесений/preflight), карта
- * старый→новый применяется и к per-size наборам. Мокап копируется.
+ * старый→новый применяется и к per-size наборам.
  */
 export function duplicateView(sku: SKU, viewId: string): SKU {
   const v = sku.views.find((x) => x.id === viewId);
@@ -213,8 +213,8 @@ export function duplicateView(sku: SKU, viewId: string): SKU {
  * отражена по вертикальной оси флэта (x' = W − x, всё в ММ: якоря, оси и
  * polygon_mm хранятся в мм → W = ширина флэта в мм, т.е. naturalWidth ×
  * scale_mm_per_unit). Флэт переиспользуется как есть — предполагаем
- * симметричный рукав (асимметрию доводят на холсте). Мокап не копируется
- * (фото стороны ≠ фото другой стороны). id зон новые (уникальны в рамках SKU).
+ * симметричный рукав (асимметрию доводят на холсте). id зон новые
+ * (уникальны в рамках SKU).
  */
 export function mirrorSleeveView(
   sku: SKU,
@@ -292,7 +292,6 @@ export function mirrorSleeveView(
             : undefined,
         }
       : undefined,
-    mockup: undefined,
   };
 
   const i = sku.views.findIndex((x) => x.id === viewId);
