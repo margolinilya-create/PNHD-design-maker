@@ -20,6 +20,7 @@ import {
   yForNecklineOffset,
   positionOnAxis,
   anchorsForSize,
+  viewHasZone,
   type PositionPreset,
 } from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
@@ -189,9 +190,7 @@ export function SidePanel() {
     try {
       const s = view.scale_mm_per_unit ?? 1;
       const flat = await resolveFlat(flatForSize(view, size ?? undefined), s);
-      const vp = placements.filter((p) =>
-        view.print_areas.some((a) => a.id === p.print_area_id),
-      );
+      const vp = placements.filter((p) => viewHasZone(view, p.print_area_id));
       // Фото-мокап (если у вида есть фото), иначе — чистый флэт.
       let mockup;
       if (view.mockup) {
@@ -250,14 +249,12 @@ export function SidePanel() {
           tSize,
         );
         const viewsWith = sku.views.filter((v) =>
-          pls.some((p) => v.print_areas.some((a) => a.id === p.print_area_id)),
+          pls.some((p) => viewHasZone(v, p.print_area_id)),
         );
         for (const v of viewsWith) {
           const s = v.scale_mm_per_unit ?? 1;
           const flat = await resolveFlat(flatForSize(v, tSize), s);
-          const vp = pls.filter((p) =>
-            v.print_areas.some((a) => a.id === p.print_area_id),
-          );
+          const vp = pls.filter((p) => viewHasZone(v, p.print_area_id));
           scenes.push(
             buildSceneSvg({
               sku,
@@ -315,6 +312,32 @@ export function SidePanel() {
 
   const onExport = () => gateExport(() => void runExport("minimal"));
 
+  // Гейт batch-экспорта: preflight на КАЖДЫЙ целевой размер по регрейженным
+  // позициям (нанесение может влезать на базовом, но вылетать на XXL).
+  const gateExportBatch = (sizesSel: string[]) => {
+    if (!sku || sizesSel.length === 0) return;
+    const fromSize = size ?? sku.base_size;
+    const issues = sizesSel.flatMap((tSize) =>
+      preflight({
+        views: sku.views,
+        placements: regradePlacementsToSize(
+          sku.views,
+          placements,
+          fromSize,
+          tSize,
+        ),
+        assets,
+        size: tSize,
+      }).map((i) => ({ ...i, message: `[${tSize}] ${i.message}` })),
+    );
+    if (issues.length > 0) {
+      setPendingAction(() => () => void onExportBatch(sizesSel));
+      setPreflightIssues(issues);
+      return;
+    }
+    void onExportBatch(sizesSel);
+  };
+
   const runExport = async (
     variant: "full" | "production" | "minimal" = "minimal",
   ) => {
@@ -324,9 +347,7 @@ export function SidePanel() {
     setMsg(null);
     try {
       const viewsWithPlacements = sku.views.filter((v) =>
-        placements.some((p) =>
-          v.print_areas.some((a) => a.id === p.print_area_id),
-        ),
+        placements.some((p) => viewHasZone(v, p.print_area_id)),
       );
       const target = viewsWithPlacements.length ? viewsWithPlacements : [];
       if (!target.length) {
@@ -338,9 +359,7 @@ export function SidePanel() {
         // Габариты в мм считает резолвер (viewBox × scale или растр × scale).
         const s = v.scale_mm_per_unit ?? 1;
         const flat = await resolveFlat(flatForSize(v, size ?? undefined), s);
-        const vp = placements.filter((p) =>
-          v.print_areas.some((a) => a.id === p.print_area_id),
-        );
+        const vp = placements.filter((p) => viewHasZone(v, p.print_area_id));
         scenes.push(
           buildSceneSvg({
             sku,
@@ -384,7 +403,7 @@ export function SidePanel() {
 
   // Нанесения текущего вида (порядок массива = z-order).
   const viewLayers = placements.filter((p) =>
-    view.print_areas.some((a) => a.id === p.print_area_id),
+    viewHasZone(view, p.print_area_id),
   );
 
   return (
@@ -746,7 +765,7 @@ export function SidePanel() {
           onClose={() => setShowBatch(false)}
           onBuild={(sel) => {
             setShowBatch(false);
-            gateExport(() => void onExportBatch(sel));
+            gateExportBatch(sel);
           }}
         />
       )}
@@ -1144,7 +1163,7 @@ function CommentBox({
 }
 
 function findViewForPlacement(views: View[], p: Placement): View | undefined {
-  return views.find((v) => v.print_areas.some((a) => a.id === p.print_area_id));
+  return views.find((v) => viewHasZone(v, p.print_area_id));
 }
 
 function findViewForPlacementName(view: View | undefined, p: Placement): string {

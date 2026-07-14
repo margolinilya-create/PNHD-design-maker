@@ -111,6 +111,10 @@ export function SkuEditor({
   onSaved: (id: string) => void;
 }) {
   const [sku, setSku] = useState<SKU>(initial);
+  // «Предыдущее сохранённое состояние» для истории версий: initial при входе,
+  // обновляется после восстановления ревизии (иначе save сравнил бы со stale
+  // initial и skip-if-same съел бы восстановленную версию из истории).
+  const [baseline, setBaseline] = useState<SKU>(initial);
   const [activeViewId, setActiveViewId] = useState(initial.views[0]?.id ?? "");
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(
     initial.views[0]?.print_areas[0]?.id ?? null,
@@ -239,8 +243,9 @@ export function SkuEditor({
     }
   };
 
-  // Зеркальная копия рукава: ширина флэта в ЕДИНИЦАХ вида = naturalWidth
-  // (anchors/полигоны хранятся в единицах SVG; мм = unit × scale).
+  // Зеркальная копия рукава: mirrorSleeveView зеркалит в мм-пространстве
+  // (anchors/полигоны хранятся в мм), а naturalWidth — в ЕДИНИЦАХ вида →
+  // ширина флэта в мм = naturalWidth × scale_mm_per_unit.
   const mirrorSleeve = async (viewId: string) => {
     const v = sku.views.find((x) => x.id === viewId);
     if (!v?.flat_svg) return;
@@ -251,7 +256,8 @@ export function SkuEditor({
         img.onerror = () => rej(new Error("не прочитать флэт"));
         img.src = effFlat(v, base, base);
       });
-      const next = mirrorSleeveView(sku, viewId, width);
+      const widthMm = width * (v.scale_mm_per_unit ?? 1);
+      const next = mirrorSleeveView(sku, viewId, widthMm);
       if (next === sku) return;
       const i = next.views.findIndex((x) => x.id === viewId);
       const copy = next.views[i + 1];
@@ -269,8 +275,8 @@ export function SkuEditor({
     if (errors.length || idErr) return;
     // Снимок предыдущего состояния в историю (первый override базовой кладёт
     // заводскую версию первой ревизией). best-effort — не блокирует сохранение.
-    if (JSON.stringify(initial) !== JSON.stringify(sku)) {
-      await pushRevision(sku.id, initial).catch(() => {});
+    if (JSON.stringify(baseline) !== JSON.stringify(sku)) {
+      await pushRevision(sku.id, baseline).catch(() => {});
     }
     await saveModel(sku);
     // Переименование id: убрать старую запись модели и её историю.
@@ -288,6 +294,7 @@ export function SkuEditor({
     await pushRevision(sku.id, sku).catch(() => {});
     await saveModel(rev.sku);
     setSku(rev.sku);
+    setBaseline(rev.sku);
     setRevisions(await listRevisions(sku.id).catch(() => []));
     setMsg("Версия восстановлена");
   };

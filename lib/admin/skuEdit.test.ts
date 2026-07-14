@@ -217,6 +217,24 @@ describe("skuEdit", () => {
       expect(mirrorSleeveView(sku, "v-front", W)).toBe(sku);
       expect(mirrorSleeveView(sleeve, "v-sl", 0)).toBe(sleeve);
     });
+
+    it("контракт единиц: ширина в ММ (naturalWidth × scale), не в единицах вида", () => {
+      // Флэт 800 единиц при scale 0.5 → 400 мм. Вызывающий обязан передать
+      // мм: зеркало 800 увело бы зону 40..160 мм в 640..760 — за флэт.
+      const scaled: SKU = {
+        ...sleeve,
+        views: [{ ...sleeve.views[0], scale_mm_per_unit: 0.5 }],
+      };
+      const naturalWidth = 800;
+      const widthMm = naturalWidth * 0.5; // как делает SkuEditor.mirrorSleeve
+      const m = mirrorSleeveView(scaled, "v-sl", widthMm).views[1];
+      const xs = m.print_areas[0].polygon_mm.map((p) => p[0]);
+      // Зона 40..160 мм → 240..360 мм, в пределах флэта 400 мм.
+      expect(Math.min(...xs)).toBe(240);
+      expect(Math.max(...xs)).toBe(360);
+      expect(Math.max(...xs)).toBeLessThanOrEqual(widthMm);
+      expect(m.anchors.sleeve_center_x).toBe(400 - 100);
+    });
   });
 
   it("validateSku принимает флаг hidden", () => {

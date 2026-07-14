@@ -173,8 +173,9 @@ export function moveZone(
   return updateView(sku, viewId, { print_areas, size_print_areas });
 }
 
-/** Суффикс для новых id при клонировании. */
-const cloneSuffix = () => Math.random().toString(36).slice(2, 6);
+/** Суффикс для новых id при клонировании (8 base36 — коллизии практически исключены). */
+const cloneSuffix = () =>
+  Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6);
 
 /**
  * Дубликат вида: новый view.id и НОВЫЕ id всех зон (id зон уникальны
@@ -209,20 +210,21 @@ export function duplicateView(sku: SKU, viewId: string): SKU {
 
 /**
  * Зеркальная копия рукава L↔R: новый вид с противоположным kind, геометрия
- * отражена по вертикальной оси флэта (x' = W − x, в ЕДИНИЦАХ вида).
- * Флэт переиспользуется как есть — предполагаем симметричный рукав
- * (асимметрию доводят на холсте). Мокап не копируется (фото стороны ≠ фото
- * другой стороны). id зон новые (уникальны в рамках SKU).
+ * отражена по вертикальной оси флэта (x' = W − x, всё в ММ: якоря, оси и
+ * polygon_mm хранятся в мм → W = ширина флэта в мм, т.е. naturalWidth ×
+ * scale_mm_per_unit). Флэт переиспользуется как есть — предполагаем
+ * симметричный рукав (асимметрию доводят на холсте). Мокап не копируется
+ * (фото стороны ≠ фото другой стороны). id зон новые (уникальны в рамках SKU).
  */
 export function mirrorSleeveView(
   sku: SKU,
   viewId: string,
-  flatWidthUnits: number,
+  flatWidthMm: number,
 ): SKU {
   const v = sku.views.find((x) => x.id === viewId);
   if (!v || !(v.kind === "sleeve_left" || v.kind === "sleeve_right")) return sku;
-  if (!(flatWidthUnits > 0)) return sku;
-  const W = flatWidthUnits;
+  if (!(flatWidthMm > 0)) return sku;
+  const W = flatWidthMm;
   const kind: ViewKind = v.kind === "sleeve_left" ? "sleeve_right" : "sleeve_left";
   const suffix = cloneSuffix();
 

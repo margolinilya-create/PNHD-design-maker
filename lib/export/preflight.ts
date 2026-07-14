@@ -3,7 +3,11 @@
 // Проверяем только достоверно вычислимое (геометрия, DPI по методу, метрика, метод).
 // TODO: контроль прозрачного фона PNG требует пиксельного скана при загрузке — позже.
 import type { Asset, Placement, View } from "@/types";
-import { placementInfo } from "@/lib/geometry/view";
+import {
+  placementInfo,
+  viewHasZone,
+  printAreasForSize,
+} from "@/lib/geometry/view";
 import { printQuality } from "@/lib/catalog/dpi";
 import { resolveMethod, printMethodProfile } from "@/lib/catalog/printMethod";
 
@@ -23,14 +27,22 @@ export interface PreflightInput {
 }
 
 function viewForPlacement(views: View[], p: Placement): View | undefined {
-  return views.find((v) => v.print_areas.some((a) => a.id === p.print_area_id));
+  return views.find((v) => viewHasZone(v, p.print_area_id));
+}
+
+/** Зона по точному id среди базовых и всех per-size наборов. */
+function areaById(view: View, id: string) {
+  return (
+    view.print_areas.find((a) => a.id === id) ??
+    Object.values(view.size_print_areas ?? {})
+      .flat()
+      .find((a) => a.id === id)
+  );
 }
 
 function placementLabel(view: View | undefined, p: Placement): string {
   return (
-    p.name ||
-    view?.print_areas.find((a) => a.id === p.print_area_id)?.name ||
-    "нанесение"
+    p.name || (view && areaById(view, p.print_area_id)?.name) || "нанесение"
   );
 }
 
@@ -56,9 +68,7 @@ export function preflight(input: PreflightInput): PreflightIssue[] {
       continue;
     }
 
-    const areaDefault = view.print_areas.find(
-      (a) => a.id === p.print_area_id,
-    )?.default_method;
+    const areaDefault = areaById(view, p.print_area_id)?.default_method;
     const method = resolveMethod(p.method, areaDefault);
     const profile = printMethodProfile(method);
 
@@ -93,8 +103,11 @@ export function preflight(input: PreflightInput): PreflightIssue[] {
       });
     }
 
-    // Границы размера печати зоны (P2 #5).
-    const area = view.print_areas.find((a) => a.id === p.print_area_id);
+    // Границы размера печати зоны (P2 #5): точный id в зонах текущего размера,
+    // иначе — по точному id где угодно (нанесение может хранить per-size id).
+    const area =
+      printAreasForSize(view, size).find((a) => a.id === p.print_area_id) ??
+      areaById(view, p.print_area_id);
     const mx = area?.max_print_mm;
     if (mx && (p.width_mm > mx.width || p.height_mm > mx.height)) {
       issues.push({

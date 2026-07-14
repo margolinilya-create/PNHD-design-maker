@@ -82,21 +82,19 @@ export async function pushRevision(modelId: string, sku: SKU): Promise<void> {
   if (sb) {
     const { error } = await sb.from(REVISIONS_TABLE).insert(rev);
     if (error) throw error;
-    // Обрезаем хвост за пределами cap.
+    // Обрезаем хвост за пределами cap — по id, не по saved_at: у двух
+    // быстрых сохранений timestamp может совпасть до мс, и lte(cutoff)
+    // удалил бы лишнюю (хранимую) ревизию.
     const { data } = await sb
       .from(REVISIONS_TABLE)
-      .select("saved_at")
+      .select("id, saved_at")
       .eq("model_id", modelId)
       .order("saved_at", { ascending: false })
       .limit(1000);
-    const rows = data ?? [];
+    const rows = (data ?? []) as { id: string; saved_at: string }[];
     if (rows.length > REVISION_CAP) {
-      const cutoff = (rows[REVISION_CAP] as { saved_at: string }).saved_at;
-      await sb
-        .from(REVISIONS_TABLE)
-        .delete()
-        .eq("model_id", modelId)
-        .lte("saved_at", cutoff);
+      const staleIds = rows.slice(REVISION_CAP).map((r) => r.id);
+      await sb.from(REVISIONS_TABLE).delete().in("id", staleIds);
     }
     return;
   }

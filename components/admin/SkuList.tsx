@@ -45,9 +45,11 @@ export function SkuList({
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
 
-  const load = useCallback(async () => {
+  // Гвард от setState после размонтирования / out-of-order резолюции.
+  const load = useCallback(async (isAlive: () => boolean = () => true) => {
     try {
       const merged = await loadMergedCatalog();
+      if (!isAlive()) return;
       setEntries(
         merged.skus.map((s) => {
           const overridden = merged.overriddenIds.has(s.id);
@@ -67,12 +69,16 @@ export function SkuList({
         }),
       );
     } catch (e) {
-      setErr(String(e));
+      if (isAlive()) setErr(String(e));
     }
   }, []);
 
   useEffect(() => {
-    load();
+    let alive = true;
+    load(() => alive);
+    return () => {
+      alive = false;
+    };
   }, [load]);
 
   // Фильтр по группе товаров (как на главной) — работает вместе с поиском.
@@ -267,7 +273,10 @@ export function SkuList({
                 <Pencil size={14} strokeWidth={1.75} /> Редактировать
               </button>
               <button
-                onClick={() => duplicate(sku)}
+                // Клонируем СЫРУЮ строку (raw), не развёрнутую из merge —
+                // иначе явные size_anchors «запекутся» и grade_rule копии
+                // станет инертным (см. mergedCatalog.rawModels).
+                onClick={() => duplicate(raw ?? sku)}
                 className="inline-flex items-center gap-1 rounded bg-raised px-2.5 py-1 text-xs text-gray-700 hover:bg-line-soft"
               >
                 <Copy size={14} strokeWidth={1.75} /> Дублировать

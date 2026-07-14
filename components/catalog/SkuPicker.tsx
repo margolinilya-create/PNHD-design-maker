@@ -21,23 +21,32 @@ export function SkuPicker({ kind = "finished" }: { kind?: ProductKind }) {
   // Фильтр по группе товаров (null = все группы).
   const [typeFilter, setTypeFilter] = useState<GarmentType | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      // Merge seed + модели (override по id) — единая логика с админкой.
-      const merged = await loadMergedCatalog();
-      // «X» (удаление с главной) — только у собственных моделей; override
-      // seed-карточек сбрасывается в админке кнопкой «Сбросить к заводской».
-      setCustomIds(merged.customIds);
-      setCatalog({ skus: merged.skus });
-    } catch (e) {
-      setError(String(e));
-    }
-  }, [setCatalog]);
+  const load = useCallback(
+    async (isAlive: () => boolean = () => true) => {
+      try {
+        // Merge seed + модели (override по id) — единая логика с админкой.
+        const merged = await loadMergedCatalog();
+        if (!isAlive()) return;
+        // «X» (удаление с главной) — только у собственных моделей; override
+        // seed-карточек сбрасывается в админке кнопкой «Сбросить к заводской».
+        setCustomIds(merged.customIds);
+        setCatalog({ skus: merged.skus });
+      } catch (e) {
+        if (isAlive()) setError(String(e));
+      }
+    },
+    [setCatalog],
+  );
 
   // SWR: грузим на каждый заход (правки из админки должны подтянуться при
-  // SPA-навигации), кэш из стора рендерится, пока идёт загрузка.
+  // SPA-навигации), кэш из стора рендерится, пока идёт загрузка. alive-гвард
+  // отсекает setState после размонтирования / устаревшую загрузку.
   useEffect(() => {
-    load();
+    let alive = true;
+    load(() => alive);
+    return () => {
+      alive = false;
+    };
   }, [load]);
 
   const open = (skuId: string) => {

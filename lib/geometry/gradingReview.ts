@@ -2,7 +2,7 @@
 // Для каждого размера регрейдим позицию (константа отступа от горловины) и считаем
 // выход за зону и минимальный отступ — ловим вылет на крайних ростовках до экспорта.
 import type { Placement, View } from "@/types";
-import { regradePosition, placementInfo } from "./view";
+import { regradePosition, placementInfo, viewHasZone } from "./view";
 
 export interface GradingReviewItem {
   placementId: string;
@@ -38,8 +38,7 @@ export function reviewGrading(
   sizes: string[],
   fromSize: string,
 ): GradingReviewRow[] {
-  const areaIds = new Set(view.print_areas.map((a) => a.id));
-  const vps = placements.filter((p) => areaIds.has(p.print_area_id));
+  const vps = placements.filter((p) => viewHasZone(view, p.print_area_id));
 
   return sizes.map((size) => {
     const items: GradingReviewItem[] = vps.map((p) => {
