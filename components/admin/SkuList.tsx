@@ -6,6 +6,10 @@ import {
   overrideDiffersFromSeed,
 } from "@/lib/catalog/mergedCatalog";
 import { deleteModel, saveModel } from "@/lib/persistence/models";
+import {
+  pushRevision,
+  deleteRevisions,
+} from "@/lib/persistence/modelRevisions";
 import { cloneSku } from "@/lib/admin/skuEdit";
 import {
   Plus,
@@ -124,6 +128,7 @@ export function SkuList({
 
   const onDelete = async (id: string) => {
     await deleteModel(id);
+    await deleteRevisions(id).catch(() => {});
     await load();
   };
 
@@ -136,6 +141,9 @@ export function SkuList({
       )
     )
       return;
+    // Сброс обратим: текущий override — в историю перед удалением.
+    const src = entries?.find((e) => e.sku.id === sku.id)?.raw;
+    if (src) await pushRevision(sku.id, src).catch(() => {});
     await deleteModel(sku.id);
     await load();
   };

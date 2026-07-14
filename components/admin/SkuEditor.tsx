@@ -35,6 +35,13 @@ import {
   mirrorSleeveView,
 } from "@/lib/admin/skuEdit";
 import { saveModel, deleteModel } from "@/lib/persistence/models";
+import {
+  listRevisions,
+  pushRevision,
+  deleteRevisions,
+  REVISION_CAP,
+  type ModelRevision,
+} from "@/lib/persistence/modelRevisions";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
 import {
   ChevronLeft,
@@ -116,6 +123,18 @@ export function SkuEditor({
   const [maskThreshold, setMaskThreshold] = useState(150);
   const [maskInvert, setMaskInvert] = useState(false);
   const [maskBusy, setMaskBusy] = useState(false);
+  // История версий карточки (best-effort из облака/LS).
+  const [revisions, setRevisions] = useState<ModelRevision[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    listRevisions(initial.id)
+      .then((r) => alive && setRevisions(r))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [initial.id]);
 
   // editSize всегда должен быть среди размеров (напр. после удаления размера).
   useEffect(() => {
@@ -248,11 +267,29 @@ export function SkuEditor({
 
   const save = async () => {
     if (errors.length || idErr) return;
+    // Снимок предыдущего состояния в историю (первый override базовой кладёт
+    // заводскую версию первой ревизией). best-effort — не блокирует сохранение.
+    if (JSON.stringify(initial) !== JSON.stringify(sku)) {
+      await pushRevision(sku.id, initial).catch(() => {});
+    }
     await saveModel(sku);
-    // Переименование id: убрать старую запись модели, чтобы не плодить дубли.
-    if (sku.id !== initial.id) await deleteModel(initial.id);
+    // Переименование id: убрать старую запись модели и её историю.
+    if (sku.id !== initial.id) {
+      await deleteModel(initial.id);
+      await deleteRevisions(initial.id).catch(() => {});
+    }
     setMsg("Сохранено");
     onSaved(sku.id);
+  };
+
+  const restoreRevision = async (rev: ModelRevision) => {
+    if (!window.confirm("Восстановить эту версию карточки?")) return;
+    // Текущее состояние — в историю, затем применяем ревизию.
+    await pushRevision(sku.id, sku).catch(() => {});
+    await saveModel(rev.sku);
+    setSku(rev.sku);
+    setRevisions(await listRevisions(sku.id).catch(() => []));
+    setMsg("Версия восстановлена");
   };
 
   const isSleeve =
@@ -1010,6 +1047,32 @@ export function SkuEditor({
               )}
             </Section>
           </div>
+          )}
+
+          {revisions.length > 0 && (
+            <Section title={`История версий (${revisions.length})`}>
+              <div className="flex flex-col gap-1">
+                {revisions.map((r, i) => (
+                  <div
+                    key={`${r.saved_at}-${i}`}
+                    className="flex items-center justify-between gap-2 rounded border border-line bg-white px-2 py-1 text-xs"
+                  >
+                    <span className="text-gray-600">
+                      {new Date(r.saved_at).toLocaleString("ru-RU")}
+                    </span>
+                    <button
+                      onClick={() => restoreRevision(r)}
+                      className="rounded bg-raised px-2 py-0.5 text-[11px] text-ink hover:bg-gray-200"
+                    >
+                      Восстановить
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Хранятся последние {REVISION_CAP} версий.
+              </p>
+            </Section>
           )}
         </aside>
 
