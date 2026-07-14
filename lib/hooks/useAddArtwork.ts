@@ -67,7 +67,9 @@ export function useAddArtwork() {
         width_mm: w,
         height_mm: h,
         rotation_deg: 0,
-        method: area?.default_method,
+        // Дефолт зоны, иначе первый допустимый метод (чтобы зона «только
+        // вышивка» без default_method не давала молчаливый DTF).
+        method: area?.default_method ?? area?.methods?.[0],
       });
     },
     [addAsset, addPlacement],

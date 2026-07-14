@@ -58,7 +58,7 @@ SKU            id, name, type(tshirt|sweatshirt|hoodie|shopper), base_size(M|L),
 View           id, kind(front|back|sleeve_left|sleeve_right), flat_svg, scale_mm_per_unit,
                anchors{ neckline_point{x,y}, center_axis_x, sleeve_bottom_y?, sleeve_center_x? },
                print_areas[]
-PrintArea      id, name, polygon_mm[][], safe_inset_mm
+PrintArea      id, name, polygon_mm[][], safe_inset_mm, default_method?, methods[]?  # methods — допустимые методы печати зоны; пусто = все
 SizeGrade      sku_id, size, view_kind, geometry_delta     # регрейдинг (после MVP)
 Project        id, sku_id, client, order_ref, status(draft|approved), placements[]
 Placement      id, print_area_id, asset_id, x_mm, y_mm, width_mm, height_mm, rotation_deg

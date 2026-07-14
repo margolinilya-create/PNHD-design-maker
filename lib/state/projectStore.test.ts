@@ -123,6 +123,32 @@ describe("projectStore undo/redo", () => {
     expect(inZ2.x_mm).toBe(30);
   });
 
+  it("duplicateToAllZones пропускает зоны, несовместимые с методом", () => {
+    useProjectStore.setState({
+      catalog: {
+        skus: [
+          {
+            id: "s", name: "S", type: "tshirt", base_size: "M", sizes: ["M"],
+            views: [
+              { id: "v1", kind: "front", flat_svg: "", scale_mm_per_unit: 1, anchors: {}, print_areas: [
+                { id: "z1", name: "z1", polygon_mm: [[0, 0], [100, 0], [100, 100], [0, 100]], safe_inset_mm: 0 },
+                // Совместимая: шелкография разрешена.
+                { id: "z2", name: "z2", polygon_mm: [[0, 0], [80, 0], [80, 80], [0, 80]], safe_inset_mm: 0, methods: ["screenprint", "dtf"] },
+                // Несовместимая: только вышивка.
+                { id: "z3", name: "z3", polygon_mm: [[0, 0], [60, 0], [60, 60], [0, 60]], safe_inset_mm: 0, methods: ["embroidery"] },
+              ] },
+            ],
+          },
+        ],
+      } as never,
+      skuId: "s", viewId: "v1",
+    });
+    const id = useProjectStore.getState().addPlacement({ ...sample, print_area_id: "z1", method: "screenprint" });
+    useProjectStore.getState().duplicateToAllZones(id);
+    const ps = useProjectStore.getState().placements;
+    expect(ps.map((p) => p.print_area_id).sort()).toEqual(["z1", "z2"]);
+  });
+
   it("copyPlacementToView копирует с print_area_id целевого вида", () => {
     useProjectStore.setState({
       catalog: {
@@ -143,5 +169,39 @@ describe("projectStore undo/redo", () => {
     const ps = useProjectStore.getState().placements;
     expect(ps).toHaveLength(2);
     expect(ps[1].print_area_id).toBe("z2");
+  });
+
+  it("copyPlacementToView выбирает первую совместимую зону; нет совместимых — первую", () => {
+    const mkView = (id: string, kind: string, areas: unknown[]) => ({
+      id, kind, flat_svg: "", scale_mm_per_unit: 1, anchors: {}, print_areas: areas,
+    });
+    const rect = [[0, 0], [50, 0], [50, 50], [0, 50]];
+    useProjectStore.setState({
+      catalog: {
+        skus: [
+          {
+            id: "s", name: "S", type: "tshirt", base_size: "M", sizes: ["M"],
+            views: [
+              mkView("v1", "front", [{ id: "z1", name: "z", polygon_mm: rect, safe_inset_mm: 0 }]),
+              // Первая зона — только вышивка, вторая пускает DTF.
+              mkView("v2", "back", [
+                { id: "z2", name: "emb", polygon_mm: rect, safe_inset_mm: 0, methods: ["embroidery"] },
+                { id: "z3", name: "dtf", polygon_mm: rect, safe_inset_mm: 0, methods: ["dtf"] },
+              ]),
+              // Ни одной совместимой — фоллбэк на первую.
+              mkView("v3", "sleeve_left", [
+                { id: "z4", name: "emb", polygon_mm: rect, safe_inset_mm: 0, methods: ["embroidery"] },
+              ]),
+            ],
+          },
+        ],
+      } as never,
+      skuId: "s", viewId: "v1",
+    });
+    const id = useProjectStore.getState().addPlacement({ ...sample, print_area_id: "z1", method: "dtf" });
+    useProjectStore.getState().copyPlacementToView(id, "v2");
+    expect(useProjectStore.getState().placements[1].print_area_id).toBe("z3");
+    useProjectStore.getState().copyPlacementToView(id, "v3");
+    expect(useProjectStore.getState().placements[2].print_area_id).toBe("z4");
   });
 });

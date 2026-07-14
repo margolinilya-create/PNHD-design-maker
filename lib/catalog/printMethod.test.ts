@@ -5,6 +5,7 @@ import {
   DEFAULT_PRINT_METHOD,
   printMethodProfile,
   resolveMethod,
+  methodAllowedInZone,
 } from "./printMethod";
 
 describe("printMethodProfile", () => {
@@ -36,5 +37,22 @@ describe("resolveMethod", () => {
     expect(resolveMethod("screenprint", "embroidery")).toBe("screenprint");
     expect(resolveMethod(undefined, "embroidery")).toBe("embroidery");
     expect(resolveMethod(undefined, undefined)).toBe("dtf");
+  });
+});
+
+describe("methodAllowedInZone", () => {
+  it("нет зоны / нет methods / пустой список — допустимы все", () => {
+    expect(methodAllowedInZone(undefined, "dtf")).toBe(true);
+    expect(methodAllowedInZone({}, "screenprint")).toBe(true);
+    expect(methodAllowedInZone({ methods: [] }, "embroidery")).toBe(true);
+  });
+  it("метод из списка — допустим, вне списка — нет", () => {
+    expect(
+      methodAllowedInZone({ methods: ["dtf", "screenprint"] }, "dtf"),
+    ).toBe(true);
+    expect(
+      methodAllowedInZone({ methods: ["dtf", "screenprint"] }, "embroidery"),
+    ).toBe(false);
+    expect(methodAllowedInZone({ methods: ["embroidery"] }, "dtf")).toBe(false);
   });
 });
