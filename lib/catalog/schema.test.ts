@@ -84,6 +84,31 @@ describe("skuSchema — якоря front/back по категории", () => {
   });
 });
 
+// ── One size (аксессуары) ──
+
+describe("skuSchema — base_size ONE SIZE", () => {
+  const oneSize = (over: object = {}) => ({
+    ...mkSku("shopper", { center_axis_x: 100 }),
+    base_size: "ONE SIZE",
+    sizes: ["ONE SIZE"],
+    ...over,
+  });
+
+  it("ONE SIZE принимается как base_size", () => {
+    expect(skuSchema.safeParse(oneSize()).success).toBe(true);
+  });
+
+  it("произвольная строка base_size отклоняется", () => {
+    expect(
+      skuSchema.safeParse(oneSize({ base_size: "XS", sizes: ["XS"] })).success,
+    ).toBe(false);
+  });
+
+  it("инвариант base ∈ sizes действует и для ONE SIZE", () => {
+    expect(skuSchema.safeParse(oneSize({ sizes: ["M"] })).success).toBe(false);
+  });
+});
+
 // ── Допустимые методы печати зоны (PrintArea.methods) ──
 
 const base = {

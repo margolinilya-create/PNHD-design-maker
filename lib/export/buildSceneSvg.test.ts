@@ -336,6 +336,24 @@ describe("buildSceneSvg — тех-лист «Студия»", () => {
       expect(svg).toContain('data-layer="production-artwork"');
     });
 
+    it("ONE SIZE: метка печатается меньшим кеглем (20), буква M — 34", () => {
+      const one = buildSceneSvg({
+        sku,
+        view,
+        flatSvgMarkup:
+          '<svg viewBox="0 0 600 760" width="600" height="760"></svg>',
+        flatMm: { w: 600, h: 760 },
+        placements: [],
+        assets: {},
+        meta: { client: "", orderRef: "", size: "ONE SIZE", date: "13.07.2026" },
+        variant: "minimal",
+      });
+      expect(one).toContain('data-size-label="ONE SIZE"');
+      expect(one).toMatch(/font-size="20"[^>]*>ONE SIZE<\/text>/);
+      const m = minimal();
+      expect(m).toMatch(/font-size="34"[^>]*>M<\/text>/);
+    });
+
     it("full-вариант не деградировал (спека и зоны на месте)", () => {
       const svg = scene();
       expect(svg).toContain('data-title="1"');
