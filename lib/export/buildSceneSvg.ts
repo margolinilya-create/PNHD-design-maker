@@ -232,13 +232,9 @@ function specPanel(
           : q.dpi
             ? `${Math.round(q.dpi)} dpi`
             : "—";
-    const pantone =
-      profile.colorMode === "spot" && p.pantone?.length
-        ? ` · ${p.pantone.join(", ")}`
-        : "";
     const colorMode = profile.colorMode === "spot" ? "spot/Pantone" : "CMYK";
     const rows: [string, string][] = [
-      ["Метод печати", `${profile.label} · ${colorMode}${pantone}`],
+      ["Метод печати", `${profile.label} · ${colorMode}`],
       [
         "Размер печати",
         `${Math.round(scene.printWidth)} × ${Math.round(scene.printHeight)} мм${

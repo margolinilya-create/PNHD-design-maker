@@ -34,13 +34,6 @@ import {
   mirrorSleeveView,
 } from "@/lib/admin/skuEdit";
 import { saveModel, deleteModel } from "@/lib/persistence/models";
-import {
-  listRevisions,
-  pushRevision,
-  deleteRevisions,
-  REVISION_CAP,
-  type ModelRevision,
-} from "@/lib/persistence/modelRevisions";
 import { PRINT_METHOD_LIST } from "@/lib/catalog/printMethod";
 import {
   ChevronLeft,
@@ -107,10 +100,6 @@ export function SkuEditor({
   onSaved: (id: string) => void;
 }) {
   const [sku, setSku] = useState<SKU>(initial);
-  // «Предыдущее сохранённое состояние» для истории версий: initial при входе,
-  // обновляется после восстановления ревизии (иначе save сравнил бы со stale
-  // initial и skip-if-same съел бы восстановленную версию из истории).
-  const [baseline, setBaseline] = useState<SKU>(initial);
   const [activeViewId, setActiveViewId] = useState(initial.views[0]?.id ?? "");
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(
     initial.views[0]?.print_areas[0]?.id ?? null,
@@ -119,18 +108,6 @@ export function SkuEditor({
   const [msg, setMsg] = useState<string | null>(null);
   // Размер, под который правим геометрию (per-size override; базовый = общий).
   const [editSize, setEditSize] = useState<string>(initial.base_size);
-  // История версий карточки (best-effort из облака/LS).
-  const [revisions, setRevisions] = useState<ModelRevision[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    listRevisions(initial.id)
-      .then((r) => alive && setRevisions(r))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [initial.id]);
 
   // editSize всегда должен быть среди размеров (напр. после удаления размера).
   useEffect(() => {
@@ -220,30 +197,13 @@ export function SkuEditor({
     // Аксессуары нормализуются перед сохранением: горловины нет + ONE SIZE
     // (самоизлечение легаси-моделей и чистка после смены типа «одежда → шоппер»).
     const toSave = normalizeAccessorySizes(stripAccessoryNeckline(sku));
-    // Снимок предыдущего состояния в историю (первый override базовой кладёт
-    // заводскую версию первой ревизией). best-effort — не блокирует сохранение.
-    if (JSON.stringify(baseline) !== JSON.stringify(toSave)) {
-      await pushRevision(sku.id, baseline).catch(() => {});
-    }
     await saveModel(toSave);
-    // Переименование id: убрать старую запись модели и её историю.
+    // Переименование id: убрать старую запись модели.
     if (sku.id !== initial.id) {
       await deleteModel(initial.id);
-      await deleteRevisions(initial.id).catch(() => {});
     }
     setMsg("Сохранено");
     onSaved(sku.id);
-  };
-
-  const restoreRevision = async (rev: ModelRevision) => {
-    if (!window.confirm("Восстановить эту версию карточки?")) return;
-    // Текущее состояние — в историю, затем применяем ревизию.
-    await pushRevision(sku.id, sku).catch(() => {});
-    await saveModel(rev.sku);
-    setSku(rev.sku);
-    setBaseline(rev.sku);
-    setRevisions(await listRevisions(sku.id).catch(() => []));
-    setMsg("Версия восстановлена");
   };
 
   const isSleeve =
@@ -838,32 +798,6 @@ export function SkuEditor({
             )}
 
           </div>
-          )}
-
-          {revisions.length > 0 && (
-            <Section title={`История версий (${revisions.length})`}>
-              <div className="flex flex-col gap-1">
-                {revisions.map((r, i) => (
-                  <div
-                    key={`${r.saved_at}-${i}`}
-                    className="flex items-center justify-between gap-2 rounded border border-line bg-white px-2 py-1 text-xs"
-                  >
-                    <span className="text-gray-600">
-                      {new Date(r.saved_at).toLocaleString("ru-RU")}
-                    </span>
-                    <button
-                      onClick={() => restoreRevision(r)}
-                      className="rounded bg-raised px-2 py-0.5 text-[11px] text-ink hover:bg-gray-200"
-                    >
-                      Восстановить
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-1 text-[11px] text-gray-400">
-                Хранятся последние {REVISION_CAP} версий.
-              </p>
-            </Section>
           )}
         </aside>
 

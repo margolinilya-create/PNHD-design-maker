@@ -44,15 +44,15 @@ lib/catalog/mergedCatalog.ts  ← lib/persistence/models.ts (Supabase | localSto
 
 **Per-size override заменяет объект ЦЕЛИКОМ** (`size_anchors[size]`, `size_print_areas[size]`, `size_flats[size]`): оси/зоны в override нужно повторять, merge полей нет.
 
-**Экспорт PDF:** `lib/export/buildSceneSvg.ts` (варианты full/production/minimal) → `exportScenesPdf` (jsPDF + svg2pdf, страницы в мм 1:1). Стандартные шрифты jsPDF не знают кириллицу → на minimal-листе подписи latin-safe («mm», «scale 1:1»). Перед любым экспортом — `lib/export/preflight.ts` (batch — на каждый целевой размер по `regradePlacementsToSize`).
+**Экспорт PDF:** `lib/export/buildSceneSvg.ts` (варианты full/production/minimal; из UI доступен только minimal) → `exportScenesPdf` (jsPDF + svg2pdf, страницы в мм 1:1). Стандартные шрифты jsPDF не знают кириллицу → на minimal-листе подписи latin-safe («mm», «scale 1:1»). Перед любым экспортом — `lib/export/preflight.ts`.
 
 **Загрузка PDF/AI:** `lib/catalog/loadPdf.ts` через pdfjs-dist@4 legacy; worker НЕ бандлится — копируется postinstall-скриптом в `public/pdf.worker.min.mjs` (в .gitignore). Не убирать postinstall и не пытаться импортировать worker через webpack — он не парсится.
 
 **Recolor-контракт флэтов:** SVG флэта содержит `<g id="garment" fill="...">`; перекраска — regex-заменой fill этой группы (`lib/hooks/useColoredFlat`, 202 контрактных теста в seedFlats.test.ts). Новые флэты обязаны соблюдать контракт (скилл flat-svg-convention).
 
-**Персистентность:** Supabase (`pinhead_projects`, `pinhead_models`, `pinhead_model_revisions`; RLS anon ALL — осознанно, внутренний инструмент) с полным фоллбэком на localStorage. Облако — best-effort: `loadMergedCatalog` имеет 5-секундный таймаут, недоступный Supabase не блокирует каталог. История версий карточки — cap 20, skip-if-same.
+**Персистентность:** Supabase (`pinhead_projects`, `pinhead_models`; RLS anon ALL — осознанно, внутренний инструмент) с полным фоллбэком на localStorage. Облако — best-effort: `loadMergedCatalog` имеет 5-секундный таймаут, недоступный Supabase не блокирует каталог. (Таблица `pinhead_model_revisions` осталась в БД, но кодом больше не используется — история версий выпилена в PR #56.)
 
-**Стор редактора:** zustand (`lib/state/projectStore.ts`). Все мутации начинаются с гварда `if (get().readOnly) return` — новые мутации обязаны следовать паттерну. Смена размера регрейдит позиции (константа отступа от горловины, BUILD.md §4).
+**Стор редактора:** zustand (`lib/state/projectStore.ts`). Мутации раскладки пушат снимок в undo-историю (`pushHistory`, cap 50). Смена размера регрейдит позиции (константа отступа от горловины, BUILD.md §4).
 
 ## Конвенции
 

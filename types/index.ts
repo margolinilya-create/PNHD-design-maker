@@ -194,15 +194,6 @@ export interface SKU {
   views: View[];
 }
 
-/** Регрейдинг геометрии под конкретный размер (после MVP — заглушка). */
-export interface SizeGrade {
-  sku_id: string;
-  size: string;
-  view_kind: ViewKind;
-  /** Дельта геометрии относительно базового размера. */
-  geometry_delta: ViewAnchors;
-}
-
 export interface Asset {
   id: string;
   type: AssetType;
@@ -236,8 +227,6 @@ export interface Placement {
   tolerance_mm?: number;
   /** How-To-Measure: краткая заметка «как мерить» для цеха. */
   htm?: string;
-  /** Коды Pantone (spot-цвета) для шелкографии/вышивки. */
-  pantone?: string[];
   /** Зеркалирование по горизонтали/вертикали. */
   flip_h?: boolean;
   flip_v?: boolean;
@@ -248,14 +237,6 @@ export interface Placement {
   name?: string;
 }
 
-/** Комментарий согласования (P1 #24). Роль — кто оставил. */
-export interface ProjectComment {
-  id: string;
-  role: "client" | "shop";
-  text: string;
-  ts: number;
-}
-
 export interface Project {
   id: string;
   sku_id: string;
@@ -263,5 +244,4 @@ export interface Project {
   order_ref: string;
   status: ProjectStatus;
   placements: Placement[];
-  comments?: ProjectComment[];
 }

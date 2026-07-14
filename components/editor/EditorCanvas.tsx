@@ -9,7 +9,6 @@ import {
   Image as KImage,
   Line,
   Rect,
-  Circle,
   Transformer,
   Arrow,
   Text,
@@ -42,7 +41,6 @@ export function EditorCanvas() {
   const placements = useProjectStore((s) => s.placements);
   const selectedId = useProjectStore((s) => s.selectedPlacementId);
   const garmentSize = useProjectStore((s) => s.size);
-  const readOnly = useProjectStore((s) => s.readOnly);
   const selectPlacement = useProjectStore((s) => s.selectPlacement);
   const updatePlacement = useProjectStore((s) => s.updatePlacement);
 
@@ -57,12 +55,6 @@ export function EditorCanvas() {
   const [stageScale, setStageScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
 
-  // Проверка точности лекала: режим линейки и оверлей якорей/линеек.
-  const [mode, setMode] = useState<"select" | "measure">("select");
-  const [measurePts, setMeasurePts] = useState<{ x: number; y: number }[]>([]);
-  const [showCheck, setShowCheck] = useState(false);
-  // Калибровка: реальная длина измеренного отрезка (мм).
-  const [realLen, setRealLen] = useState("");
   // Live-гайды выравнивания при перетаскивании (мм-координаты линий).
   const [guides, setGuides] = useState<{ x?: number; y?: number } | null>(null);
   // Drag-n-drop загрузки макета на холст.
@@ -137,18 +129,12 @@ export function EditorCanvas() {
       ? viewPlacements.find((x) => x.id === selectedId)
       : null;
     const node =
-      sel && mode === "select" && !sel.locked && !sel.hidden && !readOnly
+      sel && !sel.locked && !sel.hidden
         ? nodeRefs.current.get(selectedId!)
         : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selectedId, viewPlacements, mode, readOnly]);
-
-  // Сброс линейки при смене вида.
-  const viewId = view?.id;
-  useEffect(() => {
-    setMeasurePts([]);
-  }, [viewId]);
+  }, [selectedId, viewPlacements]);
 
   if (!view) {
     return (
@@ -299,46 +285,15 @@ export function EditorCanvas() {
     });
   };
 
-  // Курсор экрана → мм (учитываем zoom/pan стейджа и метрику pxPerMM).
-  const pointerToMm = (): { x: number; y: number } | null => {
-    const stage = stageRef.current;
-    const pointer = stage?.getPointerPosition();
-    if (!stage || !pointer) return null;
-    const lx = (pointer.x - stagePos.x) / stageScale;
-    const ly = (pointer.y - stagePos.y) / stageScale;
-    return {
-      x: (lx - t.px(0)) / t.pxPerMM,
-      y: (ly - t.py(0)) / t.pxPerMM,
-    };
-  };
-
   const onStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (mode === "measure") {
-      const pt = pointerToMm();
-      if (!pt) return;
-      // 1-я точка ставит A, 2-я — B, 3-й клик начинает заново.
-      setMeasurePts((prev) => (prev.length >= 2 ? [pt] : [...prev, pt]));
-      return;
-    }
     // Снятие выбора по клику на пустой фон (на onClick, не на mousedown —
     // чтобы не конфликтовать с панорамой draggable-стейджа).
     if (e.target === e.target.getStage()) selectPlacement(null);
   };
 
-  // Дистанция линейки в мм (между двумя точками).
-  const measureDistMm =
-    measurePts.length === 2
-      ? Math.hypot(
-          measurePts[1].x - measurePts[0].x,
-          measurePts[1].y - measurePts[0].y,
-        )
-      : null;
-
   // Клавиатура: Delete/Backspace — удалить, Esc — снять выбор,
   // стрелки — сдвиг выбранного на 1 мм (Shift — 10 мм).
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Режим «только просмотр» — никаких правок с клавиатуры (B1).
-    if (readOnly) return;
     // Undo / redo (Ctrl/Cmd+Z, Shift для redo; Ctrl/Cmd+Y).
     if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
       e.preventDefault();
@@ -353,9 +308,6 @@ export function EditorCanvas() {
     }
     if (e.key === "Escape") {
       selectPlacement(null);
-      setMeasurePts([]);
-      setRealLen("");
-      if (mode === "measure") setMode("select");
       return;
     }
     if (!selectedId) return;
@@ -404,7 +356,7 @@ export function EditorCanvas() {
         scaleY={stageScale}
         x={stagePos.x}
         y={stagePos.y}
-        draggable={mode === "select"}
+        draggable
         onWheel={onWheel}
         onClick={onStageClick}
         onDragEnd={(e) => {
@@ -453,7 +405,7 @@ export function EditorCanvas() {
               t={t}
               garmentSize={garmentSize}
               selected={p.id === selectedId}
-              interactive={mode === "select" && !p.locked && !p.hidden && !readOnly}
+              interactive={!p.locked && !p.hidden}
               onSelect={() => selectPlacement(p.id)}
               registerRef={(n) => {
                 if (n) nodeRefs.current.set(p.id, n);
@@ -517,108 +469,7 @@ export function EditorCanvas() {
           )}
         </Layer>
 
-        {/* Слой 5 — проверка точности лекала: якоря/оси/линейки + линейка-измеритель */}
-        <Layer listening={false}>
-          {showCheck && (
-            <VerificationOverlay
-              view={view}
-              flatMm={flatMm}
-              t={t}
-              garmentSize={garmentSize}
-            />
-          )}
-          {measurePts.length > 0 && (
-            <MeasureOverlay
-              points={measurePts}
-              distMm={measureDistMm}
-              t={t}
-            />
-          )}
-        </Layer>
       </Stage>
-
-      {/* Тулбар проверки точности (поверх холста) */}
-      <div className="absolute left-3 top-3 flex gap-1.5">
-        <button
-          onClick={() => {
-            setShowCheck((v) => !v);
-          }}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
-            showCheck
-              ? "bg-blue-600 text-white"
-              : "bg-white/90 text-gray-700 shadow hover:bg-white"
-          }`}
-          title="Показать якоря, оси и краевые линейки лекала"
-        >
-          Проверка лекала
-        </button>
-        <button
-          onClick={() => {
-            setMode((m) => (m === "measure" ? "select" : "measure"));
-            setMeasurePts([]);
-            setRealLen("");
-          }}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium shadow ${
-            mode === "measure"
-              ? "bg-amber-500 text-black"
-              : "bg-white/90 text-gray-700 shadow hover:bg-white"
-          }`}
-          title="Линейка: кликните две точки на лекале, чтобы измерить в мм"
-        >
-          Линейка{measureDistMm != null ? ` · ${measureDistMm.toFixed(1)} мм` : ""}
-        </button>
-      </div>
-
-      {/* Калибровка масштаба: измеренный отрезок → реальная длина → scale_mm_per_unit */}
-      {mode === "measure" && measureDistMm != null && (
-        <div className="absolute left-3 top-12 w-56 rounded-md border border-line bg-white/95 p-2.5 text-xs shadow-lg">
-          <div className="mb-1 text-gray-500">
-            Измерено:{" "}
-            <span className="font-medium text-gray-700">
-              {measureDistMm.toFixed(1)} мм
-            </span>{" "}
-            (при текущем масштабе)
-          </div>
-          <label className="mb-1 block text-gray-500">
-            Реальная длина, мм
-          </label>
-          <input
-            type="number"
-            value={realLen}
-            onChange={(e) => setRealLen(e.target.value)}
-            placeholder="напр. 100"
-            className="mb-2 w-full rounded border border-line bg-white px-2 py-1 tabular-nums"
-          />
-          {(() => {
-            const real = parseFloat(realLen.replace(",", "."));
-            if (!Number.isFinite(real) || real <= 0 || measureDistMm <= 0) {
-              return (
-                <p className="text-gray-500">
-                  Введите реальный размер этого отрезка по лекалу.
-                </p>
-              );
-            }
-            const cur = view.scale_mm_per_unit ?? 1;
-            const suggested = cur * (real / measureDistMm);
-            const off = Math.abs(real - measureDistMm);
-            return (
-              <div>
-                <div className="text-gray-600">
-                  scale_mm_per_unit ≈{" "}
-                  <span className="font-semibold text-emerald-600 tabular-nums">
-                    {suggested.toFixed(4)}
-                  </span>
-                </div>
-                <div className="mt-0.5 text-gray-500">
-                  {off < 0.5
-                    ? "масштаб совпадает (1:1)"
-                    : `расхождение ${off.toFixed(1)} мм — впишите значение в skus.json для этого вида`}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
 
       {/* Подсветка зоны сброса файла */}
       {dropActive && (
@@ -870,196 +721,6 @@ function PlacementNode({
           strokeWidth={2}
           dash={[6, 4]}
           listening={false}
-        />
-      )}
-    </>
-  );
-}
-
-/** Линейка-измеритель: две точки в мм + подпись дистанции. */
-function MeasureOverlay({
-  points,
-  distMm,
-  t,
-}: {
-  points: { x: number; y: number }[];
-  distMm: number | null;
-  t: Transform;
-}) {
-  const a = points[0];
-  const b = points[1];
-  const color = "#f59e0b";
-  return (
-    <>
-      {a && (
-        <Circle x={t.px(a.x)} y={t.py(a.y)} radius={3} fill={color} />
-      )}
-      {b && (
-        <Circle x={t.px(b.x)} y={t.py(b.y)} radius={3} fill={color} />
-      )}
-      {a && b && (
-        <>
-          <Line
-            points={[t.px(a.x), t.py(a.y), t.px(b.x), t.py(b.y)]}
-            stroke={color}
-            strokeWidth={1}
-            dash={[4, 3]}
-          />
-          {distMm != null &&
-            (() => {
-              const mx = t.px((a.x + b.x) / 2);
-              const my = t.py((a.y + b.y) / 2);
-              const text = `${distMm.toFixed(1)} мм`;
-              const w = text.length * 7 + 8;
-              return (
-                <Group>
-                  <Rect
-                    x={mx - w / 2}
-                    y={my - 18}
-                    width={w}
-                    height={15}
-                    cornerRadius={3}
-                    fill="rgba(255,255,255,0.85)"
-                  />
-                  <Text
-                    x={mx - w / 2}
-                    y={my - 15}
-                    width={w}
-                    align="center"
-                    text={text}
-                    fontSize={11}
-                    fontStyle="bold"
-                    fill={color}
-                  />
-                </Group>
-              );
-            })()}
-        </>
-      )}
-    </>
-  );
-}
-
-/**
- * Оверлей проверки лекала: якоря (горловина/центр/низ рукава), ось изделия
- * и краевые линейки с тиками каждые 50 мм — для глаз-сверки импортированного лекала.
- */
-function VerificationOverlay({
-  view,
-  flatMm,
-  t,
-  garmentSize,
-}: {
-  view: View;
-  flatMm: { w: number; h: number };
-  t: Transform;
-  garmentSize: string | null;
-}) {
-  const a = garmentSize ? anchorsForSize(view, garmentSize) : view.anchors;
-  const isSleeve = view.kind === "sleeve_left" || view.kind === "sleeve_right";
-  const tickColor = "rgba(148,163,184,0.55)";
-  const step = 50;
-
-  // Краевые линейки: тики сверху (по X) и слева (по Y) с подписями.
-  const ticks: React.ReactNode[] = [];
-  for (let x = 0; x <= flatMm.w + 0.01; x += step) {
-    ticks.push(
-      <Line
-        key={`tx${x}`}
-        points={[t.px(x), t.py(0), t.px(x), t.py(0) - 6]}
-        stroke={tickColor}
-        strokeWidth={1}
-      />,
-    );
-    ticks.push(
-      <Text
-        key={`txl${x}`}
-        x={t.px(x) - 12}
-        y={t.py(0) - 18}
-        width={24}
-        align="center"
-        text={`${x}`}
-        fontSize={8}
-        fill="#94a3b8"
-      />,
-    );
-  }
-  for (let y = 0; y <= flatMm.h + 0.01; y += step) {
-    ticks.push(
-      <Line
-        key={`ty${y}`}
-        points={[t.px(0), t.py(y), t.px(0) - 6, t.py(y)]}
-        stroke={tickColor}
-        strokeWidth={1}
-      />,
-    );
-    ticks.push(
-      <Text
-        key={`tyl${y}`}
-        x={t.px(0) - 30}
-        y={t.py(y) - 4}
-        width={22}
-        align="right"
-        text={`${y}`}
-        fontSize={8}
-        fill="#94a3b8"
-      />,
-    );
-  }
-
-  return (
-    <>
-      {ticks}
-      {!isSleeve && a.center_axis_x != null && (
-        <Line
-          points={[t.px(a.center_axis_x), t.py(0), t.px(a.center_axis_x), t.py(flatMm.h)]}
-          stroke="#2563eb"
-          strokeWidth={1}
-          dash={[4, 5]}
-          opacity={0.8}
-        />
-      )}
-      {!isSleeve && a.neckline_point && (
-        <>
-          <Circle
-            x={t.px(a.neckline_point.x)}
-            y={t.py(a.neckline_point.y)}
-            radius={4}
-            fill="#e11d48"
-          />
-          <Text
-            x={t.px(a.neckline_point.x) + 6}
-            y={t.py(a.neckline_point.y) - 5}
-            text="горловина"
-            fontSize={9}
-            fill="#fb7185"
-          />
-        </>
-      )}
-      {isSleeve && a.sleeve_bottom_y != null && (
-        <>
-          <Line
-            points={[t.px(0), t.py(a.sleeve_bottom_y), t.px(flatMm.w), t.py(a.sleeve_bottom_y)]}
-            stroke="#e11d48"
-            strokeWidth={1}
-            dash={[4, 4]}
-          />
-          <Text
-            x={t.px(4)}
-            y={t.py(a.sleeve_bottom_y) + 2}
-            text="низ рукава"
-            fontSize={9}
-            fill="#fb7185"
-          />
-        </>
-      )}
-      {isSleeve && a.sleeve_center_x != null && (
-        <Line
-          points={[t.px(a.sleeve_center_x), t.py(0), t.px(a.sleeve_center_x), t.py(flatMm.h)]}
-          stroke="#2563eb"
-          strokeWidth={1}
-          dash={[4, 5]}
-          opacity={0.8}
         />
       )}
     </>

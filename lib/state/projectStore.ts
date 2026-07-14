@@ -4,14 +4,7 @@
 
 import { create } from "zustand";
 import type { Catalog } from "@/lib/catalog/schema";
-import type {
-  Asset,
-  Placement,
-  ProjectComment,
-  ProjectStatus,
-  SKU,
-  View,
-} from "@/types";
+import type { Asset, Placement, ProjectStatus, SKU, View } from "@/types";
 import { regradePosition, viewHasZone } from "@/lib/geometry/view";
 import { polygonToZone } from "@/lib/geometry/coords";
 import {
@@ -57,9 +50,6 @@ interface ProjectState {
   client: string;
   orderRef: string;
   status: ProjectStatus;
-  comments: ProjectComment[];
-  /** Режим «только просмотр» (для согласования) — блокирует правки. */
-  readOnly: boolean;
 
   // история (undo/redo) — снимки редактируемого состояния
   past: EditableSnapshot[];
@@ -79,9 +69,6 @@ interface ProjectState {
   selectPlacement: (id: string | null) => void;
   setMeta: (meta: { client?: string; orderRef?: string }) => void;
   setStatus: (status: ProjectStatus) => void;
-  addComment: (c: Pick<ProjectComment, "role" | "text">) => void;
-  removeComment: (id: string) => void;
-  setReadOnly: (v: boolean) => void;
   garmentColor: string;
   setGarmentColor: (c: string) => void;
 
@@ -112,8 +99,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   client: "",
   orderRef: "",
   status: "draft",
-  comments: [],
-  readOnly: false,
   garmentColor: "",
   past: [],
   future: [],
@@ -125,7 +110,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     })),
   undo: () =>
     set((s) => {
-      if (s.readOnly || !s.past.length) return s;
+      if (!s.past.length) return s;
       const prev = s.past[s.past.length - 1];
       return {
         ...prev,
@@ -136,7 +121,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }),
   redo: () =>
     set((s) => {
-      if (s.readOnly || !s.future.length) return s;
+      if (!s.future.length) return s;
       const next = s.future[0];
       return {
         ...next,
@@ -159,7 +144,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       placements: [],
       selectedPlacementId: null,
       garmentColor: "",
-      comments: [],
       past: [],
       future: [],
     });
@@ -168,9 +152,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   selectView: (viewId) => set({ viewId, selectedPlacementId: null }),
 
   selectSize: (size) => {
-    // Смена размера регрейдит нанесения (мутация) — в readOnly запрещена,
-    // как и остальные правки (undo там тоже заблокирован).
-    if (get().readOnly) return;
     const { size: fromSize, placements, catalog, skuId } = get();
     if (!fromSize || fromSize === size) {
       set({ size });
@@ -222,7 +203,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   updatePlacement: (id, patch) => {
-    if (get().readOnly) return;
     get().pushHistory();
     set((s) => ({
       placements: s.placements.map((p) =>
@@ -232,7 +212,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   removePlacement: (id) => {
-    if (get().readOnly) return;
     get().pushHistory();
     set((s) => ({
       placements: s.placements.filter((p) => p.id !== id),
@@ -248,27 +227,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: orderRef ?? s.orderRef,
     })),
   setStatus: (status) => set({ status }),
-  addComment: ({ role, text }) =>
-    set((s) => ({
-      comments: [
-        ...s.comments,
-        { id: nextId("cmt"), role, text, ts: Date.now() },
-      ],
-    })),
-  removeComment: (id) =>
-    set((s) => ({ comments: s.comments.filter((c) => c.id !== id) })),
-  // В режиме просмотра снимаем выбор — чтобы не осталось «висящего» нанесения,
-  // которое можно было бы двинуть до закрытия дыр ввода (B1).
-  setReadOnly: (readOnly) => set({ readOnly, selectedPlacementId: null }),
   setGarmentColor: (garmentColor) => {
-    if (get().readOnly) return;
     get().pushHistory();
     set({ garmentColor });
   },
 
   duplicatePlacement: (id) => {
     const st = get();
-    if (st.readOnly) return;
     const src = st.placements.find((p) => p.id === id);
     if (!src) return;
     get().pushHistory();
@@ -282,7 +247,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   duplicateToAllZones: (id) => {
     const st = get();
-    if (st.readOnly) return;
     const src = st.placements.find((p) => p.id === id);
     const sku = st.currentSku();
     if (!src || !sku) return;
@@ -313,7 +277,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   reorderPlacement: (id, dir) => {
     const st = get();
-    if (st.readOnly) return;
     const view = st.currentView();
     if (!view) return;
     const idxs = st.placements
@@ -333,7 +296,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   copyPlacementToView: (id, viewId) => {
     const st = get();
-    if (st.readOnly) return;
     const src = st.placements.find((p) => p.id === id);
     const target = st.currentSku()?.views.find((v) => v.id === viewId);
     if (!src || !target) return;
@@ -351,7 +313,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   mirrorPlacement: (id) => {
     const st = get();
-    if (st.readOnly) return;
     const src = st.placements.find((p) => p.id === id);
     const sku = st.currentSku();
     const srcView = sku?.views.find(
@@ -386,7 +347,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       skuId: st.skuId, size: st.size,
       client: st.client, orderRef: st.orderRef, status: st.status,
       placements: st.placements, assets: st.assets,
-      garmentColor: st.garmentColor, comments: st.comments, savedAt: Date.now(),
+      garmentColor: st.garmentColor, savedAt: Date.now(),
     };
   },
   restore: (s) => {
@@ -401,7 +362,6 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       orderRef: s.orderRef,
       status: s.status,
       garmentColor: s.garmentColor ?? "",
-      comments: s.comments ?? [],
       selectedPlacementId: null,
       past: [],
       future: [],

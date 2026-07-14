@@ -116,9 +116,6 @@ export const STANDARD_PLACEMENT = {
   leftChestFromCenterMm: 89,
 } as const;
 
-/** Пресеты, требующие якоря горловины (front/back). */
-export const NECKLINE_PRESETS: PositionPreset[] = ["chest-standard", "left-chest"];
-
 /**
  * Готовая позиция нанесения по пресету (мм). Горизонталь — по оси изделия
  * (center_axis_x / sleeve_center_x), верх/низ — с учётом safe-inset зоны.

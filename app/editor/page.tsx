@@ -6,9 +6,6 @@ import {
   Undo2,
   Redo2,
   LayoutGrid,
-  Shirt,
-  Ruler,
-  Layers,
   Settings,
   ChevronLeft,
 } from "lucide-react";
@@ -30,25 +27,15 @@ function CanvasLoading() {
   );
 }
 
-/** Левый рельс инструментов (52px). Активный пункт — синяя заливка. */
+/** Левый рельс (52px): каталог и админка. */
 function Rail() {
   const item = "flex h-10 w-10 items-center justify-center rounded-lg";
   const idle = `${item} text-gray-500 hover:bg-raised hover:text-gray-700`;
-  const active = `${item} bg-blue-600 text-white`;
   return (
     <nav className="flex w-[52px] shrink-0 flex-col items-center gap-1 border-r border-line bg-white py-3">
       <Link href="/" title="Каталог" className={idle}>
         <LayoutGrid size={18} strokeWidth={1.75} />
       </Link>
-      <button title="Изделие" className={active}>
-        <Shirt size={18} strokeWidth={1.75} />
-      </button>
-      <button title="Линейка" className={idle}>
-        <Ruler size={18} strokeWidth={1.75} />
-      </button>
-      <button title="Слои" className={idle}>
-        <Layers size={18} strokeWidth={1.75} />
-      </button>
       <Link href="/admin" title="Админка SKU" className={`${idle} mt-auto`}>
         <Settings size={18} strokeWidth={1.75} />
       </Link>
@@ -59,7 +46,6 @@ function Rail() {
 function UndoRedo() {
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
-  const readOnly = useProjectStore((s) => s.readOnly);
   const canUndo = useProjectStore((s) => s.past.length > 0);
   const canRedo = useProjectStore((s) => s.future.length > 0);
   const btn =
@@ -68,7 +54,7 @@ function UndoRedo() {
     <div className="flex items-center gap-1">
       <button
         onClick={undo}
-        disabled={!canUndo || readOnly}
+        disabled={!canUndo}
         title="Отменить (Ctrl+Z)"
         className={btn}
       >
@@ -76,7 +62,7 @@ function UndoRedo() {
       </button>
       <button
         onClick={redo}
-        disabled={!canRedo || readOnly}
+        disabled={!canRedo}
         title="Повторить (Ctrl+Shift+Z)"
         className={btn}
       >
