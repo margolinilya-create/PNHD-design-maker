@@ -260,6 +260,102 @@ export function SidePanel() {
 
   return (
     <div className="flex h-full flex-col gap-5 overflow-y-auto p-4 text-sm">
+      {/* Проект: сохранение + метаданные заказа + список сохранённых —
+          единый блок в начале панели (заполняется до работы с макетом). */}
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="font-semibold text-ink">
+            Проект
+            {dirty && (
+              <span className="ml-1.5 align-middle text-[10px] font-normal text-amber-600">
+                ● не сохранено
+              </span>
+            )}
+          </h3>
+          <span className="flex items-center gap-1 text-[10px] text-gray-400">
+            {isCloud() ? <Cloud size={12} strokeWidth={1.75} /> : <HardDrive size={12} strokeWidth={1.75} />}
+            {isCloud() ? "облако" : "локально"}
+          </span>
+        </div>
+        <div className="mb-2 flex gap-2">
+          <input
+            value={projectName}
+            onChange={(e) => setProjectRef(projectId, e.target.value)}
+            placeholder="Название проекта"
+            className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-gray-900"
+          />
+          <button
+            onClick={onSaveProject}
+            className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          >
+            Сохранить
+          </button>
+          {projectId && (
+            <button
+              onClick={onSaveProjectCopy}
+              title="Сохранить как новый проект (исходный не изменится)"
+              className="rounded bg-raised px-2.5 py-1.5 text-xs text-ink hover:bg-gray-200"
+            >
+              Как копию
+            </button>
+          )}
+        </div>
+        <label className="mb-1 block text-xs text-gray-500">Клиент</label>
+        <input
+          value={client}
+          onChange={(e) => setMeta({ client: e.target.value })}
+          className="mb-2 w-full rounded border border-line bg-white px-2 py-1.5 text-gray-900"
+        />
+        <label className="mb-1 block text-xs text-gray-500">Заказ №</label>
+        <input
+          value={orderRef}
+          onChange={(e) => setMeta({ orderRef: e.target.value })}
+          className="mb-2 w-full rounded border border-line bg-white px-2 py-1.5 text-gray-900"
+        />
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">Статус:</span>
+          <button
+            onClick={() =>
+              setStatus(status === "draft" ? "approved" : "draft")
+            }
+            className={`rounded px-2.5 py-1 text-xs ${
+              status === "approved"
+                ? "bg-green-600 text-white"
+                : "bg-raised text-ink"
+            }`}
+          >
+            {status === "approved" ? "Согласовано" : "Черновик"}
+          </button>
+        </div>
+        {projects.length > 0 && (
+          <div className="mt-3 flex max-h-40 flex-col gap-1 overflow-y-auto">
+            {projects.map((p) => (
+              <div
+                key={p.id}
+                className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
+                  p.id === projectId ? "bg-raised" : "hover:bg-line-soft"
+                }`}
+              >
+                <button
+                  onClick={() => onOpenProject(p.id)}
+                  className="min-w-0 flex-1 truncate text-left text-ink"
+                  title={p.name}
+                >
+                  {p.name || "(без названия)"}
+                </button>
+                <button
+                  onClick={() => onDeleteProject(p.id)}
+                  className="ml-2 shrink-0 text-gray-400 hover:text-red-500"
+                >
+                  <X size={14} strokeWidth={1.75} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {pmsg && <p className="mt-1 text-[11px] text-gray-400">{pmsg}</p>}
+      </section>
+
       <section>
         <h3 className="mb-2 font-semibold text-ink">Макет</h3>
         <input
@@ -423,104 +519,6 @@ export function SidePanel() {
         />
       )}
 
-      <section>
-        <h3 className="mb-2 font-semibold text-ink">Проект</h3>
-        <label className="mb-1 block text-xs text-gray-500">Клиент</label>
-        <input
-          value={client}
-          onChange={(e) => setMeta({ client: e.target.value })}
-          className="mb-2 w-full rounded border border-line bg-white px-2 py-1.5 text-gray-900"
-        />
-        <label className="mb-1 block text-xs text-gray-500">Заказ №</label>
-        <input
-          value={orderRef}
-          onChange={(e) => setMeta({ orderRef: e.target.value })}
-          className="mb-2 w-full rounded border border-line bg-white px-2 py-1.5 text-gray-900"
-        />
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Статус:</span>
-          <button
-            onClick={() =>
-              setStatus(status === "draft" ? "approved" : "draft")
-            }
-            className={`rounded px-2.5 py-1 text-xs ${
-              status === "approved"
-                ? "bg-green-600 text-white"
-                : "bg-raised text-ink"
-            }`}
-          >
-            {status === "approved" ? "Согласовано" : "Черновик"}
-          </button>
-        </div>
-
-        {/* Сохранение проекта */}
-        <div className="mt-3 border-t border-line pt-3">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              Проекты
-              {dirty && (
-                <span className="ml-1.5 text-[10px] text-amber-600">
-                  ● не сохранено
-                </span>
-              )}
-            </span>
-            <span className="flex items-center gap-1 text-[10px] text-gray-400">
-              {isCloud() ? <Cloud size={12} strokeWidth={1.75} /> : <HardDrive size={12} strokeWidth={1.75} />}
-              {isCloud() ? "облако" : "локально"}
-            </span>
-          </div>
-          <div className="mb-2 flex gap-2">
-            <input
-              value={projectName}
-              onChange={(e) => setProjectRef(projectId, e.target.value)}
-              placeholder="Название проекта"
-              className="min-w-0 flex-1 rounded border border-line bg-white px-2 py-1.5 text-gray-900"
-            />
-            <button
-              onClick={onSaveProject}
-              className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-            >
-              Сохранить
-            </button>
-            {projectId && (
-              <button
-                onClick={onSaveProjectCopy}
-                title="Сохранить как новый проект (исходный не изменится)"
-                className="rounded bg-raised px-2.5 py-1.5 text-xs text-ink hover:bg-gray-200"
-              >
-                Как копию
-              </button>
-            )}
-          </div>
-          {projects.length > 0 && (
-            <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
-              {projects.map((p) => (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between rounded px-2 py-1 text-xs ${
-                    p.id === projectId ? "bg-raised" : "hover:bg-line-soft"
-                  }`}
-                >
-                  <button
-                    onClick={() => onOpenProject(p.id)}
-                    className="min-w-0 flex-1 truncate text-left text-ink"
-                    title={p.name}
-                  >
-                    {p.name || "(без названия)"}
-                  </button>
-                  <button
-                    onClick={() => onDeleteProject(p.id)}
-                    className="ml-2 shrink-0 text-gray-400 hover:text-red-500"
-                  >
-                    <X size={14} strokeWidth={1.75} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {pmsg && <p className="mt-1 text-[11px] text-gray-400">{pmsg}</p>}
-        </div>
-      </section>
 
       <section className="mt-auto space-y-2">
         <button
