@@ -142,8 +142,10 @@ _Обновлено: 2026-07-14 (аудит проекта: выпилы неи�
 
 - Деплой = merge PR в main; готовность прода ~40-60 с; маркер новой сборки —
   сравнить что-то изменившееся (например, новый роут) курлом.
-- Прод-смоук: `curl` по `/`, `/admin`, `/editor`, `/icon.svg`,
-  `/pdf.worker.min.mjs` (все 200); Supabase — round-trip через supabase-js.
+- Прод-смоук: `curl` по `/`, `/editor`, `/icon.svg`, `/pdf.worker.min.mjs`,
+  `/fonts/LiberationSans-Regular.ttf` (все 200); `/admin` — 307 на
+  `/admin/login` (auth-middleware, PR #54); Supabase — round-trip через
+  supabase-js.
 - Конвейер новых флэтов: .ai → `scripts/visuals_batch.py` (маппинг страниц в
   `visuals-batch-config.json`) → `public/seed/flats/` → записи в skus.json →
   контрактные тесты recolor (seedFlats.test.ts) сами подхватят новые файлы.
