@@ -1,7 +1,9 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Undo2,
   Redo2,
@@ -10,6 +12,8 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { useProjectStore } from "@/lib/state/projectStore";
+import { loadMergedCatalog } from "@/lib/catalog/mergedCatalog";
+import { loadProject } from "@/lib/persistence/projects";
 import { ViewTabs } from "@/components/editor/ViewTabs";
 import { SidePanel } from "@/components/editor/SidePanel";
 
@@ -72,19 +76,82 @@ function UndoRedo() {
   );
 }
 
+/** useSearchParams требует Suspense-границу при статическом пререндере. */
 export default function EditorPage() {
+  return (
+    <Suspense fallback={<CanvasLoading />}>
+      <EditorInner />
+    </Suspense>
+  );
+}
+
+function EditorInner() {
   const sku = useProjectStore((s) => s.currentSku());
+  const dirty = useProjectStore((s) => s.dirty);
+  const search = useSearchParams();
+  const projectParam = search.get("project");
+  // Открытие по ссылке /editor?project=<id>: тянем каталог (если стор пуст —
+  // прямой заход мимо главной) и восстанавливаем снапшот проекта.
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!projectParam) return;
+    // Уже открыт именно этот проект (навигация туда-обратно) — не перетираем
+    // текущие правки повторным restore.
+    if (useProjectStore.getState().projectId === projectParam) return;
+    let alive = true;
+    setLoading(true);
+    (async () => {
+      try {
+        if (!useProjectStore.getState().catalog) {
+          const merged = await loadMergedCatalog();
+          if (!alive) return;
+          useProjectStore.getState().setCatalog({ skus: merged.skus });
+        }
+        const snap = await loadProject(projectParam);
+        if (!alive) return;
+        if (snap) useProjectStore.getState().restore(snap);
+        else setLoadErr("Проект не найден (удалён или ссылка устарела).");
+      } catch (e) {
+        if (alive) setLoadErr(String(e));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [projectParam]);
+
+  // Несохранённые правки: предупреждение при закрытии/перезагрузке вкладки.
+  useEffect(() => {
+    if (!dirty) return;
+    const h = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [dirty]);
 
   if (!sku) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">
-        <p className="text-gray-500">Изделие не выбрано.</p>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1 text-blue-600 hover:underline"
-        >
-          <ChevronLeft size={16} strokeWidth={1.75} /> К выбору изделия
-        </Link>
+        {loading ? (
+          <p className="text-gray-500">Открываю проект…</p>
+        ) : (
+          <>
+            <p className="text-gray-500">
+              {loadErr ?? "Изделие не выбрано."}
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+            >
+              <ChevronLeft size={16} strokeWidth={1.75} /> К выбору изделия
+            </Link>
+          </>
+        )}
       </div>
     );
   }
