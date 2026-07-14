@@ -4,7 +4,7 @@
 // «Сбросить к заводской» = deleteModel(id) → merge снова отдаёт seed.
 // hidden здесь НЕ фильтруется — админке нужны скрытые; фильтруют потребители.
 import type { SKU, View, ViewAnchors } from "@/types";
-import { isAccessoryType } from "@/types";
+import { isAccessoryType, ONE_SIZE } from "@/types";
 import { loadCatalog } from "./loadCatalog";
 import { listModels } from "@/lib/persistence/models";
 import { expandCatalogGradeRules } from "@/lib/geometry/gradeRule";
@@ -79,6 +79,26 @@ export function stripAccessoryNeckline(sku: SKU): SKU {
   return changed ? { ...sku, views } : sku;
 }
 
+/**
+ * Аксессуары безразмерные: base_size/sizes нормализуются в ONE SIZE.
+ * Runtime-инвариант для легаси-моделей (override, сохранённый до ONE SIZE,
+ * восстановление старой ревизии, новая модель с дефолтным M). Per-size карты
+ * видов не трогаем: мёртвые ключи старых размеров недостижимы (селектор
+ * размеров строится из sizes), а viewHasZone продолжает резолвить нанесения
+ * с per-size id. Возвращает тот же объект, если нормализовать нечего.
+ */
+export function normalizeAccessorySizes(sku: SKU): SKU {
+  if (!isAccessoryType(sku.type)) return sku;
+  if (
+    sku.base_size === ONE_SIZE &&
+    sku.sizes.length === 1 &&
+    sku.sizes[0] === ONE_SIZE
+  ) {
+    return sku;
+  }
+  return { ...sku, base_size: ONE_SIZE, sizes: [ONE_SIZE] };
+}
+
 /** Чистый merge (юнит-тестируемый): override по id + разворачивание правил. */
 export function mergeCatalog(seedSkus: SKU[], models: SKU[]): MergedCatalog {
   const seedIds = new Set(seedSkus.map((s) => s.id));
@@ -104,11 +124,12 @@ export function mergeCatalog(seedSkus: SKU[], models: SKU[]): MergedCatalog {
   // Один проход разворачивания grade_rule: для seed идемпотентен (правила
   // уже раскрыты в loadCatalog / отсутствуют), моделям с grade_rule наконец
   // строит per-size якоря (раньше кастомные модели текли сырыми).
-  // Затем — срез горловины у аксессуаров (ПОСЛЕ экспансии: она могла запечь
-  // neckline легаси-модели в size_anchors). rawModels не трогаем — редактор
-  // работает с сырой строкой и срезает сам при сохранении.
-  const expanded = expandCatalogGradeRules({ skus: merged }).skus.map(
-    stripAccessoryNeckline,
+  // Затем — нормализация аксессуаров (ПОСЛЕ экспансии: она могла запечь
+  // neckline легаси-модели в size_anchors): срез горловины + ONE SIZE.
+  // rawModels не трогаем — редактор работает с сырой строкой и нормализует
+  // сам при сохранении.
+  const expanded = expandCatalogGradeRules({ skus: merged }).skus.map((s) =>
+    normalizeAccessorySizes(stripAccessoryNeckline(s)),
   );
 
   return {

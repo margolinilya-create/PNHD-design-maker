@@ -3,8 +3,10 @@ import {
   mergeCatalog,
   overrideDiffersFromSeed,
   stripAccessoryNeckline,
+  normalizeAccessorySizes,
 } from "./mergedCatalog";
 import type { SKU } from "@/types";
+import { ONE_SIZE } from "@/types";
 
 const mkSku = (id: string, name = id, extra: Partial<SKU> = {}): SKU => ({
   id,
@@ -143,6 +145,49 @@ describe("stripAccessoryNeckline — у аксессуаров нет горло
     expect(merged.views[0].size_anchors?.L?.neckline_point).toBeUndefined();
     // Сырая строка для редактора — нетронутая.
     expect(m.rawModels.get("sh")?.views[0].anchors.neckline_point).toBeDefined();
+  });
+});
+
+describe("normalizeAccessorySizes — аксессуары безразмерные", () => {
+  const shopperM = (): SKU =>
+    mkSku("sh", "Шоппер", { type: "shopper", base_size: "M", sizes: ["M"] });
+
+  it("легаси-аксессуар с M нормализуется в ONE SIZE", () => {
+    const n = normalizeAccessorySizes(shopperM());
+    expect(n.base_size).toBe(ONE_SIZE);
+    expect(n.sizes).toEqual([ONE_SIZE]);
+  });
+
+  it("многоразмерный легаси-аксессуар тоже схлопывается", () => {
+    const n = normalizeAccessorySizes(
+      mkSku("sh", "Шоппер", { type: "shopper", sizes: ["M", "L"] }),
+    );
+    expect(n.sizes).toEqual([ONE_SIZE]);
+  });
+
+  it("одежда проходит по identity", () => {
+    const tee = mkSku("t");
+    expect(normalizeAccessorySizes(tee)).toBe(tee);
+  });
+
+  it("уже нормализованный аксессуар проходит по identity", () => {
+    const clean = normalizeAccessorySizes(shopperM());
+    expect(normalizeAccessorySizes(clean)).toBe(clean);
+  });
+
+  it("mergeCatalog: override-аксессуар с M отдаётся как ONE SIZE, raw — нетронут", () => {
+    const seedShopper = mkSku("sh", "Шоппер", {
+      type: "shopper",
+      base_size: ONE_SIZE,
+      sizes: [ONE_SIZE],
+    });
+    const legacyOverride = shopperM();
+    const m = mergeCatalog([seedShopper], [legacyOverride]);
+    const merged = m.skus.find((s) => s.id === "sh")!;
+    expect(merged.base_size).toBe(ONE_SIZE);
+    expect(merged.sizes).toEqual([ONE_SIZE]);
+    // Сырая строка для редактора — как сохранена.
+    expect(m.rawModels.get("sh")?.base_size).toBe("M");
   });
 });
 
