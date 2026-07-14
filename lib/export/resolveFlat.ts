@@ -5,6 +5,7 @@
 "use client";
 
 import { resolveFlatMarkup } from "./flatMarkup";
+import { parseViewBox, imageNaturalSize } from "@/lib/catalog/svgMeta";
 
 export interface ResolvedFlat {
   /** SVG-разметка флэта («» для растрового). */
@@ -17,22 +18,14 @@ export interface ResolvedFlat {
 
 const RASTER_DATA_URL = /^data:image\/(png|jpe?g)/i;
 
-/** Размер SVG в мм по viewBox (для сцены PDF). */
+/** Размер SVG в мм по viewBox (для сцены PDF): по конвенции флэтов 1 unit = 1 мм. */
 export function svgSizeMm(markup: string): { w: number; h: number } {
-  const vb = markup.match(
-    /viewBox\s*=\s*["']\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)/i,
-  );
-  if (vb) return { w: parseFloat(vb[3]), h: parseFloat(vb[4]) };
-  return { w: 600, h: 760 };
+  return parseViewBox(markup) ?? { w: 600, h: 760 };
 }
 
-function imageSize(src: string): Promise<{ w: number; h: number }> {
-  return new Promise((res, rej) => {
-    const img = new window.Image();
-    img.onload = () => res({ w: img.naturalWidth || 1, h: img.naturalHeight || 1 });
-    img.onerror = () => rej(new Error("Не удалось прочитать растровый флэт"));
-    img.src = src;
-  });
+async function imageSize(src: string): Promise<{ w: number; h: number }> {
+  const n = await imageNaturalSize(src, "Не удалось прочитать растровый флэт");
+  return { w: n.naturalWidth, h: n.naturalHeight };
 }
 
 export async function resolveFlat(

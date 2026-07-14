@@ -4,6 +4,7 @@
 
 import type { AssetType } from "@/types";
 import { isPdfLike, loadPdfAsset } from "./loadPdf";
+import { parseViewBox, imageNaturalSize } from "./svgMeta";
 
 export interface LoadedAsset {
   type: AssetType;
@@ -74,12 +75,8 @@ export function parseSvgSizeMm(
     return { w: w.mm, h: h.mm, estimated: !(w.physical && h.physical) };
   }
 
-  const vb = svgText.match(/viewBox\s*=\s*["']\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)/i);
-  if (vb) {
-    const vw = parseFloat(vb[3]);
-    const vh = parseFloat(vb[4]);
-    if (vw > 0 && vh > 0) return { w: vw, h: vh, estimated: true };
-  }
+  const vb = parseViewBox(svgText);
+  if (vb && vb.w > 0 && vb.h > 0) return { w: vb.w, h: vb.h, estimated: true };
   return null;
 }
 
@@ -194,19 +191,4 @@ export async function loadAsset(file: File): Promise<LoadedAsset> {
     dpi,
     size_estimated,
   };
-}
-
-function imageNaturalSize(
-  src: string,
-): Promise<{ naturalWidth: number; naturalHeight: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    img.onload = () =>
-      resolve({
-        naturalWidth: img.naturalWidth || 1,
-        naturalHeight: img.naturalHeight || 1,
-      });
-    img.onerror = () => reject(new Error("Не удалось прочитать изображение"));
-    img.src = src;
-  });
 }
