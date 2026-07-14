@@ -42,6 +42,8 @@ _Обновлено: 2026-07-14 (аудит проекта: выпилы неи�
 | #58 | Шапка заказа на минимальном PDF + кириллический шрифт (LiberationSans в jsPDF); варианты full/production удалены |
 | #59 | Управление проектами: «Мои проекты» на главной, открытие по /editor?project=id, «Сохранить как копию», dirty-гвард (confirm при смене SKU, beforeunload) |
 | #60 | Распил god-файлов без изменения поведения: SidePanel 1359→592 (panelModals/LayerRow/PlacementInspector), EditorCanvas 908→496 (canvasTransform/canvasOverlays/PlacementNode), SkuEditor 1140→815 (ZoneEditor/skuEditorSections) + общий lib/catalog/svgMeta.ts |
+| #62 | UI: единый блок «Проект» в начале правой панели (перед «Макетом») |
+| #63 | Проекты: автосохранение открытого (3 с тишины), confirm при открытии поверх несохранённого и при удалении из панели, дата+клиент в списке |
 
 ## Ключевые решения (не пересматривать без причины)
 
@@ -85,9 +87,12 @@ _Обновлено: 2026-07-14 (аудит проекта: выпилы неи�
   «Сохранить» перезаписывает открытый проект и при открытии по ссылке
   `/editor?project=<id>` (роут сам тянет каталог при прямом заходе;
   useSearchParams обёрнут в Suspense). «Как копию» = форк с новым id.
-  Несохранённые правки: confirm при выборе другого SKU на витрине +
-  beforeunload в редакторе; dirty ставится pushHistory/setMeta/setStatus,
-  снимается restore/selectSku/markSaved.
+  Несохранённые правки: confirm при выборе другого SKU на витрине, при
+  открытии проекта поверх несохранённого и beforeunload в редакторе; dirty
+  ставится pushHistory/setMeta/setStatus, снимается restore/selectSku/markSaved.
+  **Автосохранение (PR #63)**: открытый проект (projectId задан) молча
+  пересохраняется через 3 с тишины после правки; новые несохранённые
+  раскладки НЕ автосейвятся (черновики не плодятся без явного «Сохранить»).
 - **Авторизация админки** (`lib/auth/`, `middleware.ts`): пользователи в
   `pinhead_admin_users` (login PK, password_hash = `salt$PBKDF2-100k`, соль
   случайная per-user — переименование логина хэш НЕ ломает). Cookie
