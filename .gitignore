@@ -43,3 +43,6 @@ __pycache__/
 # editor
 .vscode/
 .idea/
+
+# Superpowers brainstorming (визуальный компаньон) — runtime
+.superpowers/
